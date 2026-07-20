@@ -16,14 +16,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LoginColors } from '@/constants/theme';
 
-
-export default function LoginScreen() {
+export default function RegisterScreen() {
   const insets = useSafeAreaInsets();
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [nameError, setNameError] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
   const isValidEmail = (email: string) => {
@@ -31,14 +35,30 @@ export default function LoginScreen() {
     return emailRegex.test(email);
   };
 
-  const isFormValid = () => {
-    return email.trim() !== '' && 
-           password.trim() !== '' && 
-           isValidEmail(email);
+  const isValidPassword = (password: string) => {
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    return hasUpperCase && hasNumber;
   };
 
-  const handleSignIn = () => {
+  const isFormValid = () => {
+    return name.trim() !== '' && 
+           email.trim() !== '' && 
+           password.trim() !== '' && 
+           confirmPassword.trim() !== '' &&
+           isValidEmail(email) &&
+           isValidPassword(password) &&
+           password === confirmPassword;
+  };
+
+  const handleSignUp = () => {
     setAttemptedSubmit(true);
+    
+    if (name.trim() === '') {
+      setNameError('Name is required');
+    } else {
+      setNameError('');
+    }
     
     if (email.trim() === '') {
       setEmailError('Email is required');
@@ -50,8 +70,18 @@ export default function LoginScreen() {
     
     if (password.trim() === '') {
       setPasswordError('Password is required');
+    } else if (!isValidPassword(password)) {
+      setPasswordError('Password must contain at least 1 uppercase letter and 1 number');
     } else {
       setPasswordError('');
+    }
+    
+    if (confirmPassword.trim() === '') {
+      setConfirmPasswordError('Please confirm your password');
+    } else if (password !== confirmPassword) {
+      setConfirmPasswordError('Passwords do not match');
+    } else {
+      setConfirmPasswordError('');
     }
     
     if (isFormValid()) {
@@ -65,11 +95,11 @@ export default function LoginScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerSpacer} />
-          <View style={styles.getStartedRow}>
-            <Text style={styles.getStartedLabel}>Dont Have an Account?</Text>
-            <Pressable style={styles.getStartedButton} onPress={() => router.push('/register')}>
+          <View style={styles.signInRow}>
+            <Text style={styles.signInLabel}>Already Have an Account?</Text>
+            <Pressable style={styles.headerSignInButton} onPress={() => router.push('/')}>
               {({ hovered, pressed }) => (
-                <Text style={[styles.getStartedButtonText, hovered && styles.getStartedButtonTextHovered, pressed && styles.getStartedButtonTextPressed]}>Get Started</Text>
+                <Text style={[styles.headerSignInButtonText, hovered && styles.headerSignInButtonTextHovered, pressed && styles.headerSignInButtonTextPressed]}>Sign In</Text>
               )}
             </Pressable>
           </View>
@@ -90,14 +120,33 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           <View style={styles.card}>
-            <Text style={styles.welcomeTitle}>Welcome Back</Text>
-            <Text style={styles.welcomeSubtitle}>Please Input your Log in Credentials</Text>
+            <Text style={styles.welcomeTitle}>Get Started with Us</Text>
+            <Text style={styles.welcomeSubtitle}>Free Sign up withoutout any payment</Text>
 
             <View style={styles.form}>
               <View>
                 <TextInput
+                  style={[styles.input, nameError && styles.inputError]}
+                  placeholder="Name"
+                  placeholderTextColor={LoginColors.placeholder}
+                  value={name}
+                  onChangeText={(text) => {
+                    setName(text);
+                    if (attemptedSubmit && text.trim() === '') {
+                      setNameError('Name is required');
+                    } else {
+                      setNameError('');
+                    }
+                  }}
+                  autoCapitalize="words"
+                />
+                {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
+              </View>
+
+              <View>
+                <TextInput
                   style={[styles.input, emailError && styles.inputError]}
-                  placeholder="Email or Username"
+                  placeholder="Email"
                   placeholderTextColor={LoginColors.placeholder}
                   value={email}
                   onChangeText={(text) => {
@@ -128,10 +177,14 @@ export default function LoginScreen() {
                     value={password}
                     onChangeText={(text) => {
                       setPassword(text);
-                      if (attemptedSubmit && text.trim() === '') {
-                        setPasswordError('Password is required');
-                      } else {
-                        setPasswordError('');
+                      if (attemptedSubmit) {
+                        if (text.trim() === '') {
+                          setPasswordError('Password is required');
+                        } else if (!isValidPassword(text)) {
+                          setPasswordError('Password must contain at least 1 uppercase letter and 1 number');
+                        } else {
+                          setPasswordError('');
+                        }
                       }
                     }}
                     secureTextEntry={!showPassword}
@@ -155,18 +208,52 @@ export default function LoginScreen() {
                 {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
               </View>
 
+              <View>
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={[styles.input, styles.passwordInput, confirmPasswordError && styles.inputError]}
+                    placeholder="Confirm Password"
+                    placeholderTextColor={LoginColors.placeholder}
+                    value={confirmPassword}
+                    onChangeText={(text) => {
+                      setConfirmPassword(text);
+                      if (attemptedSubmit) {
+                        if (text.trim() === '') {
+                          setConfirmPasswordError('Please confirm your password');
+                        } else if (password !== text) {
+                          setConfirmPasswordError('Passwords do not match');
+                        } else {
+                          setConfirmPasswordError('');
+                        }
+                      }
+                    }}
+                    secureTextEntry={!showConfirmPassword}
+                    autoComplete="password"
+                  />
+                  <Pressable
+                    style={styles.eyeButton}
+                    onPress={() => setShowConfirmPassword((current) => !current)}
+                    hitSlop={8}>
+                    <SymbolView
+                      name={{
+                        ios: showConfirmPassword ? 'eye.slash' : 'eye',
+                        android: showConfirmPassword ? 'visibility_off' : 'visibility',
+                        web: showConfirmPassword ? 'visibility_off' : 'visibility',
+                      }}
+                      size={20}
+                      tintColor={LoginColors.placeholder}
+                    />
+                  </Pressable>
+                </View>
+                {confirmPasswordError ? <Text style={styles.errorText}>{confirmPasswordError}</Text> : null}
+              </View>
+
               <Pressable 
                 style={[styles.signInButton, !isFormValid() && styles.signInButtonDisabled]} 
-                onPress={handleSignIn}
+                onPress={handleSignUp}
                 disabled={!isFormValid()}>
                 {({ hovered, pressed }) => (
-                  <Text style={[styles.signInButtonText, hovered && styles.signInButtonTextHovered, pressed && styles.signInButtonTextPressed, !isFormValid() && styles.signInButtonTextDisabled]}>Sign in</Text>
-                )}
-              </Pressable>
-
-              <Pressable onPress={() => router.push('/forgot-password')}>
-                {({ hovered }) => (
-                  <Text style={[styles.forgotPassword, hovered && styles.forgotPasswordHovered]}>Forgot your Password?</Text>
+                  <Text style={[styles.signInButtonText, hovered && styles.signInButtonTextHovered, pressed && styles.signInButtonTextPressed, !isFormValid() && styles.signInButtonTextDisabled]}>Sign up</Text>
                 )}
               </Pressable>
             </View>
@@ -195,32 +282,33 @@ const styles = StyleSheet.create({
   headerSpacer: {
     flex: 1,
   },
-  getStartedRow: {
+  signInRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  getStartedLabel: {
+  signInLabel: {
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '500',
   },
-  getStartedButton: {
+  headerSignInButton: {
     backgroundColor: LoginColors.getStartedButton,
     paddingHorizontal: 14,
     paddingVertical: 8,
+    marginLeft: 8,
     borderRadius: 20,
     transitionDuration: 200,
   },
-  getStartedButtonText: {
+  headerSignInButtonText: {
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '600',
   },
-  getStartedButtonTextHovered: {
+  headerSignInButtonTextHovered: {
     color: '#E0E0E0',
   },
-  getStartedButtonTextPressed: {
+  headerSignInButtonTextPressed: {
     color: '#C0C0C0',
   },
   brandTitle: {
@@ -329,15 +417,5 @@ const styles = StyleSheet.create({
   },
   signInButtonTextPressed: {
     color: '#D0D0D0',
-  },
-  forgotPassword: {
-    color: LoginColors.textMuted,
-    fontSize: 13,
-    textAlign: 'center',
-    marginTop: 4,
-  },
-  forgotPasswordHovered: {
-    color: LoginColors.primary,
-    textDecorationLine: 'underline',
   },
 });
