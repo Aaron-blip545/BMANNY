@@ -4,18 +4,26 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\InquiryController;
-use App\Http\Controllers\QuotationController; // 1. Import the new controller
+use App\Http\Controllers\QuotationController;
+use App\Http\Controllers\AuthController; // Import Auth
 
-Route::get('/user', function (Request $request) {
-    return $request->user();
-})->middleware('auth:sanctum');
-
-// Inventory Routes
+// Public Routes (Anyone can login or view the catalog)
+Route::post('/login', [AuthController::class, 'login']);
 Route::get('/products', [ProductController::class, 'index']);
+Route::post('/register', [AuthController::class, 'register']); // New registration route
 
-// Rebranding & Inquiry Routes
-Route::post('/inquiries', [InquiryController::class, 'store']); 
+// Protected Routes (Must be logged in with a valid token)
+// Protected Routes
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/inquiries', [InquiryController::class, 'store']); 
+    Route::post('/quotations', [QuotationController::class, 'store']); 
+    Route::get('/quotations/{client_id}', [QuotationController::class, 'show']);
+    
+    
+    // Order Processing Route
+    Route::post('/orders', [\App\Http\Controllers\OrderController::class, 'store']);
 
-// Quotation Routes
-Route::post('/quotations', [QuotationController::class, 'store']); // Admin sends quote
-Route::get('/quotations/{client_id}', [QuotationController::class, 'show']); // Client views their quotes
+    Route::get('/user', function (Request $request) {
+        return $request->user();
+    });
+});
