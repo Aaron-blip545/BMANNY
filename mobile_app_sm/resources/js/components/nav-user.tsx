@@ -12,6 +12,24 @@ export function NavUser() {
     const { state } = useSidebar();
     const isMobile = useIsMobile();
 
+    // The dashboard is available without login while its UI is being built.
+    // Avoid rendering account controls until a real authenticated user exists.
+    if (!auth.user) {
+        return (
+            <SidebarMenu>
+                <SidebarMenuItem>
+                    <SidebarMenuButton size="lg" className="cursor-default">
+                        <span className="flex size-8 items-center justify-center rounded-md bg-sidebar-primary text-xs font-bold text-sidebar-primary-foreground">A</span>
+                        <span className="grid flex-1 text-left text-sm leading-tight">
+                            <span className="truncate font-semibold">Admin preview</span>
+                            <span className="truncate text-xs text-sidebar-foreground/60">Local development</span>
+                        </span>
+                    </SidebarMenuButton>
+                </SidebarMenuItem>
+            </SidebarMenu>
+        );
+    }
+
     return (
         <SidebarMenu>
             <SidebarMenuItem>

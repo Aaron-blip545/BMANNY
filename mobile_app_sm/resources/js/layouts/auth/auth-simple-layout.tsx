@@ -10,23 +10,36 @@ interface AuthLayoutProps {
 
 export default function AuthSimpleLayout({ children, title, description }: AuthLayoutProps) {
     return (
-        <div className="bg-background flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
-            <div className="w-full max-w-sm">
-                <div className="flex flex-col gap-8">
-                    <div className="flex flex-col items-center gap-4">
-                        <Link href={route('home')} className="flex flex-col items-center gap-2 font-medium">
-                            <div className="mb-1 flex h-9 w-9 items-center justify-center rounded-md">
-                                <AppLogoIcon className="size-9 fill-current text-[var(--foreground)] dark:text-white" />
-                            </div>
-                            <span className="sr-only">{title}</span>
-                        </Link>
+        <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6">
+            <div className="w-full max-w-6xl rounded-xl overflow-hidden shadow-lg grid grid-cols-1 md:grid-cols-2 bg-transparent">
+                {/* Left panel: illustration / branding */}
+                <div className="hidden md:flex flex-col items-center justify-center bg-gradient-to-b from-slate-900 to-slate-800 p-10 text-center">
+                    <Link href={route('home')} className="flex flex-col items-center gap-4 font-medium">
+                        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/5">
+                            <AppLogoIcon className="size-16 fill-current text-indigo-400" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-indigo-300">BMANNY PARTNERS INC.</h2>
+                    </Link>
 
-                        <div className="space-y-2 text-center">
-                            <h1 className="text-xl font-medium">{title}</h1>
-                            <p className="text-muted-foreground text-center text-sm">{description}</p>
+                    <div className="mt-8 max-w-sm text-left text-sm text-slate-300">
+                        <p className="mb-4">Welcome back — manage orders, inventory and more from the admin panel.</p>
+                        <div className="mt-6">
+                            {/* Placeholder illustration box */}
+                            <div className="h-56 w-full rounded-lg bg-gradient-to-br from-indigo-700 to-slate-700 shadow-inner" />
                         </div>
                     </div>
-                    {children}
+                </div>
+
+                {/* Right panel: auth card */}
+                <div className="flex items-center justify-center bg-white p-8 dark:bg-background">
+                    <div className="w-full max-w-md">
+                        <div className="mb-6 text-center">
+                            <h1 className="text-2xl font-semibold text-slate-900 dark:text-foreground">{title}</h1>
+                            <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+                        </div>
+
+                        <div className="rounded-lg bg-white/90 dark:bg-card p-6 shadow-md">{children}</div>
+                    </div>
                 </div>
             </div>
         </div>
