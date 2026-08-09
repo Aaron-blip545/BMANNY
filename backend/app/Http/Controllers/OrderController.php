@@ -16,7 +16,10 @@ class OrderController extends Controller
         // 1. Validate incoming approval payload
         $request->validate([
             'quotation_id' => 'required|exists:quotations,quotation_id',
-            'business_client_id' => 'required|exists:business_clients,business_client_id',
+            // FIXED: business_clients' primary key is client_id, not
+            // business_client_id - the old rule referenced a column that
+            // doesn't exist, so this validation could never pass.
+            'client_id' => 'required|exists:business_clients,client_id',
             'items' => 'required|array',
             'items.*.product_id' => 'required|exists:products,product_id',
             'items.*.quantity' => 'required|integer|min:1',
@@ -31,10 +34,14 @@ class OrderController extends Controller
 
             // 3. Create the parent Order record
             $order = Order::create([
-                'business_client_id' => $request->business_client_id,
+                // FIXED: matches Order's own $fillable ('client_id'), and
+                // the real column on the orders table.
+                'client_id' => $request->client_id,
                 'quotation_id' => $quotation->quotation_id,
                 'total_amount' => $quotation->total_amount,
-                'status' => 'Processing',
+                // FIXED: 'Processing' isn't in the orders.status enum
+                // (pending, processing, completed, cancelled) - lowercase.
+                'status' => 'processing',
             ]);
 
             // 4. Process items and update warehouse stock
@@ -58,7 +65,9 @@ class OrderController extends Controller
             }
 
             // 5. Update quotation status
-            $quotation->update(['status' => 'Approved']);
+            // FIXED: 'Approved' isn't in the quotations.status enum
+            // (draft, sent, accepted, rejected).
+            $quotation->update(['status' => 'accepted']);
 
             DB::commit();
 

@@ -21,7 +21,12 @@ class AuthController extends Controller
             'full_name' => $request->full_name,
             'email' => $request->email,
             'password_hash' => Hash::make($request->password),
-            'role' => $request->role ?? 'customer',
+            // FIXED: was `$request->role ?? 'customer'` - anyone hitting this
+            // public endpoint could pass role: "admin" and self-promote.
+            // Staff accounts (sales_agent, product_controller, order_manager,
+            // admin) should only be created by an existing Admin through a
+            // protected endpoint, not through public self-registration.
+            'role' => 'customer',
         ]);
 
         $token = $user->createToken('bmanny-auth-token')->plainTextToken;

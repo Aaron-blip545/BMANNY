@@ -15,7 +15,10 @@ return new class extends Migration
         $table->id('quotation_id');
         $table->foreignId('inquiry_id')->references('inquiry_id')->on('inquiries')->onDelete('cascade');
         $table->decimal('total_amount', 10, 2);
-        $table->text('item_details');
+        // FIXED: was required, but QuotationController::store() never sets
+        // this - saving a quotation would fail with a "cannot be null" error.
+        // Nullable for now; populate it once the line-item UI is built.
+        $table->text('item_details')->nullable();
         $table->enum('status', ['draft', 'sent', 'accepted', 'rejected'])->default('draft');
         $table->date('valid_until')->nullable();
         $table->timestamps();

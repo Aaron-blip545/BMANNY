@@ -12,7 +12,9 @@ class InquiryController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'business_client_id' => 'required|exists:users,user_id',
+            // FIXED: was 'exists:users,user_id' - an inquiry belongs to a
+            // business_clients row (client_id), not a raw users row.
+            'client_id' => 'required|exists:business_clients,client_id',
             'customizations' => 'required|array',
             'customizations.*.packaging_type' => 'required|string', // Sachet, Pouch, Bottle, Box
             'customizations.*.packaging_finish' => 'nullable|string', // Matte, Glossy, Foil
@@ -26,8 +28,11 @@ class InquiryController extends Controller
         try {
             // Create Parent B2B Inquiry
             $inquiry = Inquiry::create([
-                'business_client_id' => $request->business_client_id,
-                'status' => 'Pending Review',
+                // FIXED: column is client_id (see inquiries migration)
+                'client_id' => $request->client_id,
+                // FIXED: 'Pending Review' isn't in the inquiries.status enum
+                // (pending, reviewed, responded, closed) - insert would fail.
+                'status' => 'pending',
             ]);
 
             // Save Customization & Packaging Requirements

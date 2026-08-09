@@ -16,11 +16,17 @@ class QuotationController extends Controller
             'inquiry_id' => $request->inquiry_id,
             'total_amount' => $request->total_amount,
             'valid_until' => $request->valid_until,
-            'status' => 'Pending Approval'
+            // FIXED: 'Pending Approval' isn't in the quotations.status enum
+            // (draft, sent, accepted, rejected). 'sent' matches the actual
+            // meaning here: the quote has just gone out to the client.
+            'status' => 'sent'
         ]);
 
         // Automatically update the parent inquiry status to show it has been quoted
-        Inquiry::where('inquiry_id', $request->inquiry_id)->update(['status' => 'Quoted']);
+        // FIXED: 'Quoted' isn't in the inquiries.status enum (pending,
+        // reviewed, responded, closed). 'responded' is the closest valid
+        // match - the sales agent has now responded with a price.
+        Inquiry::where('inquiry_id', $request->inquiry_id)->update(['status' => 'responded']);
 
         return response()->json([
             'message' => 'Quotation successfully generated and sent to client.',
@@ -32,8 +38,10 @@ class QuotationController extends Controller
     public function show($client_id)
     {
         // Fetch all quotations linked to inquiries owned by this specific business client
+        // FIXED: was 'business_client_id' - the real column (after the
+        // inquiries migration fix) is 'client_id'.
         $quotations = Quotation::whereHas('inquiry', function ($query) use ($client_id) {
-            $query->where('business_client_id', $client_id);
+            $query->where('client_id', $client_id);
         })->with('inquiry.customizations')->get();
 
         return response()->json($quotations);
