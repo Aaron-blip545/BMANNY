@@ -7,6 +7,9 @@ use App\Services\BackendApi;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -61,6 +64,87 @@ class AuthenticatedSessionController extends Controller
         $request->session()->regenerate();
 
         return redirect()->intended(route('dashboard', absolute: false));
+    }
+
+
+    /**
+     * Step 1 of password reset: generate a token and "send" it.
+     *
+     * NOTE: we don't use Laravel's built-in Password::sendResetLink() broker
+     * here, because it assumes the password column is called "password" -
+     * ours is "password_hash" (see the users migration). Hand-rolling this
+     * against the same password_reset_tokens table avoids fighting that.
+     */
+    public function forgotPassword(Request $request)
+    {
+        $request->validate(['email' => 'required|email']);
+
+        $user = User::where('email', $request->email)->first();
+
+        // Always return the same response whether the email exists or not -
+        // this stops the endpoint being used to check who has an account.
+        if ($user) {
+            $token = Str::random(64);
+
+            DB::table('password_reset_tokens')->where('email', $user->email)->delete();
+            DB::table('password_reset_tokens')->insert([
+                'email' => $user->email,
+                'token' => Hash::make($token),
+                'created_at' => now(),
+            ]);
+
+            // MAIL_MAILER=log by default (see backend/.env) - this writes
+            // the "email" to storage/logs/laravel.log instead of actually
+            // sending it, so you can test this whole flow with zero email
+            // account setup. Switch MAIL_MAILER to smtp/resend later for
+            // real delivery.
+            Mail::raw(
+                "Your BMANNY password reset token is:\n\n{$token}\n\nThis token expires in 60 minutes. If you didn't request this, ignore this email.",
+                function ($message) use ($user) {
+                    $message->to($user->email)->subject('Reset your BMANNY password');
+                }
+            );
+        }
+
+        return response()->json([
+            'message' => 'If that email exists in our system, a reset link has been sent.',
+        ]);
+    }
+
+    /**
+     * Step 2 of password reset: verify the token and set a new password.
+     */
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'token' => 'required|string',
+            'password' => 'required|min:6|confirmed',
+        ]);
+
+        $record = DB::table('password_reset_tokens')->where('email', $request->email)->first();
+
+        if (! $record || ! Hash::check($request->token, $record->token)) {
+            throw ValidationException::withMessages([
+                'email' => ['This password reset token is invalid.'],
+            ]);
+        }
+
+        if (now()->diffInMinutes($record->created_at) > 60) {
+            DB::table('password_reset_tokens')->where('email', $request->email)->delete();
+
+            throw ValidationException::withMessages([
+                'email' => ['This password reset token has expired. Please request a new one.'],
+            ]);
+        }
+
+        $user = User::where('email', $request->email)->first();
+        $user->password_hash = Hash::make($request->password);
+        $user->save();
+
+        DB::table('password_reset_tokens')->where('email', $request->email)->delete();
+
+        return response()->json(['message' => 'Password reset successfully.']);
     }
 
     /**

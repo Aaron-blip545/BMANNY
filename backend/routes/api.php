@@ -11,6 +11,8 @@ use App\Http\Controllers\ChatController;
 // Public Routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 Route::get('/products', [ProductController::class, 'index']);
 
 // Protected Routes (Must be authenticated via Sanctum)
