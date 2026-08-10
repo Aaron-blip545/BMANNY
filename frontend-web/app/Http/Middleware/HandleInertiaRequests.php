@@ -42,8 +42,12 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'name' => config('app.name'),
             'quote' => ['message' => trim($message), 'author' => trim($author)],
+            // CHANGED: was $request->user() (frontend-web's own auth guard,
+            // which we no longer use). This now reflects whoever backend
+            // says is logged in, stored at login time - see
+            // AuthenticatedSessionController::store().
             'auth' => [
-                'user' => $request->user(),
+                'user' => $request->session()->get('backend_user'),
             ],
         ]);
     }

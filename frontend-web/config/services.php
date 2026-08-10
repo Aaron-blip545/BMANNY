@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    // The Sanctum API in ../backend. This is the ONLY database of record -
+    // frontend-web has no products/inquiries/orders tables of its own.
+    'backend' => [
+        'url' => env('BACKEND_API_URL', 'http://localhost:8000/api'),
+    ],
+
 ];

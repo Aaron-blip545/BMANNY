@@ -20,7 +20,7 @@ const mainNavItems: NavItem[] = [
     },
     {
         title: 'Inventory',
-        url: '/inventory',
+        url: '/products',
         icon: PackageMinus,
     },
     {

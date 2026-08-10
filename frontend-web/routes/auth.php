@@ -50,7 +50,11 @@ Route::middleware('auth')->group(function () {
         ->name('password.confirm');
 
     Route::post('confirm-password', [ConfirmablePasswordController::class, 'store']);
-
-    Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
-        ->name('logout');
 });
+
+// CHANGED: logout moved out of the 'auth' group into its own line using
+// 'backend.auth'. It was stuck behind Laravel's own guard check, which
+// would never pass now (we never call Auth::attempt() anymore) - meaning
+// the logout button would silently redirect to login instead of logging out.
+Route::middleware('backend.auth')->post('logout', [AuthenticatedSessionController::class, 'destroy'])
+    ->name('logout');
