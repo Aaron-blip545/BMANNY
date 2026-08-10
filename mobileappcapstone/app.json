@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "MobileAppSM",
-    "slug": "MobileAppSM",
+    "name": "mobileappcapstone",
+    "slug": "mobileappcapstone",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mobileappsm",
+    "scheme": "mobileappcapstone",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon"
