@@ -1,5 +1,8 @@
 export function useInitials() {
     const getInitials = (fullName: string): string => {
+        // Safety check: if fullName is missing, return a default initial to prevent the crash
+        if (!fullName) return 'A'; 
+
         const names = fullName.trim().split(' ');
 
         if (names.length === 0) return '';
