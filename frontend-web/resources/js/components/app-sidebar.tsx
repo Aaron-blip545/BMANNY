@@ -3,11 +3,11 @@ import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
-import { Link } from '@inertiajs/react';
-import { ArrowLeftRight, BookOpen, CircleHelp, Folder, House, PackageCheck, PackageMinus, Settings, UserRound } from 'lucide-react';
+import { Link, usePage } from '@inertiajs/react';
+import { ArrowLeftRight, BookOpen, CircleHelp, Folder, House, PackageCheck, PackageMinus, Settings, Users as UsersIcon, UserRound } from 'lucide-react';
 import AppLogo from './app-logo';
 
-const mainNavItems: NavItem[] = [
+const baseNavItems: NavItem[] = [
     {
         title: 'Dashboard',
         url: '/dashboard',
@@ -59,6 +59,18 @@ const footerNavItems: NavItem[] = [
 ];
 
 export function AppSidebar() {
+    // CHANGED: mainNavItems used to be a fixed list outside the component.
+    // It's now built here so we can check who's logged in (from the
+    // shared 'auth' prop - see HandleInertiaRequests) and only show
+    // "Manage Users" to admins. Sales agents, product controllers, etc.
+    // won't see this link at all.
+    const { auth } = usePage().props as any;
+    const isAdmin = auth?.user?.role === 'admin';
+
+    const mainNavItems: NavItem[] = isAdmin
+        ? [...baseNavItems, { title: 'Manage Users', url: '/users', icon: UsersIcon }]
+        : baseNavItems;
+
     return (
         <Sidebar collapsible="icon" variant="inset">
             <SidebarHeader>
