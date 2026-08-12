@@ -7,6 +7,7 @@ use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\FileUploadController;
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\UserController;
 
 // Public Routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -17,6 +18,13 @@ Route::get('/products', [ProductController::class, 'index']);
 
 // Protected Routes (Must be authenticated via Sanctum)
 Route::middleware('auth:sanctum')->group(function () {
+
+    Route::middleware('role:admin')->group(function () {
+       Route::get('/admin/users', [UserController::class, 'index']);
+       Route::post('/admin/users', [UserController::class, 'store']);
+       Route::put('/admin/users/{user}', [UserController::class, 'update']);
+       Route::patch('/admin/users/{user}/toggle-active', [UserController::class, 'toggleActive']);
+   });
 
     // 1. Business Client Routes
     Route::middleware('role:customer,admin')->group(function () {

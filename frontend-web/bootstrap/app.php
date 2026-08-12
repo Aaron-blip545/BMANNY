@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureBackendAuthenticated;
+use App\Http\Middleware\EnsureBackendRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -19,9 +20,9 @@ return Application::configure(basePath: dirname(__DIR__))
             AddLinkHeadersForPreloadedAssets::class,
         ]);
 
-        // Lets routes use ->middleware('backend.auth') instead of 'auth'.
         $middleware->alias([
             'backend.auth' => EnsureBackendAuthenticated::class,
+            'backend.role' => EnsureBackendRole::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

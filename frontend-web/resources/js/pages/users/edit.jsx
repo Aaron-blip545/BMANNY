@@ -1,12 +1,15 @@
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { Head, useForm } from '@inertiajs/react';
+import { LoaderCircle } from 'lucide-react';
 
 const ROLES = ['customer', 'sales_agent', 'product_controller', 'order_manager', 'admin'];
 
 export default function EditUser({ user }) {
-    // Same useForm hook as create.jsx, just started with the existing
-    // user's values instead of blanks. Password fields start empty on
-    // purpose - leaving them blank means "don't change the password".
     const { data, setData, put, processing, errors } = useForm({
         full_name: user.full_name,
         email: user.email,
@@ -26,79 +29,75 @@ export default function EditUser({ user }) {
             <Head title="Edit Account" />
 
             <div className="mx-auto max-w-lg p-4 sm:p-6 lg:p-8">
-                <h1 className="mb-4 text-xl font-semibold">Edit Account</h1>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Edit Account</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <form onSubmit={submit} className="space-y-5">
+                            <div className="grid gap-2">
+                                <Label htmlFor="full_name">Full Name</Label>
+                                <Input id="full_name" value={data.full_name} onChange={(e) => setData('full_name', e.target.value)} />
+                                {errors.full_name && <p className="text-sm text-red-600">{errors.full_name}</p>}
+                            </div>
 
-                <form onSubmit={submit} className="space-y-4 rounded border bg-white p-6">
-                    <div>
-                        <label className="mb-1 block text-sm font-medium">Full Name</label>
-                        <input
-                            type="text"
-                            className="w-full rounded border px-3 py-2"
-                            value={data.full_name}
-                            onChange={(e) => setData('full_name', e.target.value)}
-                        />
-                        {errors.full_name && <p className="mt-1 text-sm text-red-600">{errors.full_name}</p>}
-                    </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="email">Email</Label>
+                                <Input id="email" type="email" value={data.email} onChange={(e) => setData('email', e.target.value)} />
+                                {errors.email && <p className="text-sm text-red-600">{errors.email}</p>}
+                            </div>
 
-                    <div>
-                        <label className="mb-1 block text-sm font-medium">Email</label>
-                        <input
-                            type="email"
-                            className="w-full rounded border px-3 py-2"
-                            value={data.email}
-                            onChange={(e) => setData('email', e.target.value)}
-                        />
-                        {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
-                    </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="phone_number">Phone Number</Label>
+                                <Input id="phone_number" value={data.phone_number} onChange={(e) => setData('phone_number', e.target.value)} />
+                            </div>
 
-                    <div>
-                        <label className="mb-1 block text-sm font-medium">Phone Number</label>
-                        <input
-                            type="text"
-                            className="w-full rounded border px-3 py-2"
-                            value={data.phone_number}
-                            onChange={(e) => setData('phone_number', e.target.value)}
-                        />
-                    </div>
+                            <div className="grid gap-2">
+                                <Label>Role</Label>
+                                <Select value={data.role} onValueChange={(value) => setData('role', value)}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {ROLES.map((r) => (
+                                            <SelectItem key={r} value={r} className="capitalize">
+                                                {r.replace('_', ' ')}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {errors.role && <p className="text-sm text-red-600">{errors.role}</p>}
+                            </div>
 
-                    <div>
-                        <label className="mb-1 block text-sm font-medium">Role</label>
-                        <select className="w-full rounded border px-3 py-2" value={data.role} onChange={(e) => setData('role', e.target.value)}>
-                            {ROLES.map((r) => (
-                                <option key={r} value={r}>
-                                    {r.replace('_', ' ')}
-                                </option>
-                            ))}
-                        </select>
-                        {errors.role && <p className="mt-1 text-sm text-red-600">{errors.role}</p>}
-                    </div>
+                            <div className="grid gap-2 border-t pt-4">
+                                <Label htmlFor="password">New Password</Label>
+                                <Input
+                                    id="password"
+                                    type="password"
+                                    placeholder="Leave blank to keep current password"
+                                    value={data.password}
+                                    onChange={(e) => setData('password', e.target.value)}
+                                />
+                                {errors.password && <p className="text-sm text-red-600">{errors.password}</p>}
+                            </div>
 
-                    <div className="border-t pt-4">
-                        <label className="mb-1 block text-sm font-medium">New Password</label>
-                        <input
-                            type="password"
-                            className="w-full rounded border px-3 py-2"
-                            value={data.password}
-                            onChange={(e) => setData('password', e.target.value)}
-                            placeholder="Leave blank to keep current password"
-                        />
-                        {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
-                    </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="password_confirmation">Confirm New Password</Label>
+                                <Input
+                                    id="password_confirmation"
+                                    type="password"
+                                    value={data.password_confirmation}
+                                    onChange={(e) => setData('password_confirmation', e.target.value)}
+                                />
+                            </div>
 
-                    <div>
-                        <label className="mb-1 block text-sm font-medium">Confirm New Password</label>
-                        <input
-                            type="password"
-                            className="w-full rounded border px-3 py-2"
-                            value={data.password_confirmation}
-                            onChange={(e) => setData('password_confirmation', e.target.value)}
-                        />
-                    </div>
-
-                    <button type="submit" disabled={processing} className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
-                        {processing ? 'Saving...' : 'Save Changes'}
-                    </button>
-                </form>
+                            <Button type="submit" disabled={processing} className="w-full">
+                                {processing && <LoaderCircle className="h-4 w-4 animate-spin" />}
+                                Save Changes
+                            </Button>
+                        </form>
+                    </CardContent>
+                </Card>
             </div>
         </AppLayout>
     );

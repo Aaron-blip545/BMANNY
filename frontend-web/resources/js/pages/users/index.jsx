@@ -1,10 +1,8 @@
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-
-// This is a plain .jsx file - no "interface Props", no ": string" type
-// annotations anywhere. Everything else about React (props, JSX, hooks)
-// works exactly the same as in the .tsx files - TypeScript was never a
-// different language, just JS with optional extra type-checking on top.
 
 const ROLES = [
     { value: 'all', label: 'All' },
@@ -16,16 +14,12 @@ const ROLES = [
 ];
 
 export default function UsersIndex({ users, activeRole }) {
-    // usePage() gives access to whatever HandleInertiaRequests shares on
-    // every page - we use it here just to read a flash "success" message.
     const { flash } = usePage().props;
 
     function toggleActive(user) {
         if (!confirm(`${user.is_active ? 'Deactivate' : 'Reactivate'} ${user.full_name}?`)) {
             return;
         }
-        // router.patch sends a PATCH request without needing a <form> -
-        // handy for a single button that isn't part of a bigger form.
         router.patch(route('users.toggle-active', user.user_id));
     }
 
@@ -34,73 +28,79 @@ export default function UsersIndex({ users, activeRole }) {
             <Head title="Manage Users" />
 
             <div className="p-4 sm:p-6 lg:p-8">
-                <div className="mb-4 flex items-center justify-between">
-                    <h1 className="text-2xl font-semibold">Manage Users</h1>
-                    <Link href={route('users.create')} className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700">
-                        + Add Account
-                    </Link>
+                <div className="mb-6 flex items-center justify-between">
+                    <div>
+                        <h1 className="text-2xl font-semibold tracking-tight">Manage Users</h1>
+                        <p className="text-sm text-muted-foreground">Create and manage staff and customer accounts.</p>
+                    </div>
+                    <Button asChild>
+                        <Link href={route('users.create')}>+ Add Account</Link>
+                    </Button>
                 </div>
 
-                {flash?.success && <div className="mb-4 rounded bg-green-100 px-4 py-2 text-sm text-green-800">{flash.success}</div>}
+                {flash?.success && (
+                    <div className="mb-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-900 dark:bg-green-950/30 dark:text-green-400">
+                        {flash.success}
+                    </div>
+                )}
 
-                {/* Role filter tabs - each is just a link with a different ?role= value */}
-                <div className="mb-4 flex gap-2 text-sm">
+                <div className="mb-4 flex flex-wrap gap-2">
                     {ROLES.map((r) => (
-                        <Link
-                            key={r.value}
-                            href={route('users.index', r.value === 'all' ? {} : { role: r.value })}
-                            className={`rounded px-3 py-1.5 ${activeRole === r.value ? 'bg-blue-600 text-white' : 'border bg-white text-gray-600'}`}
-                        >
-                            {r.label}
-                        </Link>
+                        <Button key={r.value} variant={activeRole === r.value ? 'default' : 'outline'} size="sm" asChild>
+                            <Link href={route('users.index', r.value === 'all' ? {} : { role: r.value })}>{r.label}</Link>
+                        </Button>
                     ))}
                 </div>
 
-                <div className="overflow-hidden rounded border bg-white">
-                    <table className="w-full text-left text-sm">
-                        <thead className="border-b bg-gray-50 text-xs text-gray-500">
-                            <tr>
-                                <th className="p-3">Name</th>
-                                <th className="p-3">Email</th>
-                                <th className="p-3">Role</th>
-                                <th className="p-3">Status</th>
-                                <th className="p-3">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {users.length === 0 ? (
+                <Card>
+                    <CardContent className="p-0">
+                        <table className="w-full text-left text-sm">
+                            <thead className="border-b text-xs text-muted-foreground">
                                 <tr>
-                                    <td colSpan={5} className="p-6 text-center text-gray-400">
-                                        No accounts found.
-                                    </td>
+                                    <th className="p-4 font-medium">Name</th>
+                                    <th className="p-4 font-medium">Email</th>
+                                    <th className="p-4 font-medium">Role</th>
+                                    <th className="p-4 font-medium">Status</th>
+                                    <th className="p-4 font-medium">Actions</th>
                                 </tr>
-                            ) : (
-                                users.map((user) => (
-                                    <tr key={user.user_id} className="border-t">
-                                        <td className="p-3 font-medium">{user.full_name}</td>
-                                        <td className="p-3 text-gray-600">{user.email}</td>
-                                        <td className="p-3 text-gray-600 capitalize">{user.role.replace('_', ' ')}</td>
-                                        <td className="p-3">
-                                            {user.is_active ? (
-                                                <span className="text-green-600">Active</span>
-                                            ) : (
-                                                <span className="text-red-500">Deactivated</span>
-                                            )}
-                                        </td>
-                                        <td className="space-x-3 p-3">
-                                            <Link href={route('users.edit', user.user_id)} className="text-blue-600 hover:underline">
-                                                Edit
-                                            </Link>
-                                            <button onClick={() => toggleActive(user)} className="text-amber-600 hover:underline">
-                                                {user.is_active ? 'Deactivate' : 'Reactivate'}
-                                            </button>
+                            </thead>
+                            <tbody>
+                                {users.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={5} className="p-8 text-center text-muted-foreground">
+                                            No accounts found.
                                         </td>
                                     </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                                ) : (
+                                    users.map((user) => (
+                                        <tr key={user.user_id} className="border-b last:border-0">
+                                            <td className="p-4 font-medium">{user.full_name}</td>
+                                            <td className="p-4 text-muted-foreground">{user.email}</td>
+                                            <td className="p-4">
+                                                <Badge variant="secondary" className="capitalize">
+                                                    {user.role.replace('_', ' ')}
+                                                </Badge>
+                                            </td>
+                                            <td className="p-4">
+                                                <Badge variant={user.is_active ? 'default' : 'destructive'}>
+                                                    {user.is_active ? 'Active' : 'Deactivated'}
+                                                </Badge>
+                                            </td>
+                                            <td className="space-x-2 p-4">
+                                                <Button variant="ghost" size="sm" asChild>
+                                                    <Link href={route('users.edit', user.user_id)}>Edit</Link>
+                                                </Button>
+                                                <Button variant="ghost" size="sm" onClick={() => toggleActive(user)}>
+                                                    {user.is_active ? 'Deactivate' : 'Reactivate'}
+                                                </Button>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </CardContent>
+                </Card>
             </div>
         </AppLayout>
     );
