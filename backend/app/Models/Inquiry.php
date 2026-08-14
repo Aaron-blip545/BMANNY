@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Quotation;
 
 class Inquiry extends Model
 {
@@ -28,5 +29,10 @@ class Inquiry extends Model
     public function client()
     {
         return $this->belongsTo(BusinessClient::class, 'client_id', 'client_id');
+    }
+
+    public function quotation()
+    {
+        return $this->hasOne(Quotation::class, 'inquiry_id', 'inquiry_id');
     }
 }

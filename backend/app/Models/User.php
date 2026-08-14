@@ -18,20 +18,26 @@ class User extends Authenticatable
     protected $fillable = [
         'full_name',
         'email',
-        'password_hash',
+        'password',
         'phone_number',
         'role',
         'is_active',
     ];
 
     protected $hidden = [
-        'password_hash',
+        'password',
         'remember_token',
     ];
 
     // Tell Laravel Sanctum/Auth where the hashed password column lives
     public function getAuthPassword()
     {
-        return $this->password_hash;
+        return $this->password;
+    }
+
+    // A customer User has one BusinessClient profile
+    public function businessClient()
+    {
+        return $this->hasOne(BusinessClient::class, 'user_id', 'user_id');
     }
 }

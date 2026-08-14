@@ -20,7 +20,7 @@ class AuthController extends Controller
         $user = User::create([
             'full_name' => $request->full_name,
             'email' => $request->email,
-            'password_hash' => Hash::make($request->password),
+            'password' => Hash::make($request->password),
             // FIXED: was `$request->role ?? 'customer'` - anyone hitting this
             // public endpoint could pass role: "admin" and self-promote.
             // Staff accounts (sales_agent, product_controller, order_manager,
@@ -48,7 +48,7 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password_hash)) {
+        if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json([
                 'message' => 'Invalid credentials.'
             ], 401);

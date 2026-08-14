@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id('user_id');
             $table->string('full_name', 100);
             $table->string('email', 150)->unique();
-            $table->string('password_hash', 255);
+            $table->string('password', 255);
             $table->string('phone_number', 20)->nullable();
             $table->enum('role', ['admin', 'customer', 'sales_agent', 'product_controller', 'order_manager']);
             $table->boolean('is_active')->default(true);
