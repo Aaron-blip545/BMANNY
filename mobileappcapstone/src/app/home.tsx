@@ -53,7 +53,20 @@ export default function HomeScreen() {
 
         <View style={styles.productsGrid}>
           {filteredProducts.map((product) => (
-            <TouchableOpacity key={product.id} style={styles.productCard}>
+            <TouchableOpacity 
+              key={product.id} 
+              style={styles.productCard}
+              onPress={() => {
+                console.log('Navigating to product:', product.id);
+                try {
+                  // @ts-ignore
+                  router.push(`/product-description?id=${product.id}`);
+                } catch (error) {
+                  console.error('Navigation error:', error);
+                }
+              }}
+              activeOpacity={0.7}
+            >
               <Image source={product.image} style={styles.productImage} />
               <View style={styles.productInfo}>
                 <Text style={styles.productName}>{product.name}</Text>
@@ -89,7 +102,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#0f0f1a',
   },
   scrollContent: {
     padding: 20,
@@ -98,21 +111,21 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#ff4500',
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#ff6b35',
   },
   searchContainer: {
     marginBottom: 20,
   },
   searchInput: {
-    backgroundColor: '#16213e',
-    borderRadius: 12,
+    backgroundColor: '#1a1a2e',
+    borderRadius: 14,
     padding: 16,
     fontSize: 16,
-    color: '#fff',
+    color: '#ffffff',
     borderWidth: 1,
-    borderColor: '#2d2d44',
+    borderColor: '#2a2a40',
   },
   productsGrid: {
     flexDirection: 'row',
@@ -121,12 +134,12 @@ const styles = StyleSheet.create({
   },
   productCard: {
     width: '48%',
-    backgroundColor: '#16213e',
-    borderRadius: 12,
-    marginBottom: 15,
+    backgroundColor: '#1a1a2e',
+    borderRadius: 16,
+    marginBottom: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#2d2d44',
+    borderColor: '#2a2a40',
   },
   productImage: {
     width: '100%',
@@ -134,24 +147,24 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
   },
   productInfo: {
-    padding: 12,
+    padding: 14,
   },
   productName: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 5,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginBottom: 6,
   },
   productPrice: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#ff4500',
+    fontWeight: '800',
+    color: '#ff6b35',
   },
   navigationBar: {
     flexDirection: 'row',
-    backgroundColor: '#16213e',
+    backgroundColor: '#1a1a2e',
     borderTopWidth: 1,
-    borderTopColor: '#2d2d44',
+    borderTopColor: '#2a2a40',
     paddingBottom: 20,
   },
   navItem: {
@@ -160,9 +173,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   navText: {
-    color: '#a0a0a0',
+    color: '#b8b8c0',
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
     marginTop: 4,
   },
 });

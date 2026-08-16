@@ -19,6 +19,8 @@ export default function TabLayout() {
         <Stack.Screen name="forgot-password" />
         <Stack.Screen name="home" />
         <Stack.Screen name="product-description" />
+        <Stack.Screen name="product-customization" />
+        <Stack.Screen name="payment-method" />
         <Stack.Screen name="edit-profile" />
         <Stack.Screen name="chat-detail" />
         <Stack.Screen name="orders" />

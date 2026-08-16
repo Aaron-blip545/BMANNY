@@ -1,7 +1,43 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
+
+interface Order {
+  productType: string;
+  flavor: string;
+  size: string;
+  packaging: string;
+  container: string;
+  labelDesign: string;
+  brandName: string;
+  quantity: string;
+  paymentMethod: string;
+  imageData: string;
+  status: string;
+  orderDate: string;
+}
 
 export default function OrdersScreen() {
+  const { orderData } = useLocalSearchParams<{ orderData: string }>();
+  const [orders, setOrders] = useState<Order[]>([]);
+
+  useEffect(() => {
+    if (orderData) {
+      try {
+        const parsedOrder = JSON.parse(orderData);
+        setOrders([parsedOrder]);
+      } catch (error) {
+        console.error('Error parsing order data:', error);
+      }
+    }
+  }, [orderData]);
+
+  const pendingOrders = orders.filter(order => order.status === 'pending');
+  const approvedOrders = orders.filter(order => order.status === 'approved');
+  const inProductionOrders = orders.filter(order => order.status === 'in_production');
+  const forDeliveryOrders = orders.filter(order => order.status === 'for_delivery');
+  const deliveredOrders = orders.filter(order => order.status === 'delivered');
+  const completedOrders = orders.filter(order => order.status === 'completed');
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -12,11 +48,24 @@ export default function OrdersScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Pending</Text>
-            <Text style={styles.sectionCount}>0</Text>
+            <Text style={styles.sectionCount}>{pendingOrders.length}</Text>
           </View>
-          <View style={styles.emptySection}>
-            <Text style={styles.emptyText}>No pending orders</Text>
-          </View>
+          {pendingOrders.length === 0 ? (
+            <View style={styles.emptySection}>
+              <Text style={styles.emptyText}>No pending orders</Text>
+            </View>
+          ) : (
+            pendingOrders.map((order, index) => (
+              <View key={index} style={styles.orderCard}>
+                <Text style={styles.orderProduct}>{order.productType}</Text>
+                <Text style={styles.orderDetail}>Flavor: {order.flavor}</Text>
+                <Text style={styles.orderDetail}>Size: {order.size}</Text>
+                <Text style={styles.orderDetail}>Quantity: {order.quantity}</Text>
+                <Text style={styles.orderDetail}>Payment: {order.paymentMethod}</Text>
+                <Text style={styles.orderDate}>{new Date(order.orderDate).toLocaleDateString()}</Text>
+              </View>
+            ))
+          )}
         </View>
 
         <View style={styles.section}>
@@ -76,7 +125,7 @@ export default function OrdersScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#0f0f1a',
   },
   header: {
     padding: 20,
@@ -84,8 +133,8 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#ff4500',
+    fontWeight: '800',
+    color: '#ff6b35',
   },
   scroll: {
     flex: 1,
@@ -94,10 +143,12 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   section: {
-    backgroundColor: '#16213e',
-    borderRadius: 12,
+    backgroundColor: '#1a1a2e',
+    borderRadius: 16,
     marginBottom: 16,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#2a2a40',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -105,17 +156,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#2d2d44',
+    borderBottomColor: '#2a2a40',
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontWeight: '700',
+    color: '#ffffff',
   },
   sectionCount: {
     fontSize: 16,
-    color: '#ff4500',
-    fontWeight: '600',
+    color: '#ff6b35',
+    fontWeight: '700',
   },
   emptySection: {
     padding: 20,
@@ -123,6 +174,27 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    color: '#a0a0a0',
+    color: '#b8b8c0',
+  },
+  orderCard: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a40',
+  },
+  orderProduct: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginBottom: 8,
+  },
+  orderDetail: {
+    fontSize: 14,
+    color: '#b8b8c0',
+    marginBottom: 4,
+  },
+  orderDate: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 8,
   },
 });

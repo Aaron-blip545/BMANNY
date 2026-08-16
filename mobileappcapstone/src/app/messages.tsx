@@ -83,7 +83,7 @@ export default function MessagesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#0f0f1a',
   },
   header: {
     padding: 20,
@@ -91,8 +91,8 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#ff4500',
+    fontWeight: '800',
+    color: '#ff6b35',
   },
   scroll: {
     flex: 1,
@@ -102,25 +102,27 @@ const styles = StyleSheet.create({
   },
   conversationItem: {
     flexDirection: 'row',
-    backgroundColor: '#16213e',
-    borderRadius: 12,
+    backgroundColor: '#1a1a2e',
+    borderRadius: 16,
     padding: 16,
     marginBottom: 12,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#2a2a40',
   },
   avatar: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#ff4500',
+    backgroundColor: '#ff6b35',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   avatarText: {
-    color: '#fff',
+    color: '#ffffff',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   conversationContent: {
     flex: 1,
@@ -133,12 +135,12 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontWeight: '700',
+    color: '#ffffff',
   },
   time: {
     fontSize: 12,
-    color: '#a0a0a0',
+    color: '#b8b8c0',
   },
   conversationFooter: {
     flexDirection: 'row',
@@ -147,12 +149,12 @@ const styles = StyleSheet.create({
   },
   lastMessage: {
     fontSize: 14,
-    color: '#a0a0a0',
+    color: '#b8b8c0',
     flex: 1,
     marginRight: 8,
   },
   unreadBadge: {
-    backgroundColor: '#ff4500',
+    backgroundColor: '#ff6b35',
     borderRadius: 12,
     minWidth: 24,
     height: 24,
@@ -161,8 +163,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   unreadCount: {
-    color: '#fff',
+    color: '#ffffff',
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
 });
