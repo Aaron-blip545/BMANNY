@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Web\OrderManagerController;
+use App\Http\Controllers\Web\ProductControllerDashboardController;
+use App\Http\Controllers\Web\ProductControllerModuleController;
 use App\Http\Controllers\Web\ProductPageController;
 use App\Http\Controllers\Web\SalesAgentController;
 use App\Http\Controllers\Web\UserManagementController;
@@ -17,6 +19,14 @@ Route::middleware(['backend.auth'])->group(function () {
     })->name('dashboard');
 
     Route::get('products', [ProductPageController::class, 'index'])->name('products.index');
+
+    Route::middleware(['backend.role:product_controller'])->group(function () {
+        Route::get('product-controller/dashboard', [ProductControllerDashboardController::class, 'index'])
+            ->name('product-controller.dashboard');
+        Route::get('product-controller/{module}', [ProductControllerModuleController::class, 'show'])
+            ->whereIn('module', ['variants', 'packaging', 'moq', 'customization', 'notifications'])
+            ->name('product-controller.module');
+    });
 
     // Sales Agent + Admin: Inquiries list and Quotation creation
     Route::middleware(['backend.role:sales_agent,admin'])->group(function () {
@@ -45,4 +55,3 @@ Route::middleware(['backend.auth'])->group(function () {
 
 require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';
-
