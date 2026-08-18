@@ -29,6 +29,7 @@ Route::middleware(['backend.auth'])->group(function () {
     Route::middleware(['backend.role:order_manager,admin'])->group(function () {
         Route::get('orders', [OrderManagerController::class, 'index'])->name('orders.index');
         Route::patch('orders/{id}/status', [OrderManagerController::class, 'updateStatus'])->name('orders.update-status');
+        Route::patch('orders/{id}/tracking', [OrderManagerController::class, 'updateTracking'])->name('orders.update-tracking');
     });
 
     // Admin-only. backend.role checks the SPECIFIC role, not just "logged

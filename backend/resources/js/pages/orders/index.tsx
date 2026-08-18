@@ -16,9 +16,11 @@ interface BusinessClient {
 
 interface Order {
     order_id: number;
-    status: 'pending' | 'processing' | 'completed' | 'cancelled';
+    status: OrderStatus;
     total_amount: string;
     created_at: string;
+    courier_name: string | null;
+    courier_tracking_number: string | null;
     client: BusinessClient | null;
     quotation: { quotation_id: number } | null;
 }
@@ -27,14 +29,18 @@ interface Props {
     orders: Order[];
 }
 
-const ORDER_STATUSES = ['pending', 'processing', 'completed', 'cancelled'] as const;
+const ORDER_STATUSES = ['pending', 'approved', 'in_production', 'packed', 'for_delivery', 'delivered', 'completed', 'cancelled'] as const;
 type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 const STATUS_STYLES: Record<OrderStatus, string> = {
-    pending:    'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
-    processing: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
-    completed:  'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
-    cancelled:  'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+    pending: 'bg-slate-100 text-slate-800 dark:bg-slate-800/40 dark:text-slate-300',
+    approved: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
+    in_production: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
+    packed: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300',
+    for_delivery: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
+    delivered: 'bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300',
+    completed: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
+    cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
 };
 
 function formatDate(iso: string) {
@@ -58,6 +64,14 @@ export default function OrdersIndex({ orders }: Props) {
             route('orders.update-status', orderId),
             { status: newStatus },
             { onFinish: () => setUpdatingId(null) },
+        );
+    }
+
+    function handleTrackingUpdate(orderId: number, field: 'courier_name' | 'courier_tracking_number', value: string) {
+        router.patch(
+            route('orders.update-tracking', orderId),
+            { [field]: value },
+            { preserveScroll: true },
         );
     }
 
@@ -120,6 +134,7 @@ export default function OrdersIndex({ orders }: Props) {
                                             <th className="p-4 font-medium">Date</th>
                                             <th className="p-4 font-medium">Status</th>
                                             <th className="p-4 font-medium">Update Status</th>
+                                            <th className="p-4 font-medium">Delivery Tracking</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -168,6 +183,24 @@ export default function OrdersIndex({ orders }: Props) {
                                                             </option>
                                                         ))}
                                                     </select>
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex flex-col gap-1">
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Courier (e.g. J&T)"
+                                                            defaultValue={order.courier_name ?? ''}
+                                                            onBlur={(e) => handleTrackingUpdate(order.order_id, 'courier_name', e.target.value)}
+                                                            className="rounded-md border border-input bg-background px-2 py-1 text-xs"
+                                                        />
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Tracking number"
+                                                            defaultValue={order.courier_tracking_number ?? ''}
+                                                            onBlur={(e) => handleTrackingUpdate(order.order_id, 'courier_tracking_number', e.target.value)}
+                                                            className="rounded-md border border-input bg-background px-2 py-1 text-xs"
+                                                        />
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}
