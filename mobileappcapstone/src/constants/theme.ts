@@ -63,12 +63,3 @@ export const Spacing = {
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;
-
-export const LoginColors = {
-  header: '#4B4299',
-  primary: '#6E5DE7',
-  getStartedButton: '#7B6FE8',
-  border: '#D8D8E0',
-  textMuted: '#9A9AA8',
-  placeholder: '#B0B0BC',
-} as const;
