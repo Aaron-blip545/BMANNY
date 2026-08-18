@@ -1,24 +1,10 @@
-import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { BookOpen, CircleHelp, Folder, House, PackageCheck, PackageMinus, Settings, Users as UsersIcon } from 'lucide-react';
+import { Bell, Box, CircleHelp, House, ListTree, PackageCheck, PackageMinus, Settings, SlidersHorizontal, Users as UsersIcon } from 'lucide-react';
 import AppLogo from './app-logo';
-
-const footerNavItems: NavItem[] = [
-    {
-        title: 'Repository',
-        url: 'https://github.com/laravel/react-starter-kit',
-        icon: Folder,
-    },
-    {
-        title: 'Documentation',
-        url: 'https://laravel.com/docs/starter-kits',
-        icon: BookOpen,
-    },
-];
 
 export function AppSidebar() {
     // Build the nav list based on the logged-in user's role.
@@ -29,8 +15,9 @@ export function AppSidebar() {
     const isAdmin        = role === 'admin';
     const isSalesAgent   = role === 'sales_agent';
     const isOrderManager = role === 'order_manager';
+    const isProductController = role === 'product_controller';
 
-    const mainNavItems: NavItem[] = [
+    const standardNavItems: NavItem[] = [
         // Everyone sees Dashboard and Inventory
         { title: 'Dashboard', url: '/dashboard',       icon: House },
         { title: 'Inventory',  url: '/products',        icon: PackageMinus },
@@ -54,6 +41,19 @@ export function AppSidebar() {
             : []),
     ];
 
+    const productControllerNavItems: NavItem[] = [
+        { title: 'Dashboard', url: '/product-controller/dashboard', icon: House },
+        { title: 'Product Management', url: '/products', icon: PackageMinus },
+        { title: 'Variant Management', url: '/product-controller/variants', icon: ListTree },
+        { title: 'Packaging Management', url: '/product-controller/packaging', icon: Box },
+        { title: 'MOQ Management', url: '/product-controller/moq', icon: SlidersHorizontal },
+        { title: 'Customization Options', url: '/product-controller/customization', icon: CircleHelp },
+        { title: 'Notifications', url: '/product-controller/notifications', icon: Bell },
+        { title: 'Profile', url: '/settings/profile', icon: Settings },
+    ];
+
+    const mainNavItems = isProductController ? productControllerNavItems : standardNavItems;
+
     return (
         <Sidebar collapsible="icon" variant="inset">
             <SidebarHeader>
@@ -73,7 +73,6 @@ export function AppSidebar() {
             </SidebarContent>
 
             <SidebarFooter>
-                <NavFooter items={footerNavItems} className="mt-auto" />
                 <NavUser />
             </SidebarFooter>
         </Sidebar>
