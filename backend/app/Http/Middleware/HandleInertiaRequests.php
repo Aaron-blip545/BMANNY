@@ -44,7 +44,7 @@ class HandleInertiaRequests extends Middleware
             'quote' => ['message' => trim($message), 'author' => trim($author)],
             // Now uses the actual auth guard — no more session('backend_user') proxy.
             'auth' => [
-                'user' => $request->user(),
+                'user' => $request->user('web'),
             ],
         ]);
     }

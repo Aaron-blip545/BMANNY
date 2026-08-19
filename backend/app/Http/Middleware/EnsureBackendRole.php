@@ -12,7 +12,7 @@ class EnsureBackendRole
 {
     public function handle(Request $request, Closure $next, ...$roles): Response
     {
-        $user = $request->user();
+        $user = $request->user('web');
 
         if (! $user || ! in_array($user->role, $roles)) {
             abort(403, 'You do not have permission to view this page.');

@@ -32,6 +32,13 @@ class AuthenticatedSessionController extends Controller
      */
     public function store(LoginRequest $request): RedirectResponse
     {
+        // Always clear a previously authenticated web identity before starting
+        // a new login. This prevents a stale session from carrying an earlier
+        // user's role into the next Inertia response.
+        if (Auth::guard('web')->check()) {
+            Auth::guard('web')->logout();
+        }
+
         $request->authenticate();
 
         $request->session()->regenerate();
