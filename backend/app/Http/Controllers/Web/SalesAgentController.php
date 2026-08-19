@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Models\Inquiry;
+use App\Models\Order;
 use App\Models\Quotation;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -75,5 +77,49 @@ class SalesAgentController extends Controller
 
         return redirect()->route('inquiries.index')
             ->with('success', 'Quotation sent to client.');
+    }
+
+    /**
+     * List every quotation, with its inquiry/client info, so the Sales Agent
+     * can see what's pending and act on it.
+     */
+    public function quotations(): Response
+    {
+        $quotations = Quotation::with(['inquiry.client.user'])
+            ->orderByDesc('created_at')
+            ->get();
+
+        return Inertia::render('sales/quotations/index', [
+            'quotations' => $quotations,
+        ]);
+    }
+
+    /**
+     * Accept a quotation and create the matching Order — this is the
+     * "Record Confirmed Order Details / Forward to Order Manager" step
+     * from Figure 6.1.
+     */
+    public function acceptQuotation($id)
+    {
+        $quotation = Quotation::with('inquiry.client')->findOrFail($id);
+
+        if ($quotation->status !== 'sent') {
+            return back()->withErrors(['status' => 'Only a sent quotation can be accepted.']);
+        }
+
+        DB::transaction(function () use ($quotation) {
+            Order::create([
+                'client_id'    => $quotation->inquiry->client->client_id,
+                'quotation_id' => $quotation->quotation_id,
+                'total_amount' => $quotation->total_amount,
+                'status'       => 'approved', // matches Figure 6.3's first order stage
+            ]);
+
+            $quotation->status = 'accepted';
+            $quotation->save();
+        });
+
+        return redirect()->route('quotations.index')
+            ->with('success', 'Order created and forwarded to Order Manager.');
     }
 }

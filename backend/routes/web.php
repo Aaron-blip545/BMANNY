@@ -28,11 +28,13 @@ Route::middleware(['backend.auth'])->group(function () {
             ->name('product-controller.module');
     });
 
-    // Sales Agent + Admin: Inquiries list and Quotation creation
+    // Sales Agent + Admin: Inquiries list and Quotation workflow
     Route::middleware(['backend.role:sales_agent,admin'])->group(function () {
         Route::get('inquiries', [SalesAgentController::class, 'inquiries'])->name('inquiries.index');
+        Route::get('quotations', [SalesAgentController::class, 'quotations'])->name('quotations.index');
         Route::get('quotations/create', [SalesAgentController::class, 'createQuotation'])->name('quotations.create');
         Route::post('quotations', [SalesAgentController::class, 'storeQuotation'])->name('quotations.store');
+        Route::post('quotations/{id}/accept', [SalesAgentController::class, 'acceptQuotation'])->name('quotations.accept');
     });
 
     // Order Manager + Admin: Orders list and status updates
