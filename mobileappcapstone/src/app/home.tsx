@@ -1,21 +1,22 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, TextInput } from 'react-native';
 import { router } from 'expo-router';
+import { useTheme } from '../contexts/ThemeContext';
 
-const HomeIcon = ({ color }: { color: string }) => (
-  <Text style={{ fontSize: 24, color }}>⌂</Text>
+const HomeIcon = ({ colors }: { colors: any }) => (
+  <Image source={require('@/assets/images/homepageicon/home.png')} style={styles.navIcon} tintColor={colors.text} />
 );
 
-const OrdersIcon = ({ color }: { color: string }) => (
-  <Text style={{ fontSize: 24, color }}>☰</Text>
+const OrdersIcon = ({ colors }: { colors: any }) => (
+  <Image source={require('@/assets/images/homepageicon/booking.png')} style={styles.navIcon} tintColor={colors.text} />
 );
 
-const MessagesIcon = ({ color }: { color: string }) => (
-  <Text style={{ fontSize: 24, color }}>◎</Text>
+const MessagesIcon = ({ colors }: { colors: any }) => (
+  <Image source={require('@/assets/images/homepageicon/messages.png')} style={styles.navIcon} tintColor={colors.text} />
 );
 
-const ProfileIcon = ({ color }: { color: string }) => (
-  <Text style={{ fontSize: 24, color }}>⌘</Text>
+const ProfileIcon = ({ colors }: { colors: any }) => (
+  <Image source={require('@/assets/images/homepageicon/profile.png')} style={styles.navIcon} tintColor={colors.text} />
 );
 
 const coffeeSupplements = [
@@ -28,6 +29,7 @@ const coffeeSupplements = [
 ];
 
 export default function HomeScreen() {
+  const { colors } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredProducts = coffeeSupplements.filter(product =>
@@ -35,7 +37,7 @@ export default function HomeScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>BMANNY Partners Inc.</Text>
@@ -43,7 +45,7 @@ export default function HomeScreen() {
 
         <View style={styles.searchContainer}>
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
             placeholder="Search products..."
             placeholderTextColor="#999"
             value={searchQuery}
@@ -55,7 +57,7 @@ export default function HomeScreen() {
           {filteredProducts.map((product) => (
             <TouchableOpacity 
               key={product.id} 
-              style={styles.productCard}
+              style={[styles.productCard, { backgroundColor: colors.card, borderColor: colors.border }]}
               onPress={() => {
                 console.log('Navigating to product:', product.id);
                 try {
@@ -69,7 +71,7 @@ export default function HomeScreen() {
             >
               <Image source={product.image} style={styles.productImage} />
               <View style={styles.productInfo}>
-                <Text style={styles.productName}>{product.name}</Text>
+                <Text style={[styles.productName, { color: colors.text }]}>{product.name}</Text>
                 <Text style={styles.productPrice}>{product.price}</Text>
               </View>
             </TouchableOpacity>
@@ -77,22 +79,22 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
 
-      <View style={styles.navigationBar}>
+      <View style={[styles.navigationBar, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
         <TouchableOpacity style={styles.navItem} onPress={() => router.push('/home')}>
-          <HomeIcon color="#a0a0a0" />
-          <Text style={styles.navText}>Home</Text>
+          <HomeIcon colors={colors} />
+          <Text style={[styles.navText, { color: colors.textSecondary }]}>Home</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={() => router.push('/orders')}>
-          <OrdersIcon color="#a0a0a0" />
-          <Text style={styles.navText}>Orders</Text>
+          <OrdersIcon colors={colors} />
+          <Text style={[styles.navText, { color: colors.textSecondary }]}>Orders</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={() => router.push('/messages')}>
-          <MessagesIcon color="#a0a0a0" />
-          <Text style={styles.navText}>Messages</Text>
+          <MessagesIcon colors={colors} />
+          <Text style={[styles.navText, { color: colors.textSecondary }]}>Messages</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={() => router.push('/profile')}>
-          <ProfileIcon color="#a0a0a0" />
-          <Text style={styles.navText}>Profile</Text>
+          <ProfileIcon colors={colors} />
+          <Text style={[styles.navText, { color: colors.textSecondary }]}>Profile</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -102,7 +104,6 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
   },
   scrollContent: {
     padding: 20,
@@ -119,13 +120,10 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   searchInput: {
-    backgroundColor: '#1a1a2e',
     borderRadius: 14,
     padding: 16,
     fontSize: 16,
-    color: '#ffffff',
     borderWidth: 1,
-    borderColor: '#2a2a40',
   },
   productsGrid: {
     flexDirection: 'row',
@@ -134,12 +132,10 @@ const styles = StyleSheet.create({
   },
   productCard: {
     width: '48%',
-    backgroundColor: '#1a1a2e',
     borderRadius: 16,
     marginBottom: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#2a2a40',
   },
   productImage: {
     width: '100%',
@@ -152,7 +148,6 @@ const styles = StyleSheet.create({
   productName: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#ffffff',
     marginBottom: 6,
   },
   productPrice: {
@@ -162,9 +157,7 @@ const styles = StyleSheet.create({
   },
   navigationBar: {
     flexDirection: 'row',
-    backgroundColor: '#1a1a2e',
     borderTopWidth: 1,
-    borderTopColor: '#2a2a40',
     paddingBottom: 20,
   },
   navItem: {
@@ -173,9 +166,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   navText: {
-    color: '#b8b8c0',
     fontSize: 12,
     fontWeight: '600',
     marginTop: 4,
+  },
+  navIcon: {
+    width: 24,
+    height: 24,
+    resizeMode: 'contain',
   },
 });

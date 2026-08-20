@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface PaymentMethod {
   id: string;
@@ -31,6 +32,7 @@ const paymentMethods: PaymentMethod[] = [
 ];
 
 export default function PaymentMethodScreen() {
+  const { colors } = useTheme();
   const { formData, imageData } = useLocalSearchParams<{ formData: string; imageData: string }>();
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
 
@@ -44,9 +46,9 @@ export default function PaymentMethodScreen() {
     // Parse the form data
     const parsedFormData = formData ? JSON.parse(formData) : {};
     
-    // Navigate to orders with all the data
+    // Navigate to payment with all the data
     router.push({
-      pathname: '/orders',
+      pathname: '/payment',
       params: {
         orderData: JSON.stringify({
           ...parsedFormData,
@@ -60,15 +62,15 @@ export default function PaymentMethodScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <Text style={styles.backButtonText}>Back</Text>
           </TouchableOpacity>
           <View style={styles.headerText}>
-            <Text style={styles.headerTitle}>Payment Method</Text>
-            <Text style={styles.headerSubtitle}>Choose how you want to pay</Text>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>Payment Method</Text>
+            <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Choose how you want to pay</Text>
           </View>
         </View>
 
@@ -79,6 +81,8 @@ export default function PaymentMethodScreen() {
               style={[
                 styles.paymentCard,
                 selectedMethod === method.id && styles.selectedCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
+                selectedMethod === method.id && { borderColor: colors.accent },
               ]}
               onPress={() => handleSelect(method.id)}
               activeOpacity={0.7}
@@ -86,11 +90,11 @@ export default function PaymentMethodScreen() {
               <View style={styles.cardContent}>
                 <Image source={method.icon} style={styles.paymentIcon} />
                 <View style={styles.paymentInfo}>
-                  <Text style={styles.paymentName}>{method.name}</Text>
-                  <Text style={styles.paymentDescription}>{method.description}</Text>
+                  <Text style={[styles.paymentName, { color: colors.text }]}>{method.name}</Text>
+                  <Text style={[styles.paymentDescription, { color: colors.textSecondary }]}>{method.description}</Text>
                 </View>
-                <View style={[styles.radioButton, selectedMethod === method.id && styles.selectedRadio]}>
-                  {selectedMethod === method.id && <View style={styles.radioInner} />}
+                <View style={[styles.radioButton, { borderColor: colors.border }, selectedMethod === method.id && { borderColor: colors.accent }]}>
+                  {selectedMethod === method.id && <View style={[styles.radioInner, { backgroundColor: colors.accent }]} />}
                 </View>
               </View>
             </TouchableOpacity>
@@ -110,7 +114,6 @@ export default function PaymentMethodScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
   },
   scrollContent: {
     padding: 20,
@@ -138,27 +141,21 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#ffffff',
     marginBottom: 4,
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#b8b8c0',
   },
   paymentOptions: {
     marginBottom: 24,
   },
   paymentCard: {
-    backgroundColor: '#1a1a2e',
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
     borderWidth: 2,
-    borderColor: '#2a2a40',
   },
   selectedCard: {
-    borderColor: '#ff6b35',
-    backgroundColor: '#1a1a2e',
   },
   cardContent: {
     flexDirection: 'row',
@@ -176,12 +173,10 @@ const styles = StyleSheet.create({
   paymentName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#ffffff',
     marginBottom: 4,
   },
   paymentDescription: {
     fontSize: 13,
-    color: '#b8b8c0',
     lineHeight: 18,
   },
   radioButton: {
@@ -189,18 +184,15 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#2a2a40',
     justifyContent: 'center',
     alignItems: 'center',
   },
   selectedRadio: {
-    borderColor: '#ff6b35',
   },
   radioInner: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#ff6b35',
   },
   continueButton: {
     backgroundColor: '#ff6b35',

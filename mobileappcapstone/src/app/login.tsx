@@ -1,10 +1,45 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { router } from 'expo-router';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const handleSignIn = () => {
+    console.log('handleSignIn called', { email, password });
+    setErrorMessage('');
+    
+    if (!email) {
+      console.log('Email is empty');
+      setErrorMessage('Please enter your email');
+      return;
+    }
+    
+    console.log('Email entered:', email);
+    console.log('Email validation result:', validateEmail(email));
+    
+    if (!validateEmail(email)) {
+      console.log('Email validation failed');
+      setErrorMessage('Input must be a valid email address');
+      return;
+    }
+    
+    if (!password) {
+      console.log('Password is empty');
+      setErrorMessage('Please enter your password');
+      return;
+    }
+    
+    console.log('Validation passed, navigating to home');
+    router.push('/home');
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -17,6 +52,10 @@ export default function LoginScreen() {
           <View style={styles.content}>
             <Text style={styles.title}>BMANNY Partners Inc.</Text>
             <Text style={styles.subtitle}>Welcome back you've been missed!</Text>
+
+            {errorMessage ? (
+              <Text style={styles.errorMessage}>{errorMessage}</Text>
+            ) : null}
 
             {/* Email Input */}
             <View style={styles.inputContainer}>
@@ -49,7 +88,7 @@ export default function LoginScreen() {
             </TouchableOpacity>
 
             {/* Sign In Button */}
-            <TouchableOpacity style={styles.signInButton} onPress={() => router.push('/home')}>
+            <TouchableOpacity style={styles.signInButton} onPress={handleSignIn}>
               <Text style={styles.signInButtonText}>Sign in</Text>
             </TouchableOpacity>
 
@@ -89,6 +128,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#a0a0a0',
     marginBottom: 40,
+  },
+  errorMessage: {
+    color: '#ff4444',
+    fontSize: 14,
+    marginBottom: 20,
+    textAlign: 'center',
   },
   inputContainer: {
     backgroundColor: '#16213e',
