@@ -2,7 +2,7 @@ import * as SecureStore from 'expo-secure-store';
 
 // CHANGE THIS to your own computer's IP address from ipconfig - this
 // will be different for every developer on the team, on every network.
-const API_BASE_URL = 'http://192.168.1.23:8000/api';
+const API_BASE_URL = 'http://10.0.2.2:8000/api';
 
 const TOKEN_KEY = 'bmanny_auth_token';
 
