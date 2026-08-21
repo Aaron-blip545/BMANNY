@@ -1,8 +1,26 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Image } from 'react-native';
 import { router } from 'expo-router';
+import { useTheme } from '../contexts/ThemeContext';
+
+const HomeIcon = ({ colors }: { colors: any }) => (
+  <Image source={require('@/assets/images/homepageicon/home.png')} style={styles.navIcon} tintColor={colors.text} />
+);
+
+const OrdersIcon = ({ colors }: { colors: any }) => (
+  <Image source={require('@/assets/images/homepageicon/booking.png')} style={styles.navIcon} tintColor={colors.text} />
+);
+
+const MessagesIcon = ({ colors }: { colors: any }) => (
+  <Image source={require('@/assets/images/homepageicon/messages.png')} style={styles.navIcon} tintColor={colors.text} />
+);
+
+const ProfileIcon = ({ colors }: { colors: any }) => (
+  <Image source={require('@/assets/images/homepageicon/profile.png')} style={styles.navIcon} tintColor={colors.text} />
+);
 
 export default function MessagesScreen() {
+  const { colors } = useTheme();
   const conversations = [
     {
       id: 1,
@@ -39,7 +57,7 @@ export default function MessagesScreen() {
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
         <Text style={styles.title}>Messages</Text>
       </View>
@@ -48,7 +66,7 @@ export default function MessagesScreen() {
         {conversations.map((conversation) => (
           <TouchableOpacity
             key={conversation.id}
-            style={styles.conversationItem}
+            style={[styles.conversationItem, { backgroundColor: colors.card, borderColor: colors.border }]}
             onPress={() => {
               // @ts-ignore
               router.push('/chat-detail');
@@ -59,11 +77,11 @@ export default function MessagesScreen() {
             </View>
             <View style={styles.conversationContent}>
               <View style={styles.conversationHeader}>
-                <Text style={styles.name}>{conversation.name}</Text>
-                <Text style={styles.time}>{conversation.time}</Text>
+                <Text style={[styles.name, { color: colors.text }]}>{conversation.name}</Text>
+                <Text style={[styles.time, { color: colors.textSecondary }]}>{conversation.time}</Text>
               </View>
               <View style={styles.conversationFooter}>
-                <Text style={styles.lastMessage} numberOfLines={1}>
+                <Text style={[styles.lastMessage, { color: colors.textSecondary }]} numberOfLines={1}>
                   {conversation.lastMessage}
                 </Text>
                 {conversation.unread > 0 && (
@@ -76,6 +94,26 @@ export default function MessagesScreen() {
           </TouchableOpacity>
         ))}
       </ScrollView>
+
+      <View style={[styles.navigationBar, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/home')}>
+          <HomeIcon colors={colors} />
+          <Text style={[styles.navText, { color: colors.textSecondary }]}>Home</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/orders')}>
+          <OrdersIcon colors={colors} />
+          <Text style={[styles.navText, { color: colors.textSecondary }]}>Orders</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/messages')}>
+          <MessagesIcon colors={colors} />
+          <Text style={[styles.navText, { color: colors.textSecondary }]}>Messages</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/profile')}>
+          <ProfileIcon colors={colors} />
+          <Text style={[styles.navText, { color: colors.textSecondary }]}>Profile</Text>
+        </TouchableOpacity>
+      </View>
+
     </SafeAreaView>
   );
 }
@@ -83,7 +121,6 @@ export default function MessagesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
   },
   header: {
     padding: 20,
@@ -102,13 +139,11 @@ const styles = StyleSheet.create({
   },
   conversationItem: {
     flexDirection: 'row',
-    backgroundColor: '#1a1a2e',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#2a2a40',
   },
   avatar: {
     width: 50,
@@ -136,11 +171,9 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#ffffff',
   },
   time: {
     fontSize: 12,
-    color: '#b8b8c0',
   },
   conversationFooter: {
     flexDirection: 'row',
@@ -149,7 +182,6 @@ const styles = StyleSheet.create({
   },
   lastMessage: {
     fontSize: 14,
-    color: '#b8b8c0',
     flex: 1,
     marginRight: 8,
   },
@@ -166,5 +198,27 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 12,
     fontWeight: '700',
+  },
+
+  /* NAVIGATION BAR */
+  navigationBar: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    paddingBottom: 20,
+  },
+  navItem: {
+    flex: 1,
+    paddingVertical: 15,
+    alignItems: 'center',
+  },
+  navText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  navIcon: {
+    width: 24,
+    height: 24,
+    resizeMode: 'contain',
   },
 });

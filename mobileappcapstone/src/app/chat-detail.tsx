@@ -1,8 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, SafeAreaView } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function ChatDetailScreen() {
+  const { colors } = useTheme();
   const { name } = useLocalSearchParams();
 
   const messages = [
@@ -39,8 +41,8 @@ export default function ChatDetailScreen() {
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
@@ -48,7 +50,7 @@ export default function ChatDetailScreen() {
           <View style={styles.headerAvatar}>
             <Text style={styles.headerAvatarText}>{name?.toString().substring(0, 2).toUpperCase()}</Text>
           </View>
-          <Text style={styles.headerTitle}>{name}</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>{name}</Text>
         </View>
       </View>
 
@@ -58,18 +60,18 @@ export default function ChatDetailScreen() {
             key={message.id}
             style={[
               styles.messageBubble,
-              message.isUser ? styles.userMessage : styles.otherMessage,
+              message.isUser ? styles.userMessage : [styles.otherMessage, { backgroundColor: colors.card }],
             ]}
           >
-            <Text style={styles.messageText}>{message.text}</Text>
-            <Text style={styles.messageTime}>{message.time}</Text>
+            <Text style={[styles.messageText, { color: message.isUser ? '#ffffff' : colors.text }]}>{message.text}</Text>
+            <Text style={[styles.messageTime, { color: colors.textSecondary }]}>{message.time}</Text>
           </View>
         ))}
       </ScrollView>
 
-      <View style={styles.inputContainer}>
+      <View style={[styles.inputContainer, { borderTopColor: colors.border }]}>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { backgroundColor: colors.card, color: colors.text }]}
           placeholder="Type a message..."
           placeholderTextColor="#666"
         />
@@ -84,14 +86,12 @@ export default function ChatDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a2a40',
   },
   backButton: {
     backgroundColor: '#ff6b35',
@@ -127,7 +127,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#ffffff',
   },
   messagesScroll: {
     flex: 1,
@@ -148,34 +147,28 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 4,
   },
   otherMessage: {
-    backgroundColor: '#1a1a2e',
     alignSelf: 'flex-start',
     borderBottomLeftRadius: 4,
   },
   messageText: {
     fontSize: 14,
-    color: '#ffffff',
     marginBottom: 4,
   },
   messageTime: {
     fontSize: 11,
-    color: '#b8b8c0',
     textAlign: 'right',
   },
   inputContainer: {
     flexDirection: 'row',
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: '#2a2a40',
     alignItems: 'center',
   },
   input: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
     borderRadius: 20,
     padding: 12,
     paddingHorizontal: 16,
-    color: '#ffffff',
     marginRight: 12,
   },
   sendButton: {

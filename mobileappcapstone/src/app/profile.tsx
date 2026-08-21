@@ -1,19 +1,45 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
-import { router } from 'expo-router';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Image } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useTheme } from '../contexts/ThemeContext';
+
+const HomeIcon = ({ colors }: { colors: any }) => (
+  <Image source={require('@/assets/images/homepageicon/home.png')} style={styles.navIcon} tintColor={colors.text} />
+);
+
+const OrdersIcon = ({ colors }: { colors: any }) => (
+  <Image source={require('@/assets/images/homepageicon/booking.png')} style={styles.navIcon} tintColor={colors.text} />
+);
+
+const MessagesIcon = ({ colors }: { colors: any }) => (
+  <Image source={require('@/assets/images/homepageicon/messages.png')} style={styles.navIcon} tintColor={colors.text} />
+);
+
+const ProfileIcon = ({ colors }: { colors: any }) => (
+  <Image source={require('@/assets/images/homepageicon/profile.png')} style={styles.navIcon} tintColor={colors.text} />
+);
 
 export default function ProfileScreen() {
+  const { colors } = useTheme();
+  const { profileImage, name } = useLocalSearchParams<{ profileImage: string; name: string }>();
+  const [avatarImage, setAvatarImage] = useState<string | null>(profileImage || null);
+  const [userName, setUserName] = useState<string>(name || 'John Doe');
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.profileSection}>
+        <View style={[styles.profileSection, { borderBottomColor: colors.border }]}>
           <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>JD</Text>
-            </View>
+            {avatarImage ? (
+              <Image source={{ uri: avatarImage }} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>JD</Text>
+              </View>
+            )}
           </View>
-          <Text style={styles.name}>John Doe</Text>
-          <Text style={styles.email}>john.doe@example.com</Text>
+          <Text style={[styles.name, { color: colors.text }]}>{userName}</Text>
+          <Text style={[styles.email, { color: colors.textSecondary }]}>john.doe@example.com</Text>
           <TouchableOpacity style={styles.editButton} onPress={() => {
             // @ts-ignore
             router.push('/edit-profile');
@@ -22,26 +48,40 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.menuSection}>
-          <TouchableOpacity style={styles.menuItem}>
-            <Text style={styles.menuIcon}>⚙</Text>
-            <Text style={styles.menuText}>Settings</Text>
-            <Text style={styles.menuArrow}>›</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.menuItem}>
-            <Text style={styles.menuIcon}>?</Text>
-            <Text style={styles.menuText}>Help & Support</Text>
-            <Text style={styles.menuArrow}>›</Text>
+        <View style={[styles.menuSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <TouchableOpacity style={[styles.menuItem, { borderBottomColor: colors.border }]} onPress={() => router.push('/settings')}>
+            <Text style={[styles.menuIcon, { color: colors.text }]}>⚙</Text>
+            <Text style={[styles.menuText, { color: colors.text }]}>Settings</Text>
+            <Text style={[styles.menuArrow, { color: colors.textSecondary }]}>›</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.menuItem} onPress={() => router.replace('/login')}>
-            <Text style={styles.menuIcon}>←</Text>
-            <Text style={styles.menuText}>Logout</Text>
-            <Text style={styles.menuArrow}>›</Text>
+            <Text style={[styles.menuIcon, { color: colors.text }]}>←</Text>
+            <Text style={[styles.menuText, { color: colors.text }]}>Logout</Text>
+            <Text style={[styles.menuArrow, { color: colors.textSecondary }]}>›</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      <View style={[styles.navigationBar, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/home')}>
+          <HomeIcon colors={colors} />
+          <Text style={[styles.navText, { color: colors.textSecondary }]}>Home</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/orders')}>
+          <OrdersIcon colors={colors} />
+          <Text style={[styles.navText, { color: colors.textSecondary }]}>Orders</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/messages')}>
+          <MessagesIcon colors={colors} />
+          <Text style={[styles.navText, { color: colors.textSecondary }]}>Messages</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/profile')}>
+          <ProfileIcon colors={colors} />
+          <Text style={[styles.navText, { color: colors.textSecondary }]}>Profile</Text>
+        </TouchableOpacity>
+      </View>
+
     </SafeAreaView>
   );
 }
@@ -49,7 +89,6 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
   },
   scrollContent: {
     padding: 20,
@@ -58,7 +97,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 30,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a2a40',
     marginBottom: 20,
   },
   avatarContainer: {
@@ -80,12 +118,10 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#ffffff',
     marginBottom: 5,
   },
   email: {
     fontSize: 14,
-    color: '#b8b8c0',
     marginBottom: 20,
   },
   editButton: {
@@ -100,32 +136,48 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   menuSection: {
-    backgroundColor: '#1a1a2e',
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#2a2a40',
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 18,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a2a40',
   },
   menuIcon: {
     fontSize: 24,
     marginRight: 15,
-    color: '#ffffff',
   },
   menuText: {
     flex: 1,
     fontSize: 16,
-    color: '#ffffff',
     fontWeight: '600',
   },
   menuArrow: {
     fontSize: 24,
-    color: '#b8b8c0',
+  },
+
+  /* NAVIGATION BAR */
+  navigationBar: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    paddingBottom: 20,
+  },
+  navItem: {
+    flex: 1,
+    paddingVertical: 15,
+    alignItems: 'center',
+  },
+  navText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  navIcon: {
+    width: 24,
+    height: 24,
+    resizeMode: 'contain',
   },
 });
