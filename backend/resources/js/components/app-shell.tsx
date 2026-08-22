@@ -1,5 +1,5 @@
 import { SidebarProvider } from '@/components/ui/sidebar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface AppShellProps {
     children: React.ReactNode;
@@ -8,6 +8,17 @@ interface AppShellProps {
 
 export function AppShell({ children, variant = 'header' }: AppShellProps) {
     const [isOpen, setIsOpen] = useState(() => (typeof window !== 'undefined' ? localStorage.getItem('sidebar') !== 'false' : true));
+
+    useEffect(() => {
+        const revalidateRestoredPage = (event: PageTransitionEvent) => {
+            if (event.persisted) {
+                window.location.reload();
+            }
+        };
+
+        window.addEventListener('pageshow', revalidateRestoredPage);
+        return () => window.removeEventListener('pageshow', revalidateRestoredPage);
+    }, []);
 
     const handleSidebarChange = (open: boolean) => {
         setIsOpen(open);

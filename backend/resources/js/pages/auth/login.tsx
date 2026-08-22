@@ -6,8 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AuthLayout from '@/layouts/auth-layout';
 import { Head, useForm } from '@inertiajs/react';
-import { LoaderCircle } from 'lucide-react';
-import { FormEvent } from 'react';
+import { Eye, EyeOff, LoaderCircle } from 'lucide-react';
+import { FormEvent, useState } from 'react';
 
 interface LoginProps {
     status?: string;
@@ -15,6 +15,7 @@ interface LoginProps {
 }
 
 export default function Login({ status, canResetPassword }: LoginProps) {
+    const [isPasswordVisible, setIsPasswordVisible] = useState(false);
     const { data, setData, post, processing, errors, reset } = useForm({
         email: '',
         password: '',
@@ -35,7 +36,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
             <form onSubmit={submit} className="flex flex-col gap-7">
                 <div className="grid gap-6">
                     <div className="grid gap-2.5">
-                        <Label htmlFor="email" className="text-sm font-medium text-[#1e3a56] dark:text-slate-100">
+                        <Label htmlFor="email" className="text-sm font-medium text-[#172033] dark:text-[#F8FAFC]">
                             Email address
                         </Label>
                         <Input
@@ -48,37 +49,48 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                             autoFocus
                             autoComplete="email"
                             placeholder="email@example.com"
-                            className="h-12 border-[#b8cadc] bg-white px-4 text-base text-[#0b1f35] placeholder:text-[#71859b] focus-visible:border-[#476a8a] focus-visible:ring-[#476a8a] focus-visible:ring-offset-white dark:border-slate-700 dark:bg-[#0b0e14] dark:text-white dark:placeholder:text-slate-500 dark:focus-visible:border-slate-400 dark:focus-visible:ring-slate-400 dark:focus-visible:ring-offset-[#080a0e]"
+                            className="h-12 border-[#DDE3EA] bg-white px-4 text-base text-[#172033] placeholder:text-[#667085] focus-visible:border-[#174EA6] focus-visible:ring-[#174EA6] focus-visible:ring-offset-white dark:border-[#263241] dark:bg-[#111A24] dark:text-[#F8FAFC] dark:placeholder:text-[#9CA9B8] dark:focus-visible:border-[#F2B735] dark:focus-visible:ring-[#F2B735] dark:focus-visible:ring-offset-[#111A24]"
                         />
                         <InputError message={errors.email} />
                     </div>
 
                     <div className="grid gap-2.5">
                         <div className="flex items-center justify-between gap-4">
-                            <Label htmlFor="password" className="text-sm font-medium text-[#1e3a56] dark:text-slate-100">
+                            <Label htmlFor="password" className="text-sm font-medium text-[#172033] dark:text-[#F8FAFC]">
                                 Password
                             </Label>
                             {canResetPassword && (
                                 <TextLink
                                     href={route('password.request')}
-                                    className="ml-auto text-sm text-[#385a7d] underline-offset-4 hover:text-[#0a2540] dark:text-slate-300 dark:hover:text-white"
+                                    className="ml-auto text-sm text-[#D4A017] underline-offset-4 hover:text-[#F2B735] dark:text-[#F2B735] dark:hover:text-[#F8FAFC]"
                                     tabIndex={5}
                                 >
                                     Forgot password?
                                 </TextLink>
                             )}
                         </div>
-                        <Input
-                            id="password"
-                            type="password"
-                            name="password"
-                            value={data.password}
-                            onChange={(e) => setData('password', e.target.value)}
-                            required
-                            autoComplete="current-password"
-                            placeholder="Password"
-                            className="h-12 border-[#b8cadc] bg-white px-4 text-base text-[#0b1f35] placeholder:text-[#71859b] focus-visible:border-[#476a8a] focus-visible:ring-[#476a8a] focus-visible:ring-offset-white dark:border-slate-700 dark:bg-[#0b0e14] dark:text-white dark:placeholder:text-slate-500 dark:focus-visible:border-slate-400 dark:focus-visible:ring-slate-400 dark:focus-visible:ring-offset-[#080a0e]"
-                        />
+                        <div className="relative">
+                            <Input
+                                id="password"
+                                type={isPasswordVisible ? 'text' : 'password'}
+                                name="password"
+                                value={data.password}
+                                onChange={(e) => setData('password', e.target.value)}
+                                required
+                                autoComplete="current-password"
+                                placeholder="Password"
+                                className="h-12 border-[#DDE3EA] bg-white px-4 pr-12 text-base text-[#172033] placeholder:text-[#667085] focus-visible:border-[#174EA6] focus-visible:ring-[#174EA6] focus-visible:ring-offset-white dark:border-[#263241] dark:bg-[#111A24] dark:text-[#F8FAFC] dark:placeholder:text-[#9CA9B8] dark:focus-visible:border-[#F2B735] dark:focus-visible:ring-[#F2B735] dark:focus-visible:ring-offset-[#111A24]"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setIsPasswordVisible((visible) => !visible)}
+                                aria-label={isPasswordVisible ? 'Hide password' : 'Show password'}
+                                aria-pressed={isPasswordVisible}
+                                className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-[#667085] transition-colors hover:text-[#0F2742] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4A017] focus-visible:ring-inset dark:text-[#9CA9B8] dark:hover:text-[#F8FAFC] dark:focus-visible:ring-[#F2B735]"
+                            >
+                                {isPasswordVisible ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
+                            </button>
+                        </div>
                         <InputError message={errors.password} />
                     </div>
 
@@ -88,16 +100,16 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                             name="remember"
                             checked={data.remember}
                             onCheckedChange={(checked) => setData('remember', Boolean(checked))}
-                            className="border-[#8fa6bc] bg-white data-[state=checked]:border-slate-900 data-[state=checked]:bg-slate-900 data-[state=checked]:text-white dark:border-slate-600 dark:bg-[#0b0e14] dark:data-[state=checked]:border-slate-200 dark:data-[state=checked]:bg-slate-100 dark:data-[state=checked]:text-slate-950"
+                            className="border-[#DDE3EA] bg-white data-[state=checked]:border-[#0F2742] data-[state=checked]:bg-[#0F2742] data-[state=checked]:text-white dark:border-[#263241] dark:bg-[#111A24] dark:data-[state=checked]:border-[#F2B735] dark:data-[state=checked]:bg-[#F2B735] dark:data-[state=checked]:text-[#0F2742]"
                         />
-                        <Label htmlFor="remember" className="text-sm font-normal text-[#52677d] dark:text-slate-300">
+                        <Label htmlFor="remember" className="text-sm font-normal text-[#667085] dark:text-[#9CA9B8]">
                             Remember me
                         </Label>
                     </div>
 
                     <Button
                         type="submit"
-                        className="mt-2 h-12 w-full rounded-md bg-slate-950 text-base font-semibold text-white hover:bg-slate-800 focus-visible:ring-slate-500 focus-visible:ring-offset-white dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white dark:focus-visible:ring-slate-300 dark:focus-visible:ring-offset-[#080a0e]"
+                        className="mt-2 h-12 w-full rounded-md bg-[#0F2742] text-base font-semibold text-white hover:bg-[#174EA6] focus-visible:ring-[#D4A017] focus-visible:ring-offset-white dark:bg-[#174EA6] dark:text-white dark:hover:bg-[#0F2742] dark:focus-visible:ring-[#F2B735] dark:focus-visible:ring-offset-[#111A24]"
                         disabled={processing}
                     >
                         {processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
@@ -106,7 +118,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                 </div>
             </form>
 
-            {status && <div className="mt-6 text-center text-sm font-medium text-emerald-700 dark:text-emerald-400">{status}</div>}
+            {status && <div className="mt-6 text-center text-sm font-medium text-[#174EA6] dark:text-[#F2B735]">{status}</div>}
         </AuthLayout>
     );
 }

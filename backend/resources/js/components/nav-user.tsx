@@ -18,8 +18,8 @@ export function NavUser() {
         return (
             <SidebarMenu>
                 <SidebarMenuItem>
-                    <SidebarMenuButton size="lg" className="cursor-default">
-                        <span className="flex size-8 items-center justify-center rounded-md bg-sidebar-primary text-xs font-bold text-sidebar-primary-foreground">A</span>
+                    <SidebarMenuButton size="lg" className="cursor-default rounded-lg px-2 text-sidebar-foreground">
+                        <span className="flex size-8 items-center justify-center rounded-full bg-sidebar-accent text-xs font-medium text-sidebar-accent-foreground">A</span>
                         <span className="grid flex-1 text-left text-sm leading-tight">
                             <span className="truncate font-semibold">Admin preview</span>
                             <span className="truncate text-xs text-sidebar-foreground/60">Local development</span>
@@ -35,7 +35,7 @@ export function NavUser() {
             <SidebarMenuItem>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <SidebarMenuButton size="lg" className="text-sidebar-accent-foreground data-[state=open]:bg-sidebar-accent group">
+                        <SidebarMenuButton size="lg" className="group rounded-lg px-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[state=open]:bg-sidebar-accent">
                             <UserInfo user={auth.user} />
                             <ChevronsUpDown className="ml-auto size-4" />
                         </SidebarMenuButton>

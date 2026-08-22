@@ -6,6 +6,8 @@ use App\Http\Controllers\Web\ProductControllerModuleController;
 use App\Http\Controllers\Web\ProductPageController;
 use App\Http\Controllers\Web\SalesAgentController;
 use App\Http\Controllers\Web\UserManagementController;
+use App\Support\RoleDashboard;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -14,11 +16,29 @@ Route::get('/', function () {
 })->name('home');
 
 Route::middleware(['backend.auth'])->group(function () {
-    Route::get('dashboard', function () {
+    Route::get('dashboard', function (Request $request) {
+        $dashboardRoute = RoleDashboard::routeNameFor($request->user('web')?->role);
+
+        if ($dashboardRoute !== 'dashboard') {
+            return redirect()->route($dashboardRoute);
+        }
+
         return Inertia::render('dashboard');
     })->name('dashboard');
 
     Route::get('products', [ProductPageController::class, 'index'])->name('products.index');
+
+    Route::middleware(['backend.role:admin'])->get('admin/dashboard', function () {
+        return Inertia::render('admin/dashboard');
+    })->name('admin.dashboard');
+
+    Route::middleware(['backend.role:sales_agent'])->get('sales/dashboard', function () {
+        return Inertia::render('sales/dashboard');
+    })->name('sales.dashboard');
+
+    Route::middleware(['backend.role:order_manager'])->get('order-manager/dashboard', function () {
+        return Inertia::render('order-manager/dashboard');
+    })->name('order-manager.dashboard');
 
     Route::middleware(['backend.role:product_controller'])->group(function () {
         Route::get('product-controller/dashboard', [ProductControllerDashboardController::class, 'index'])

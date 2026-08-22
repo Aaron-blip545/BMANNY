@@ -77,25 +77,25 @@
 }
 
 :root {
-    --background: hsl(210, 20%, 98%);
-    --foreground: hsl(222, 47%, 11%);
+    --background: hsl(0, 0%, 97%);
+    --foreground: hsl(240, 6%, 10%);
     --card: hsl(0, 0%, 100%);
-    --card-foreground: hsl(222, 47%, 11%);
+    --card-foreground: hsl(240, 6%, 10%);
     --popover: hsl(0, 0%, 100%);
     --popover-foreground: hsl(222, 47%, 11%);
-    --primary: hsl(222, 47%, 11%);
+    --primary: hsl(0, 72%, 42%);
     --primary-foreground: hsl(0, 0%, 100%);
-    --secondary: hsl(210, 40%, 96%);
-    --secondary-foreground: hsl(222, 47%, 11%);
-    --muted: hsl(210, 40%, 96%);
-    --muted-foreground: hsl(215, 16%, 47%);
-    --accent: hsl(210, 40%, 96%);
-    --accent-foreground: hsl(222, 47%, 11%);
+    --secondary: hsl(240, 5%, 94%);
+    --secondary-foreground: hsl(240, 6%, 10%);
+    --muted: hsl(240, 5%, 94%);
+    --muted-foreground: hsl(240, 4%, 40%);
+    --accent: hsl(240, 5%, 94%);
+    --accent-foreground: hsl(240, 6%, 10%);
     --destructive: hsl(0, 84.2%, 60.2%);
     --destructive-foreground: hsl(0, 0%, 98%);
-    --border: hsl(214, 32%, 91%);
-    --input: hsl(214, 32%, 85%);
-    --ring: hsl(142, 48%, 36%);
+    --border: hsl(240, 6%, 88%);
+    --input: hsl(240, 6%, 84%);
+    --ring: hsl(0, 72%, 42%);
     --chart-1: hsl(12, 76%, 61%);
     --chart-2: hsl(173, 58%, 39%);
     --chart-3: hsl(197, 37%, 24%);
@@ -103,48 +103,48 @@
     --chart-5: hsl(27, 87%, 67%);
     --radius: 0.5rem;
     --sidebar-background: hsl(0, 0%, 100%);
-    --sidebar-foreground: hsl(215, 25%, 32%);
-    --sidebar-primary: hsl(222, 47%, 11%);
+    --sidebar-foreground: hsl(240, 5%, 32%);
+    --sidebar-primary: hsl(0, 72%, 42%);
     --sidebar-primary-foreground: hsl(0, 0%, 100%);
-    --sidebar-accent: hsl(210, 40%, 96%);
-    --sidebar-accent-foreground: hsl(222, 47%, 11%);
-    --sidebar-border: hsl(214, 32%, 91%);
-    --sidebar-ring: hsl(142, 48%, 36%);
+    --sidebar-accent: hsl(240, 5%, 94%);
+    --sidebar-accent-foreground: hsl(240, 6%, 10%);
+    --sidebar-border: hsl(240, 6%, 88%);
+    --sidebar-ring: hsl(0, 72%, 42%);
 }
 
 .dark {
-    --background: hsl(0, 0%, 3.9%);
-    --foreground: hsl(0, 0%, 98%);
-    --card: hsl(0, 0%, 3.9%);
+    --background: hsl(240, 4%, 4%);
+    --foreground: hsl(0, 0%, 95.7%);
+    --card: hsl(240, 4%, 8%);
     --card-foreground: hsl(0, 0%, 98%);
     --popover: hsl(0, 0%, 3.9%);
     --popover-foreground: hsl(0, 0%, 98%);
-    --primary: hsl(0, 0%, 98%);
-    --primary-foreground: hsl(0, 0%, 9%);
+    --primary: hsl(0, 72%, 42%);
+    --primary-foreground: hsl(0, 0%, 100%);
     --secondary: hsl(0, 0%, 14.9%);
     --secondary-foreground: hsl(0, 0%, 98%);
-    --muted: hsl(0, 0%, 6.9%);
+    --muted: hsl(240, 4%, 8%);
     --muted-foreground: hsl(0, 0%, 63.9%);
     --accent: hsl(0, 0%, 14.9%);
     --accent-foreground: hsl(0, 0%, 98%);
     --destructive: hsl(0, 84%, 60%);
     --destructive-foreground: hsl(0, 0%, 98%);
-    --border: hsl(0, 0%, 14.9%);
-    --input: hsl(0, 0%, 14.9%);
-    --ring: hsl(0, 0%, 83.1%);
+    --border: hsl(240, 4%, 16%);
+    --input: hsl(240, 4%, 16%);
+    --ring: hsl(0, 72%, 42%);
     --chart-1: hsl(220, 70%, 50%);
     --chart-2: hsl(160, 60%, 45%);
     --chart-3: hsl(30, 80%, 55%);
     --chart-4: hsl(280, 65%, 60%);
     --chart-5: hsl(340, 75%, 55%);
-    --sidebar-background: hsl(0, 0%, 7%);
-    --sidebar-foreground: hsl(0, 0%, 80%);
+    --sidebar-background: hsl(210, 6%, 7%);
+    --sidebar-foreground: hsl(0, 0%, 78%);
     --sidebar-primary: hsl(360, 100%, 100%);
     --sidebar-primary-foreground: hsl(0, 0%, 100%);
-    --sidebar-accent: hsl(0, 0%, 15.9%);
-    --sidebar-accent-foreground: hsl(240, 4.8%, 95.9%);
-    --sidebar-border: hsl(0, 0%, 15.9%);
-    --sidebar-ring: hsl(217.2, 91.2%, 59.8%);
+    --sidebar-accent: hsl(240, 4%, 13%);
+    --sidebar-accent-foreground: hsl(0, 0%, 95.7%);
+    --sidebar-border: hsl(240, 4%, 16%);
+    --sidebar-ring: hsl(0, 72%, 42%);
 }
 
 @layer base {
@@ -154,12 +154,5 @@
 
     body {
         @apply bg-background text-foreground;
-    }
-}
-
-@layer components {
-    html:not(.dark) [data-sidebar='menu-button'][data-active='true'] {
-        background-color: hsl(142, 45%, 94%);
-        color: hsl(142, 60%, 26%);
     }
 }

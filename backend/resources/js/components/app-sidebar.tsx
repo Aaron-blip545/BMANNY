@@ -2,6 +2,7 @@ import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
+import { roleDashboardHref } from '@/lib/role-dashboard';
 import { Link, usePage } from '@inertiajs/react';
 import { Bell, Box, CircleHelp, FileText, House, ListTree, PackageCheck, PackageMinus, Settings, SlidersHorizontal, Users as UsersIcon } from 'lucide-react';
 import AppLogo from './app-logo';
@@ -16,10 +17,11 @@ export function AppSidebar() {
     const isSalesAgent   = role === 'sales_agent';
     const isOrderManager = role === 'order_manager';
     const isProductController = role === 'product_controller';
+    const dashboardHref = roleDashboardHref(role);
 
     const standardNavItems: NavItem[] = [
         // Everyone sees Dashboard and Inventory
-        { title: 'Dashboard', url: '/dashboard',       icon: House },
+        { title: 'Dashboard', url: dashboardHref,      icon: House },
         { title: 'Inventory',  url: '/products',        icon: PackageMinus },
 
         // Sales Agent + Admin: customer inquiries and quotation workflow
@@ -58,12 +60,12 @@ export function AppSidebar() {
     const mainNavItems = isProductController ? productControllerNavItems : standardNavItems;
 
     return (
-        <Sidebar collapsible="icon" variant="inset">
-            <SidebarHeader>
+        <Sidebar collapsible="icon" variant="inset" className="border-r border-sidebar-border">
+            <SidebarHeader className="border-b border-sidebar-border px-3 py-4 group-data-[collapsible=icon]:px-2">
                 <SidebarMenu>
                     <SidebarMenuItem>
-                        <SidebarMenuButton size="lg" asChild>
-                            <Link href="/dashboard" prefetch>
+                        <SidebarMenuButton size="lg" asChild className="h-12 rounded-lg px-2 hover:bg-transparent">
+                            <Link href={dashboardHref}>
                                 <AppLogo />
                             </Link>
                         </SidebarMenuButton>
@@ -75,7 +77,7 @@ export function AppSidebar() {
                 <NavMain items={mainNavItems} />
             </SidebarContent>
 
-            <SidebarFooter>
+            <SidebarFooter className="border-t border-sidebar-border px-3 py-3 group-data-[collapsible=icon]:px-2">
                 <NavUser />
             </SidebarFooter>
         </Sidebar>

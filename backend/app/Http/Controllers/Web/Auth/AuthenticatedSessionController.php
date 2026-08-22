@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Web\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Support\RoleDashboard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -32,18 +33,23 @@ class AuthenticatedSessionController extends Controller
      */
     public function store(LoginRequest $request): RedirectResponse
     {
-        // Always clear a previously authenticated web identity before starting
-        // a new login. This prevents a stale session from carrying an earlier
-        // user's role into the next Inertia response.
+        // Always discard the complete prior session before starting a new
+        // login. Logging out alone leaves other session data behind, which
+        // can make an Inertia page appear to belong to the previous user.
         if (Auth::guard('web')->check()) {
             Auth::guard('web')->logout();
         }
+
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
 
         $request->authenticate();
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        $dashboardRoute = RoleDashboard::routeNameFor($request->user('web')?->role);
+
+        return redirect()->route($dashboardRoute);
     }
 
     /**

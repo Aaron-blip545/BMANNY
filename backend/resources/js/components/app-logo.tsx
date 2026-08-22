@@ -13,7 +13,7 @@ export default function AppLogo() {
 
     return (
         <div className="flex items-center gap-3">
-            <img className="size-10 object-contain" src="/logo.jpg" alt="BMANNY Partners Inc." />
+            <img className="size-10 object-contain" src="/images/bmanny-logo-transparent.png" alt="BMANNY Partners Inc." />
             <span className="grid text-left text-sm leading-tight">
                 <span className="font-bold">BMANNY</span>
                 <span className="text-sidebar-foreground/60 text-xs">{roleLabel[role] ?? 'BMANNY Portal'}</span>

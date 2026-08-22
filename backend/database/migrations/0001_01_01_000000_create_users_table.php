@@ -19,6 +19,7 @@ return new class extends Migration
             $table->string('phone_number', 20)->nullable();
             $table->enum('role', ['admin', 'customer', 'sales_agent', 'product_controller', 'order_manager']);
             $table->boolean('is_active')->default(true);
+            $table->rememberToken();
             $table->timestamps();
         });
 
