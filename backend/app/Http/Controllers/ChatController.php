@@ -1,45 +1,52 @@
-<?php
-
-namespace App\Http\Controllers;
-
-use Illuminate\Http\Request;
-use App\Models\Message;
-
-class ChatController extends Controller
+/**
+ * List every conversation this user is part of - grouped by inquiry
+ * (or by the other person, if the messages aren't tied to an inquiry).
+ * This is what powers the conversations list screen.
+ */
+public function conversations(Request $request)
 {
-    // Send a message
-    public function sendMessage(Request $request)
-    {
-        $request->validate([
-            'receiver_id' => 'required|exists:users,user_id',
-            'inquiry_id' => 'nullable|exists:inquiries,inquiry_id',
-            'message_body' => 'required|string',
-        ]);
+    $userId = $request->user()->user_id;
 
-        $message = Message::create([
-            'sender_id' => $request->user()->user_id,
-            'receiver_id' => $request->receiver_id,
-            'inquiry_id' => $request->inquiry_id,
-            'message_body' => $request->message_body,
-        ]);
+    $messages = Message::where('sender_id', $userId)
+        ->orWhere('receiver_id', $userId)
+        ->with(['sender', 'receiver'])
+        ->orderByDesc('created_at')
+        ->get();
 
-        return response()->json([
-            'message' => 'Message sent successfully.',
-            'data' => $message
-        ], 201);
-    }
+    $conversations = $messages
+        ->groupBy(function ($message) use ($userId) {
+            // Group by inquiry if there is one, otherwise just by
+            // whoever the other person is.
+            $otherId = $message->sender_id === $userId ? $message->receiver_id : $message->sender_id;
+            return $message->inquiry_id ? "inquiry_{$message->inquiry_id}" : "user_{$otherId}";
+        })
+        ->map(function ($group) use ($userId) {
+            $latest = $group->first(); // already sorted newest-first
+            $other = $latest->sender_id === $userId ? $latest->receiver : $latest->sender;
 
-    // Get conversation history with a specific user
-    public function getConversation(Request $request, $other_user_id)
-    {
-        $current_user_id = $request->user()->user_id;
+            return [
+                'inquiry_id' => $latest->inquiry_id,
+                'other_user_id' => $other->user_id,
+                'other_user_name' => $other->full_name,
+                'last_message' => $latest->message_body,
+                'last_message_at' => $latest->created_at,
+                'unread_count' => $group->where('receiver_id', $userId)->where('is_read', false)->count(),
+            ];
+        })
+        ->values();
 
-        $messages = Message::where(function ($q) use ($current_user_id, $other_user_id) {
-            $q->where('sender_id', $current_user_id)->where('receiver_id', $other_user_id);
-        })->orWhere(function ($q) use ($current_user_id, $other_user_id) {
-            $q->where('sender_id', $other_user_id)->where('receiver_id', $current_user_id);
-        })->orderBy('created_at', 'asc')->get();
+    return response()->json($conversations);
+}
 
-        return response()->json($messages, 200);
-    }
+/**
+ * Mark all messages from one specific person as read - called when the
+ * customer/agent actually opens that conversation.
+ */
+public function markAsRead(Request $request, $other_user_id)
+{
+    Message::where('sender_id', $other_user_id)
+        ->where('receiver_id', $request->user()->user_id)
+        ->update(['is_read' => true]);
+
+    return response()->json(['message' => 'Marked as read.']);
 }

@@ -90,3 +90,27 @@ export async function register(data: {
 
     return response.user;
 }
+
+
+export async function getConversations() {
+    return request('/conversations');
+}
+
+export async function getConversation(otherUserId: number) {
+    return request(`/messages/${otherUserId}`);
+}
+
+export async function sendMessage(receiverId: number, messageBody: string, inquiryId?: number) {
+    return request('/messages', {
+        method: 'POST',
+        body: JSON.stringify({
+            receiver_id: receiverId,
+            message_body: messageBody,
+            inquiry_id: inquiryId ?? null,
+        }),
+    });
+}
+
+export async function markConversationRead(otherUserId: number) {
+    return request(`/messages/${otherUserId}/read`, { method: 'POST' });
+}
