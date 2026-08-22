@@ -37,10 +37,10 @@ interface Props {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-    pending:   'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
-    reviewed:  'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
-    responded: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
-    closed:    'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+    pending: 'bg-muted text-muted-foreground',
+    reviewed: 'bg-muted text-muted-foreground',
+    responded: 'bg-muted text-muted-foreground',
+    closed: 'bg-muted text-muted-foreground',
 };
 
 function formatDate(iso: string) {
@@ -61,7 +61,7 @@ export default function InquiriesPage({ inquiries }: Props) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Inquiries" />
 
-            <div className="p-4 sm:p-6 lg:p-8">
+            <div className="bg-background p-4 sm:p-6 lg:p-8">
                 {/* Header */}
                 <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -80,7 +80,7 @@ export default function InquiriesPage({ inquiries }: Props) {
 
                 {/* Flash message */}
                 {flash?.success && (
-                    <div className="mb-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-400">
+                    <div className="mb-4 rounded-lg border border-border bg-muted px-4 py-3 text-sm text-foreground">
                         {flash.success}
                     </div>
                 )}
@@ -88,22 +88,22 @@ export default function InquiriesPage({ inquiries }: Props) {
                 {/* Stats row */}
                 <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
                     {[
-                        { label: 'Total',     value: inquiries.length,                          color: 'text-foreground' },
-                        { label: 'Pending',   value: pending,                                    color: 'text-amber-600 dark:text-amber-400' },
-                        { label: 'Responded', value: responded,                                  color: 'text-green-600 dark:text-green-400' },
-                        { label: 'Closed',    value: inquiries.filter((i) => i.status === 'closed').length, color: 'text-muted-foreground' },
+                        { label: 'Total',     value: inquiries.length },
+                        { label: 'Pending',   value: pending },
+                        { label: 'Responded', value: responded },
+                        { label: 'Closed',    value: inquiries.filter((i) => i.status === 'closed').length },
                     ].map((s) => (
-                        <Card key={s.label} className="border-border/60">
+                        <Card key={s.label} className="rounded-xl border-border bg-card shadow-sm">
                             <CardContent className="p-4">
-                                <p className="text-xs text-muted-foreground">{s.label}</p>
-                                <p className={`mt-1 text-2xl font-bold ${s.color}`}>{s.value}</p>
+                                <p className="text-xs font-medium text-muted-foreground">{s.label}</p>
+                                <p className="mt-1 text-2xl font-semibold tracking-tight text-card-foreground">{s.value}</p>
                             </CardContent>
                         </Card>
                     ))}
                 </div>
 
                 {/* Table */}
-                <Card className="border-border/60 shadow-sm">
+                <Card className="rounded-xl border-border bg-card shadow-sm">
                     <CardContent className="p-0">
                         {inquiries.length === 0 ? (
                             <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
@@ -128,7 +128,7 @@ export default function InquiriesPage({ inquiries }: Props) {
                                         {inquiries.map((inquiry) => (
                                             <tr
                                                 key={inquiry.inquiry_id}
-                                                className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors"
+                                                className="border-b border-border/50 transition-colors last:border-0 hover:bg-muted/50"
                                             >
                                                 <td className="p-4 font-mono text-xs text-muted-foreground">
                                                     #{inquiry.inquiry_id}
@@ -148,7 +148,7 @@ export default function InquiriesPage({ inquiries }: Props) {
                                                             inquiry.customizations.map((c) => (
                                                                 <span
                                                                     key={c.customization_id}
-                                                                    className="rounded bg-slate-100 px-2 py-0.5 text-xs font-medium dark:bg-slate-800"
+                                                                    className="rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground"
                                                                 >
                                                                     {c.packaging_type}
                                                                 </span>
@@ -158,7 +158,7 @@ export default function InquiriesPage({ inquiries }: Props) {
                                                 </td>
                                                 <td className="p-4">
                                                     <span
-                                                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${STATUS_COLORS[inquiry.status] ?? ''}`}
+                                                        className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium capitalize ${STATUS_COLORS[inquiry.status] ?? ''}`}
                                                     >
                                                         {inquiry.status}
                                                     </span>

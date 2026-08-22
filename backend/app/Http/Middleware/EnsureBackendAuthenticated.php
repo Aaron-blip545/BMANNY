@@ -17,6 +17,14 @@ class EnsureBackendAuthenticated
             return redirect()->route('login');
         }
 
-        return $next($request);
+        $response = $next($request);
+
+        // Authenticated pages must not be restored from the browser cache after
+        // logout. A new request will then pass through this middleware again.
+        $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
+        $response->headers->set('Pragma', 'no-cache');
+        $response->headers->set('Expires', '0');
+
+        return $response;
     }
 }

@@ -33,14 +33,14 @@ const ORDER_STATUSES = ['pending', 'approved', 'in_production', 'packed', 'for_d
 type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 const STATUS_STYLES: Record<OrderStatus, string> = {
-    pending: 'bg-slate-100 text-slate-800 dark:bg-slate-800/40 dark:text-slate-300',
-    approved: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
-    in_production: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
-    packed: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300',
-    for_delivery: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
-    delivered: 'bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300',
-    completed: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
-    cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+    pending: 'bg-muted text-muted-foreground',
+    approved: 'bg-muted text-muted-foreground',
+    in_production: 'bg-muted text-muted-foreground',
+    packed: 'bg-muted text-muted-foreground',
+    for_delivery: 'bg-muted text-muted-foreground',
+    delivered: 'bg-muted text-muted-foreground',
+    completed: 'bg-muted text-muted-foreground',
+    cancelled: 'bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300',
 };
 
 function formatDate(iso: string) {
@@ -84,7 +84,7 @@ export default function OrdersIndex({ orders }: Props) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Orders" />
 
-            <div className="p-4 sm:p-6 lg:p-8">
+            <div className="bg-background p-4 sm:p-6 lg:p-8">
                 {/* Header */}
                 <div className="mb-6">
                     <h1 className="text-2xl font-semibold tracking-tight">Orders</h1>
@@ -95,7 +95,7 @@ export default function OrdersIndex({ orders }: Props) {
 
                 {/* Flash */}
                 {flash?.success && (
-                    <div className="mb-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-400">
+                    <div className="mb-4 rounded-lg border border-border bg-muted px-4 py-3 text-sm text-foreground">
                         {flash.success}
                     </div>
                 )}
@@ -103,10 +103,10 @@ export default function OrdersIndex({ orders }: Props) {
                 {/* Stats */}
                 <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
                     {ORDER_STATUSES.map((s) => (
-                        <Card key={s} className="border-border/60">
+                        <Card key={s} className="rounded-xl border-border bg-card shadow-sm">
                             <CardContent className="p-4">
-                                <p className="text-xs capitalize text-muted-foreground">{s}</p>
-                                <p className={`mt-1 text-2xl font-bold ${STATUS_STYLES[s].split(' ')[1]}`}>
+                                <p className="text-xs font-medium capitalize text-muted-foreground">{s.replace('_', ' ')}</p>
+                                <p className="mt-1 text-2xl font-semibold tracking-tight text-card-foreground">
                                     {counts[s]}
                                 </p>
                             </CardContent>
@@ -115,7 +115,7 @@ export default function OrdersIndex({ orders }: Props) {
                 </div>
 
                 {/* Table */}
-                <Card className="border-border/60 shadow-sm">
+                <Card className="rounded-xl border-border bg-card shadow-sm">
                     <CardContent className="p-0">
                         {orders.length === 0 ? (
                             <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
@@ -141,7 +141,7 @@ export default function OrdersIndex({ orders }: Props) {
                                         {orders.map((order) => (
                                             <tr
                                                 key={order.order_id}
-                                                className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors"
+                                                className="border-b border-border/50 transition-colors last:border-0 hover:bg-muted/50"
                                             >
                                                 <td className="p-4 font-mono text-xs text-muted-foreground">
                                                     #{order.order_id}
@@ -165,7 +165,7 @@ export default function OrdersIndex({ orders }: Props) {
                                                 </td>
                                                 <td className="p-4">
                                                     <span
-                                                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${STATUS_STYLES[order.status] ?? ''}`}
+                                                        className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium capitalize ${STATUS_STYLES[order.status] ?? ''}`}
                                                     >
                                                         {order.status}
                                                     </span>
@@ -175,7 +175,7 @@ export default function OrdersIndex({ orders }: Props) {
                                                         value={order.status}
                                                         disabled={updatingId === order.order_id}
                                                         onChange={(e) => handleStatusChange(order.order_id, e.target.value)}
-                                                        className="rounded-md border border-input bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                                                        className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
                                                     >
                                                         {ORDER_STATUSES.map((s) => (
                                                             <option key={s} value={s} className="capitalize">
@@ -191,14 +191,14 @@ export default function OrdersIndex({ orders }: Props) {
                                                             placeholder="Courier (e.g. J&T)"
                                                             defaultValue={order.courier_name ?? ''}
                                                             onBlur={(e) => handleTrackingUpdate(order.order_id, 'courier_name', e.target.value)}
-                                                            className="rounded-md border border-input bg-background px-2 py-1 text-xs"
+                                                            className="rounded-md border border-input bg-background px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground"
                                                         />
                                                         <input
                                                             type="text"
                                                             placeholder="Tracking number"
                                                             defaultValue={order.courier_tracking_number ?? ''}
                                                             onBlur={(e) => handleTrackingUpdate(order.order_id, 'courier_tracking_number', e.target.value)}
-                                                            className="rounded-md border border-input bg-background px-2 py-1 text-xs"
+                                                            className="rounded-md border border-input bg-background px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground"
                                                         />
                                                     </div>
                                                 </td>
