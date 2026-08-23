@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Web\ChatController;
 use App\Http\Controllers\Web\OrderManagerController;
 use App\Http\Controllers\Web\ProductControllerDashboardController;
 use App\Http\Controllers\Web\ProductControllerModuleController;
@@ -48,13 +49,17 @@ Route::middleware(['backend.auth'])->group(function () {
             ->name('product-controller.module');
     });
 
-    // Sales Agent + Admin: Inquiries list and Quotation workflow
+    // Sales Agent + Admin: Inquiries list, Quotation workflow, and Chat
     Route::middleware(['backend.role:sales_agent,admin'])->group(function () {
         Route::get('inquiries', [SalesAgentController::class, 'inquiries'])->name('inquiries.index');
         Route::get('quotations', [SalesAgentController::class, 'quotations'])->name('quotations.index');
         Route::get('quotations/create', [SalesAgentController::class, 'createQuotation'])->name('quotations.create');
         Route::post('quotations', [SalesAgentController::class, 'storeQuotation'])->name('quotations.store');
         Route::post('quotations/{id}/accept', [SalesAgentController::class, 'acceptQuotation'])->name('quotations.accept');
+
+        // Chat: one thread per inquiry
+        Route::get('inquiries/{inquiry_id}/chat', [ChatController::class, 'show'])->name('chat.show');
+        Route::post('inquiries/{inquiry_id}/chat', [ChatController::class, 'send'])->name('chat.send');
     });
 
     // Order Manager + Admin: Orders list and status updates

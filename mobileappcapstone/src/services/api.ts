@@ -114,3 +114,52 @@ export async function sendMessage(receiverId: number, messageBody: string, inqui
 export async function markConversationRead(otherUserId: number) {
     return request(`/messages/${otherUserId}/read`, { method: 'POST' });
 }
+
+/**
+ * Return the currently logged-in user's profile including their
+ * businessClient (client_id) so we don't need a separate request.
+ */
+export async function getMe() {
+    return request('/user');
+}
+
+/**
+ * Submit a new rebranding / private-label inquiry to the backend.
+ * clientId comes from the user's businessClient profile.
+ */
+export async function submitInquiry(
+    clientId: number,
+    customizations: {
+        packaging_type: string;
+        packaging_finish?: string;
+        serving_size?: string;
+        client_notes?: string;
+    }[]
+) {
+    return request('/inquiries', {
+        method: 'POST',
+        body: JSON.stringify({ client_id: clientId, customizations }),
+    });
+}
+
+/**
+ * Fetch all orders belonging to the authenticated customer.
+ */
+export async function getMyOrders() {
+    return request('/orders/my-orders');
+}
+
+/**
+ * Fetch all inquiries submitted by the authenticated customer.
+ */
+export async function getMyInquiries() {
+    return request('/inquiries/my-inquiries');
+}
+
+/**
+ * Fetch all quotations sent to the authenticated customer.
+ */
+export async function getMyQuotations() {
+    return request('/quotations/my-quotes');
+}
+

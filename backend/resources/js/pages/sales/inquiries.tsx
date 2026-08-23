@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/react';
-import { ClipboardList, Plus } from 'lucide-react';
+import { ClipboardList, MessageSquare, Plus } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Inquiries', href: '/inquiries' }];
 
@@ -167,15 +167,26 @@ export default function InquiriesPage({ inquiries }: Props) {
                                                     {formatDate(inquiry.created_at)}
                                                 </td>
                                                 <td className="p-4">
-                                                    {inquiry.status === 'pending' || inquiry.status === 'reviewed' ? (
-                                                        <Button variant="outline" size="sm" asChild>
-                                                            <Link href={route('quotations.create', { inquiry_id: inquiry.inquiry_id })}>
-                                                                Quote
+                                                    <div className="flex items-center gap-2">
+                                                        {/* Chat — always available */}
+                                                        <Button variant="ghost" size="sm" asChild>
+                                                            <Link href={route('chat.show', inquiry.inquiry_id)}>
+                                                                <MessageSquare className="mr-1 h-3.5 w-3.5" />
+                                                                Chat
                                                             </Link>
                                                         </Button>
-                                                    ) : (
-                                                        <span className="text-xs text-muted-foreground capitalize">{inquiry.status}</span>
-                                                    )}
+
+                                                        {/* Quote — only on pending/reviewed */}
+                                                        {inquiry.status === 'pending' || inquiry.status === 'reviewed' ? (
+                                                            <Button variant="outline" size="sm" asChild>
+                                                                <Link href={route('quotations.create', { inquiry_id: inquiry.inquiry_id })}>
+                                                                    Quote
+                                                                </Link>
+                                                            </Button>
+                                                        ) : (
+                                                            <span className="text-xs text-muted-foreground capitalize">{inquiry.status}</span>
+                                                        )}
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}

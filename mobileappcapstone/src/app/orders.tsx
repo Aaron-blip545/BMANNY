@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,12 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Image,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
+import { router } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
+import { getMyOrders, getMyInquiries } from '../services/api';
 
 const HomeIcon = ({ colors }: { colors: any }) => (
   <Image source={require('@/assets/images/homepageicon/home.png')} style={styles.navIcon} tintColor={colors.text} />
@@ -28,45 +31,61 @@ const ProfileIcon = ({ colors }: { colors: any }) => (
 );
 
 interface Order {
-  productType: string;
-  flavor: string;
-  size: string;
-  packaging: string;
-  container: string;
-  labelDesign: string;
-  brandName: string;
-  quantity: string;
-  paymentMethod: string;
-  imageData: string;
+  order_id: number;
   status: string;
-  orderDate: string;
+  total_amount: string;
+  internal_tracking_number: string | null;
+  created_at: string;
+  item_details: string | null;
+  inquiry_id: number | null;
+  customizations: { packaging_type: string; serving_size: string | null }[];
+}
+
+interface Inquiry {
+  inquiry_id: number;
+  status: string;
+  created_at: string;
+  has_quotation: boolean;
+  quotation_amount: string | null;
+  customizations: { packaging_type: string; serving_size: string | null; client_notes: string | null }[];
 }
 
 export default function OrdersScreen() {
   const { colors } = useTheme();
-  const { orderData } = useLocalSearchParams<{ orderData: string }>();
+  const [view, setView] = useState<'inquiries' | 'orders'>('inquiries');
   const [orders, setOrders] = useState<Order[]>([]);
-  const [activeTab, setActiveTab] = useState('pending');
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState('approved');
 
   const statusTabs = [
-    { id: 'pending', label: 'Pending' },
-    { id: 'approved', label: 'Approved' },
+    { id: 'approved',      label: 'Approved' },
     { id: 'in_production', label: 'In Production' },
-    { id: 'for_delivery', label: 'For Delivery' },
-    { id: 'delivered', label: 'Delivered' },
-    { id: 'completed', label: 'Completed' },
+    { id: 'for_delivery',  label: 'For Delivery' },
+    { id: 'delivered',     label: 'Delivered' },
+    { id: 'completed',     label: 'Completed' },
+    { id: 'pending',       label: 'Pending' },
   ];
 
-  useEffect(() => {
-    if (orderData) {
-      try {
-        const parsedOrder = JSON.parse(orderData);
-        setOrders([parsedOrder]);
-      } catch (error) {
-        console.error('Error parsing order data:', error);
-      }
+  const loadAll = useCallback(async () => {
+    try {
+      const [ordersData, inquiriesData] = await Promise.all([
+        getMyOrders(),
+        getMyInquiries(),
+      ]);
+      setOrders(ordersData);
+      setInquiries(inquiriesData);
+    } catch (err) {
+      console.error('Failed to load data:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-  }, [orderData]);
+  }, []);
+
+  useEffect(() => { loadAll(); }, [loadAll]);
+
 
   const getStatusStyle = (status: string) => {
     switch (status) {
@@ -98,142 +117,187 @@ export default function OrdersScreen() {
     }
   };
 
-  const filteredOrders = orders.filter(
-    order => order.status === activeTab
-  );
+  const inquiryStatusColor = (status: string) => {
+    if (status === 'responded') return '#4CAF50';
+    if (status === 'reviewed')  return '#2196F3';
+    return '#ff6b35'; // pending
+  };
+
+  const filteredOrders = orders.filter(order => order.status === activeTab);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator color="#ff6b35" size="large" />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
 
       {/* HEADER */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.push('/home')}
-        >
+        <TouchableOpacity style={styles.backButton} onPress={() => router.push('/home')}>
           <Text style={styles.backButtonText}>Back</Text>
         </TouchableOpacity>
-
-        <Text style={styles.title}>My Purchases</Text>
+        <Text style={styles.title}>{view === 'inquiries' ? 'My Inquiries' : 'My Orders'}</Text>
       </View>
 
-      {/* STATUS TABS */}
-      <View style={styles.tabsWrapper}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tabsContainer}
+      {/* VIEW SWITCHER */}
+      <View style={[styles.switcherRow, { borderColor: colors.border }]}>
+        <TouchableOpacity
+          style={[styles.switcherBtn, view === 'inquiries' && styles.switcherActive]}
+          onPress={() => setView('inquiries')}
         >
-          {statusTabs.map((tab) => (
-            <TouchableOpacity
-              key={tab.id}
-              style={[
-                styles.tab,
-                activeTab === tab.id && styles.activeTab,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-              onPress={() => setActiveTab(tab.id)}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  activeTab === tab.id && styles.activeTabText,
-                  { color: activeTab === tab.id ? '#ffffff' : colors.textSecondary },
-                ]}
-              >
-                {tab.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+          <Text style={[styles.switcherText, { color: view === 'inquiries' ? '#ffffff' : colors.textSecondary }]}>
+            Inquiries {inquiries.length > 0 ? `(${inquiries.length})` : ''}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.switcherBtn, view === 'orders' && styles.switcherActive]}
+          onPress={() => setView('orders')}
+        >
+          <Text style={[styles.switcherText, { color: view === 'orders' ? '#ffffff' : colors.textSecondary }]}>
+            Orders {orders.length > 0 ? `(${orders.length})` : ''}
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      {/* ORDERS ONLY SCROLL */}
-      <ScrollView
-        style={styles.ordersScroll}
-        contentContainerStyle={styles.ordersContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {filteredOrders.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>📦</Text>
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No Orders Yet</Text>
-          </View>
-        ) : (
-          filteredOrders.map((order, index) => (
-            <View key={index} style={[styles.orderCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-
-              {/* CARD HEADER */}
-              <View style={styles.orderHeader}>
-                <Text style={[styles.orderProduct, { color: colors.text }]}>
-                  {order.productType}
-                </Text>
-
-                <View
-                  style={[
-                    styles.statusBadge,
-                    getStatusStyle(order.status),
-                  ]}
-                >
-                  <Text style={styles.statusText}>
-                    {getStatusLabel(order.status)}
-                  </Text>
-                </View>
-              </View>
-
-              {/* ORDER DETAILS */}
-              <View style={styles.orderDetails}>
-
-                <View style={styles.detailRow}>
-                  <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Flavor:</Text>
-                  <Text style={[styles.detailValue, { color: colors.text }]}>
-                    {order.flavor}
-                  </Text>
-                </View>
-
-                <View style={styles.detailRow}>
-                  <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Size:</Text>
-                  <Text style={[styles.detailValue, { color: colors.text }]}>
-                    {order.size}
-                  </Text>
-                </View>
-
-                <View style={styles.detailRow}>
-                  <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Quantity:</Text>
-                  <Text style={[styles.detailValue, { color: colors.text }]}>
-                    {order.quantity}
-                  </Text>
-                </View>
-
-                <View style={styles.detailRow}>
-                  <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Payment:</Text>
-                  <Text style={[styles.detailValue, { color: colors.text }]}>
-                    {order.paymentMethod}
-                  </Text>
-                </View>
-
-              </View>
-
-              <TouchableOpacity 
-                style={[styles.viewButton, { backgroundColor: colors.accent }]}
-                onPress={() => {
-                  router.push({
-                    pathname: '/order-detail',
-                    params: { orderData: JSON.stringify(order) }
-                  });
-                }}
-              >
-                <Text style={styles.viewButtonText}>View</Text>
-              </TouchableOpacity>
-
-              <Text style={[styles.orderDate, { color: colors.textSecondary }]}>
-                {new Date(order.orderDate).toLocaleDateString()}
+      {/* ── INQUIRIES VIEW ── */}
+      {view === 'inquiries' && (
+        <ScrollView
+          style={styles.ordersScroll}
+          contentContainerStyle={styles.ordersContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadAll(); }} tintColor="#ff6b35" />}
+        >
+          {inquiries.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyIcon}>📋</Text>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No Inquiries Yet</Text>
+              <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+                Submit a rebranding inquiry from the Home screen to get started.
               </Text>
-
             </View>
-          ))
-        )}
-      </ScrollView>
+          ) : (
+            inquiries.map((inq) => (
+              <View key={inq.inquiry_id} style={[styles.orderCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={styles.orderHeader}>
+                  <Text style={[styles.orderProduct, { color: colors.text }]}>
+                    Inquiry #{inq.inquiry_id}
+                    {inq.customizations?.[0]?.packaging_type ? ` — ${inq.customizations[0].packaging_type}` : ''}
+                  </Text>
+                  <View style={[styles.statusBadge, { backgroundColor: inquiryStatusColor(inq.status) }]}>
+                    <Text style={styles.statusText}>{inq.status.charAt(0).toUpperCase() + inq.status.slice(1)}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.orderDetails}>
+                  {inq.customizations?.[0]?.serving_size ? (
+                    <View style={styles.detailRow}>
+                      <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Specs:</Text>
+                      <Text style={[styles.detailValue, { color: colors.text }]}>{inq.customizations[0].serving_size}</Text>
+                    </View>
+                  ) : null}
+                  {inq.customizations?.[0]?.client_notes ? (
+                    <View style={styles.detailRow}>
+                      <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Notes:</Text>
+                      <Text style={[styles.detailValue, { color: colors.text }]} numberOfLines={2}>{inq.customizations[0].client_notes}</Text>
+                    </View>
+                  ) : null}
+                  <View style={styles.detailRow}>
+                    <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Quotation:</Text>
+                    <Text style={[styles.detailValue, { color: inq.has_quotation ? '#4CAF50' : colors.textSecondary }]}>
+                      {inq.has_quotation ? `₱${parseFloat(inq.quotation_amount!).toLocaleString()}` : 'Awaiting quote...'}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={[styles.orderDate, { color: colors.textSecondary }]}>
+                  Submitted {new Date(inq.created_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
+                </Text>
+              </View>
+            ))
+          )}
+        </ScrollView>
+      )}
+
+      {/* ── ORDERS VIEW ── */}
+      {view === 'orders' && (
+        <>
+          <View style={styles.tabsWrapper}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsContainer}>
+              {statusTabs.map((tab) => (
+                <TouchableOpacity
+                  key={tab.id}
+                  style={[styles.tab, activeTab === tab.id && styles.activeTab, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  onPress={() => setActiveTab(tab.id)}
+                >
+                  <Text style={[styles.tabText, activeTab === tab.id && styles.activeTabText, { color: activeTab === tab.id ? '#ffffff' : colors.textSecondary }]}>
+                    {tab.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
+          <ScrollView
+            style={styles.ordersScroll}
+            contentContainerStyle={styles.ordersContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadAll(); }} tintColor="#ff6b35" />}
+          >
+            {filteredOrders.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyIcon}>📦</Text>
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No Orders Yet</Text>
+              </View>
+            ) : (
+              filteredOrders.map((order) => (
+                <View key={order.order_id} style={[styles.orderCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <View style={styles.orderHeader}>
+                    <Text style={[styles.orderProduct, { color: colors.text }]}>
+                      Order #{order.order_id}
+                      {order.customizations?.[0]?.packaging_type ? ` — ${order.customizations[0].packaging_type}` : ''}
+                    </Text>
+                    <View style={[styles.statusBadge, getStatusStyle(order.status)]}>
+                      <Text style={styles.statusText}>{getStatusLabel(order.status)}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.orderDetails}>
+                    {order.customizations?.[0]?.serving_size ? (
+                      <View style={styles.detailRow}>
+                        <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Specs:</Text>
+                        <Text style={[styles.detailValue, { color: colors.text }]}>{order.customizations[0].serving_size}</Text>
+                      </View>
+                    ) : null}
+                    <View style={styles.detailRow}>
+                      <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Amount:</Text>
+                      <Text style={[styles.detailValue, { color: colors.text }]}>₱{parseFloat(order.total_amount).toLocaleString()}</Text>
+                    </View>
+                    {order.internal_tracking_number ? (
+                      <View style={styles.detailRow}>
+                        <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Tracking:</Text>
+                        <Text style={[styles.detailValue, { color: colors.text }]}>{order.internal_tracking_number}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.viewButton, { backgroundColor: '#ff6b35' }]}
+                    onPress={() => router.push({ pathname: '/order-detail', params: { orderData: JSON.stringify(order) } })}
+                  >
+                    <Text style={styles.viewButtonText}>View Details</Text>
+                  </TouchableOpacity>
+                  <Text style={[styles.orderDate, { color: colors.textSecondary }]}>
+                    {new Date(order.created_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
+                  </Text>
+                </View>
+              ))
+            )}
+          </ScrollView>
+        </>
+      )}
 
       <View style={[styles.navigationBar, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
         <TouchableOpacity style={styles.navItem} onPress={() => router.push('/home')}>
@@ -257,6 +321,7 @@ export default function OrdersScreen() {
     </SafeAreaView>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {

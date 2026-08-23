@@ -21,6 +21,11 @@ export default function ChatDetailScreen() {
   useEffect(() => {
     loadMessages();
     markConversationRead(Number(otherUserId)).catch(() => { });
+
+    // Poll every 4 seconds so replies from the sales agent (web) appear
+    // automatically while the customer has this conversation open.
+    const interval = setInterval(loadMessages, 4000);
+    return () => clearInterval(interval);
   }, [otherUserId]);
 
   async function loadMessages() {

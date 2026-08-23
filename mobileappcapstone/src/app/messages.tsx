@@ -15,6 +15,7 @@ interface Conversation {
 export default function MessagesScreen() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const loadConversations = useCallback(async () => {
     try {
@@ -24,12 +25,19 @@ export default function MessagesScreen() {
       console.error('Failed to load conversations', err);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
   // Reloads every time this screen comes into focus - so unread counts
   // stay fresh after you read a conversation and come back.
-  useFocusEffect(useCallback(() => { loadConversations(); }, [loadConversations]));
+  // Also polls every 5 seconds so messages from the sales agent (web)
+  // appear without needing a manual pull-to-refresh.
+  useFocusEffect(useCallback(() => {
+    loadConversations();
+    const interval = setInterval(loadConversations, 5000);
+    return () => clearInterval(interval);
+  }, [loadConversations]));
 
   function openConversation(conv: Conversation) {
     router.push({
@@ -59,7 +67,7 @@ export default function MessagesScreen() {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={false} onRefresh={loadConversations} tintColor="#ff6b35" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadConversations(); }} tintColor="#ff6b35" />}
       >
         {conversations.length === 0 ? (
           <Text style={{ color: '#b8b8c0', textAlign: 'center', marginTop: 40 }}>

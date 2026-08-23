@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Image, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Image, Modal, ActivityIndicator } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../contexts/ThemeContext';
+import { getMe, submitInquiry } from '../services/api';
 
 const flavorOptions = [
   'Vanilla',
@@ -73,6 +74,7 @@ export default function ProductCustomizationScreen() {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [activeSelector, setActiveSelector] = useState<'flavor' | 'size' | 'packaging' | 'container' | 'quantity' | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -93,23 +95,48 @@ export default function ProductCustomizationScreen() {
     }
   };
 
-  const handleSubmit = () => {
-    console.log('handleSubmit called');
-    console.log('Form data:', formData);
-    
+  const handleSubmit = async () => {
     if (!formData.flavor || !formData.size || !formData.quantity) {
-      Alert.alert('Missing Information', 'Please fill in the required fields');
+      Alert.alert('Missing Information', 'Please fill in Flavor, Size, and Quantity before submitting.');
       return;
     }
-    
-    console.log('Navigating to payment-method with form data');
-    router.push({
-      pathname: '/payment-method',
-      params: { 
-        formData: JSON.stringify(formData),
-        imageData: uploadedImage || ''
+
+    setSubmitting(true);
+    try {
+      // 1. Get the logged-in user's businessClient profile to get client_id.
+      const me = await getMe();
+      const clientId = me?.business_client?.client_id ?? me?.businessClient?.client_id;
+
+      if (!clientId) {
+        Alert.alert('Error', 'Could not find your business client profile. Please contact support.');
+        return;
       }
-    });
+
+      // 2. Map the form fields to the backend's customization schema.
+      const customizations = [{
+        packaging_type:   formData.packaging || formData.productType,
+        packaging_finish: formData.container || undefined,
+        serving_size:     `${formData.size} × ${formData.quantity} units`,
+        client_notes:     [
+          formData.flavor    ? `Flavor: ${formData.flavor}`         : null,
+          formData.brandName ? `Brand: ${formData.brandName}`       : null,
+          formData.labelDesign ? `Label: ${formData.labelDesign}`   : null,
+        ].filter(Boolean).join(' | ') || undefined,
+      }];
+
+      // 3. Submit to the backend.
+      await submitInquiry(clientId, customizations);
+
+      Alert.alert(
+        'Inquiry Submitted! 🎉',
+        'Your rebranding inquiry has been sent to our sales team. We will review your requirements and get back to you with a quotation.',
+        [{ text: 'OK', onPress: () => router.push('/home') }]
+      );
+    } catch (err: any) {
+      Alert.alert('Submission Failed', err.message || 'Something went wrong. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const openSelector = (type: 'flavor' | 'size' | 'packaging' | 'container' | 'quantity') => {
@@ -272,8 +299,11 @@ export default function ProductCustomizationScreen() {
             )}
           </View>
 
-          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-            <Text style={styles.submitButtonText}>Proceed</Text>
+          <TouchableOpacity style={[styles.submitButton, submitting && { opacity: 0.7 }]} onPress={handleSubmit} disabled={submitting}>
+            {submitting
+              ? <ActivityIndicator color="#ffffff" />
+              : <Text style={styles.submitButtonText}>Submit Inquiry</Text>
+            }
           </TouchableOpacity>
         </View>
       </ScrollView>

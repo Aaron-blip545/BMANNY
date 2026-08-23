@@ -8,6 +8,7 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\FileUploadController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\UserController;
+use Illuminate\Http\Request;
 
 // Public Routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -29,9 +30,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // 1. Business Client Routes
     Route::middleware('role:customer,admin')->group(function () {
         Route::post('/inquiries', [InquiryController::class, 'store']);
+        Route::get('/inquiries/my-inquiries', [InquiryController::class, 'myInquiries']);
         Route::post('/inquiries/{inquiry_id}/upload-design', [FileUploadController::class, 'uploadDesign']);
         Route::get('/quotations/my-quotes', [QuotationController::class, 'show']);
         Route::post('/orders/{order_id}/upload-receipt', [FileUploadController::class, 'uploadReceipt']);
+        Route::get('/orders/my-orders', [OrderController::class, 'myOrders']);
     });
 
     // 2. Sales Agent & Admin Routes
@@ -50,10 +53,14 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // 5. Shared Routes (All Authenticated Users)
+    Route::get('/conversations', [ChatController::class, 'conversations']);
     Route::post('/messages', [ChatController::class, 'sendMessage']);
     Route::get('/messages/{other_user_id}', [ChatController::class, 'getConversation']);
+    Route::post('/messages/{other_user_id}/read', [ChatController::class, 'markAsRead']);
     
     Route::get('/user', function (Request $request) {
-        return $request->user();
+        // Include the businessClient profile so the mobile app can read
+        // client_id without a separate request.
+        return $request->user()->load('businessClient');
     });
 });
