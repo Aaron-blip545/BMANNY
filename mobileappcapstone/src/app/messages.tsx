@@ -3,61 +3,70 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Ima
 import { router } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 
-const HomeIcon = ({ colors, isActive }: { colors: any; isActive?: boolean }) => (
-  <Image source={require('@/assets/images/homepageicon/home.png')} style={styles.navIcon} tintColor={isActive ? '#2196F3' : colors.text} />
+const HomeIcon = ({ colors }: { colors: any }) => (
+  <Image source={require('@/assets/images/homepageicon/home.png')} style={styles.navIcon} tintColor={colors.text} />
 );
 
-const OrdersIcon = ({ colors, isActive }: { colors: any; isActive?: boolean }) => (
-  <Image source={require('@/assets/images/homepageicon/booking.png')} style={styles.navIcon} tintColor={isActive ? '#2196F3' : colors.text} />
+const OrdersIcon = ({ colors }: { colors: any }) => (
+  <Image source={require('@/assets/images/homepageicon/booking.png')} style={styles.navIcon} tintColor={colors.text} />
 );
 
-const MessagesIcon = ({ colors, isActive }: { colors: any; isActive?: boolean }) => (
-  <Image source={require('@/assets/images/homepageicon/messages.png')} style={styles.navIcon} tintColor={isActive ? '#2196F3' : colors.text} />
+const MessagesIcon = ({ colors }: { colors: any }) => (
+  <Image source={require('@/assets/images/homepageicon/messages.png')} style={styles.navIcon} tintColor={colors.text} />
 );
 
-const ProfileIcon = ({ colors, isActive }: { colors: any; isActive?: boolean }) => (
-  <Image source={require('@/assets/images/homepageicon/profile.png')} style={styles.navIcon} tintColor={isActive ? '#2196F3' : colors.text} />
+const ProfileIcon = ({ colors }: { colors: any }) => (
+  <Image source={require('@/assets/images/homepageicon/profile.png')} style={styles.navIcon} tintColor={colors.text} />
 );
 
 export default function MessagesScreen() {
-  const { colors } = useTheme();
-  const conversations = [
-    {
-      id: 1,
-      name: 'Premium Coffee Blend',
-      lastMessage: 'Thank you for your order! Your package is on the way.',
-      time: '2:30 PM',
-      unread: 2,
-      avatar: 'PC',
-    },
-    {
-      id: 2,
-      name: 'Energy Boost Supplement',
-      lastMessage: 'We have new stock available for your favorite supplements.',
-      time: '1:15 PM',
-      unread: 0,
-      avatar: 'EB',
-    },
-    {
-      id: 3,
-      name: 'Organic Protein Powder',
-      lastMessage: 'Your order has been delivered successfully.',
-      time: 'Yesterday',
-      unread: 0,
-      avatar: 'OP',
-    },
-    {
-      id: 4,
-      name: 'Focus Formula',
-      lastMessage: 'Check out our new arrivals this week!',
-      time: '2 days ago',
-      unread: 1,
-      avatar: 'FF',
-    },
-  ];
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadConversations = useCallback(async () => {
+    try {
+      const data = await getConversations();
+      setConversations(data);
+    } catch (err) {
+      console.error('Failed to load conversations', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  // Reloads every time this screen comes into focus - so unread counts
+  // stay fresh after you read a conversation and come back.
+  // Also polls every 5 seconds so messages from the sales agent (web)
+  // appear without needing a manual pull-to-refresh.
+  useFocusEffect(useCallback(() => {
+    loadConversations();
+    const interval = setInterval(loadConversations, 5000);
+    return () => clearInterval(interval);
+  }, [loadConversations]));
+
+  function openConversation(conv: Conversation) {
+    router.push({
+      pathname: '/chat-detail',
+      params: {
+        otherUserId: conv.other_user_id,
+        otherUserName: conv.other_user_name,
+        inquiryId: conv.inquiry_id ?? '',
+      },
+    });
+  }
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator color="#ff6b35" />
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Messages</Text>
       </View>
@@ -72,7 +81,7 @@ export default function MessagesScreen() {
               router.push('/chat-detail');
             }}
           >
-            <View style={[styles.avatar, { backgroundColor: '#2196F3' }]}>
+            <View style={styles.avatar}>
               <Text style={styles.avatarText}>{conversation.avatar}</Text>
             </View>
             <View style={styles.conversationContent}>
@@ -85,7 +94,7 @@ export default function MessagesScreen() {
                   {conversation.lastMessage}
                 </Text>
                 {conversation.unread > 0 && (
-                  <View style={[styles.unreadBadge, { backgroundColor: '#2196F3' }]}>
+                  <View style={styles.unreadBadge}>
                     <Text style={styles.unreadCount}>{conversation.unread}</Text>
                   </View>
                 )}
@@ -105,8 +114,8 @@ export default function MessagesScreen() {
           <Text style={[styles.navText, { color: colors.textSecondary }]}>Orders</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={() => router.push('/messages')}>
-          <MessagesIcon colors={colors} isActive={true} />
-          <Text style={[styles.navText, { color: '#2196F3' }]}>Messages</Text>
+          <MessagesIcon colors={colors} />
+          <Text style={[styles.navText, { color: colors.textSecondary }]}>Messages</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={() => router.push('/profile')}>
           <ProfileIcon colors={colors} />
@@ -129,7 +138,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#2196F3',
+    color: '#ff6b35',
   },
   scroll: {
     flex: 1,
@@ -149,7 +158,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#2196F3',
+    backgroundColor: '#ff6b35',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -186,7 +195,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   unreadBadge: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#ff6b35',
     borderRadius: 12,
     minWidth: 24,
     height: 24,

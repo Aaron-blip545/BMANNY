@@ -1,16 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Alert, Image, ImageBackground } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
-  const [emailFocused, setEmailFocused] = useState(false);
-  const [passwordFocused, setPasswordFocused] = useState(false);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -49,10 +44,6 @@ export default function LoginScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
-      <Image 
-        source={require('@/assets/images/homepageicon/background.png')} 
-        style={styles.backgroundImage} 
-      />
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.overlay}
@@ -70,8 +61,7 @@ export default function LoginScreen() {
             ) : null}
 
             {/* Email Input */}
-            <View style={[styles.inputContainer, emailFocused && styles.inputFocused]}>
-              <Ionicons name="mail-outline" size={20} color="#2196F3" style={styles.inputIcon} />
+            <View style={styles.inputContainer}>
               <TextInput
                 style={styles.input}
                 placeholder="Email"
@@ -90,8 +80,7 @@ export default function LoginScreen() {
             </View>
 
             {/* Password Input */}
-            <View style={[styles.inputContainer, passwordFocused && styles.inputFocused]}>
-              <Ionicons name="lock-closed-outline" size={20} color="#2196F3" style={styles.inputIcon} />
+            <View style={styles.inputContainer}>
               <TextInput
                 style={styles.input}
                 placeholder="Password"
@@ -111,25 +100,23 @@ export default function LoginScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Remember Me & Forgot Password */}
-            <View style={styles.rowContainer}>
-              <TouchableOpacity style={styles.checkboxContainer} onPress={() => setRememberMe(!rememberMe)}>
-                <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
-                  {rememberMe && <Text style={styles.checkmark}>✓</Text>}
-                </View>
-                <Text style={styles.checkboxText}>Remember me</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => router.push('/forgot-password')}>
-                <Text style={styles.forgotPassword}>Forgot your password?</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Sign In Button */}
-            <TouchableOpacity style={styles.signInButton} onPress={handleSignIn}>
-              <Text style={styles.signInButtonText}>Sign in</Text>
+            {/* Forgot Password */}
+            <TouchableOpacity onPress={() => router.push('/forgot-password')}>
+              <Text style={styles.forgotPassword}>Forgot your password?</Text>
             </TouchableOpacity>
 
-            {/* Create Account Link */}
+            <TouchableOpacity
+              style={[styles.signInButton, loading && { opacity: 0.6 }]}
+              onPress={handleSignIn}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.signInButtonText}>Sign in</Text>
+              )}
+            </TouchableOpacity>
+
             <View style={styles.createAccountContainer}>
               <Text style={styles.createAccountText}>Don't have an account? </Text>
               <TouchableOpacity onPress={() => router.push('/register')}>
@@ -146,149 +133,62 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  backgroundImage: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(26, 26, 46, 0.7)',
-  },
-  backgroundImageStyle: {
-    opacity: 1,
+    backgroundColor: '#1a1a2e',
   },
   scrollContent: {
     flexGrow: 1,
   },
   content: {
     padding: 30,
-    paddingTop: 40,
+    paddingTop: 80,
   },
-  logo: {
-    width: 150,
-    height: 150,
-    resizeMode: 'contain',
-    marginBottom: 20,
-    alignSelf: 'center',
-  },
-  brandName: {
-    fontSize: 32,
+  title: {
+    fontSize: 30,
     fontWeight: 'bold',
-    color: '#2196F3',
-    marginBottom: 5,
-    textAlign: 'center',
+    color: '#ff4500',
+    marginBottom: 10,
   },
-  companyName: {
+  subtitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#ffffff',
-    marginBottom: 30,
-    textAlign: 'center',
-  },
-  welcomeText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#ffffff',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  continueText: {
-    fontSize: 14,
     color: '#a0a0a0',
     marginBottom: 40,
-    textAlign: 'center',
   },
   errorMessage: {
     color: '#ff4444',
     fontSize: 14,
     marginBottom: 20,
-    textAlign: 'left',
-    alignSelf: 'stretch',
+    textAlign: 'center',
   },
   inputContainer: {
-    backgroundColor: '#1e2a4a',
-    borderRadius: 12,
-    marginBottom: 16,
+    backgroundColor: '#16213e',
+    borderRadius: 15,
+    marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#3d4a6a',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-  },
-  inputFocused: {
-    borderColor: '#2196F3',
-  },
-  inputIcon: {
-    marginRight: 12,
+    borderColor: '#2d2d44',
   },
   input: {
-    flex: 1,
-    paddingVertical: 14,
-    fontSize: 15,
+    padding: 18,
+    fontSize: 16,
     color: '#fff',
-    backgroundColor: 'transparent',
-    borderWidth: 0,
-  },
-  eyeIcon: {
-    paddingLeft: 12,
-  },
-  rowContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  checkbox: {
-    width: 18,
-    height: 18,
-    borderRadius: 3,
-    borderWidth: 2,
-    borderColor: '#3d4a6a',
-    marginRight: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkboxChecked: {
-    backgroundColor: '#2196F3',
-    borderColor: '#2196F3',
-  },
-  checkmark: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  checkboxText: {
-    color: '#a0a0a0',
-    fontSize: 13,
   },
   forgotPassword: {
-    color: '#2196F3',
-    fontSize: 13,
+    color: '#ff4500',
+    fontSize: 14,
+    textAlign: 'right',
+    marginBottom: 30,
     fontWeight: '500',
   },
   signInButton: {
-    backgroundColor: '#2196F3',
-    paddingVertical: 16,
-    borderRadius: 12,
+    backgroundColor: '#ff4500',
+    paddingVertical: 18,
+    borderRadius: 15,
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 30,
   },
   signInButtonText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   createAccountContainer: {
     flexDirection: 'row',
@@ -300,7 +200,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   createAccountLink: {
-    color: '#2196F3',
+    color: '#ff4500',
     fontSize: 14,
     fontWeight: 'bold',
   },

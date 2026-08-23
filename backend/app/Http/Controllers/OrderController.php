@@ -85,4 +85,43 @@ class OrderController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Return all orders that belong to the authenticated customer's
+     * business client profile. Used by the mobile Orders screen.
+     */
+    public function myOrders(Request $request)
+    {
+        $user   = $request->user();
+        $client = $user->businessClient;
+
+        if (! $client) {
+            return response()->json([]);
+        }
+
+        $orders = Order::with([
+            'quotation.inquiry.customizations',
+        ])
+        ->where('client_id', $client->client_id)
+        ->orderByDesc('created_at')
+        ->get()
+        ->map(fn ($order) => [
+            'order_id'                 => $order->order_id,
+            'status'                   => $order->status,
+            'total_amount'             => $order->total_amount,
+            'internal_tracking_number' => $order->internal_tracking_number,
+            'created_at'               => $order->created_at,
+            'item_details'             => $order->quotation?->item_details,
+            'valid_until'              => $order->quotation?->valid_until,
+            'inquiry_id'               => $order->quotation?->inquiry?->inquiry_id,
+            'customizations'           => $order->quotation?->inquiry?->customizations
+                ?->map(fn ($c) => [
+                    'packaging_type' => $c->packaging_type,
+                    'serving_size'   => $c->serving_size,
+                    'client_notes'   => $c->client_notes,
+                ])->values() ?? [],
+        ])->values();
+
+        return response()->json($orders);
+    }
 }

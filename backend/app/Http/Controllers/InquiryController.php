@@ -64,4 +64,37 @@ class InquiryController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Return all inquiries belonging to the authenticated customer.
+     * Used by the mobile app so customers can track their submissions.
+     */
+    public function myInquiries(Request $request)
+    {
+        $user   = $request->user();
+        $client = $user->businessClient;
+
+        if (! $client) {
+            return response()->json([]);
+        }
+
+        $inquiries = Inquiry::with(['customizations', 'quotation'])
+            ->where('client_id', $client->client_id)
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn ($inquiry) => [
+                'inquiry_id'     => $inquiry->inquiry_id,
+                'status'         => $inquiry->status,
+                'created_at'     => $inquiry->created_at,
+                'customizations' => $inquiry->customizations->map(fn ($c) => [
+                    'packaging_type'  => $c->packaging_type,
+                    'serving_size'    => $c->serving_size,
+                    'client_notes'    => $c->client_notes,
+                ])->values(),
+                'has_quotation'  => $inquiry->quotation !== null,
+                'quotation_amount' => $inquiry->quotation?->total_amount,
+            ])->values();
+
+        return response()->json($inquiries);
+    }
 }
