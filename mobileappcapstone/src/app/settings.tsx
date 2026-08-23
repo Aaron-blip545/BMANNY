@@ -10,10 +10,10 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={[styles.backButton, { backgroundColor: '#2196F3' }]} onPress={() => router.back()}>
           <Text style={styles.backButtonText}>Back</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Settings</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Settings</Text>
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
@@ -42,7 +42,7 @@ export default function SettingsScreen() {
             <Switch
               value={notificationsEnabled}
               onValueChange={setNotificationsEnabled}
-              trackColor={{ false: colors.border, true: colors.accent }}
+              trackColor={{ false: colors.border, true: '#2196F3' }}
               thumbColor={notificationsEnabled ? '#ffffff' : colors.textSecondary}
             />
           </TouchableOpacity>
@@ -55,7 +55,7 @@ export default function SettingsScreen() {
             <Switch
               value={isDarkMode}
               onValueChange={toggleTheme}
-              trackColor={{ false: colors.border, true: colors.accent }}
+              trackColor={{ false: colors.border, true: '#2196F3' }}
               thumbColor={isDarkMode ? '#ffffff' : colors.textSecondary}
             />
           </TouchableOpacity>
@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   backButton: {
-    backgroundColor: '#ff6b35',
+    backgroundColor: '#2196F3',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -145,7 +145,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#ff6b35',
     flex: 1,
     textAlign: 'center',
     marginRight: 60,

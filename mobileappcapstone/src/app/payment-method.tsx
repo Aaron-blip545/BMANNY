@@ -65,7 +65,7 @@ export default function PaymentMethodScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <TouchableOpacity style={[styles.backButton, { backgroundColor: '#2196F3' }]} onPress={() => router.back()}>
             <Text style={styles.backButtonText}>Back</Text>
           </TouchableOpacity>
           <View style={styles.headerText}>
@@ -82,7 +82,7 @@ export default function PaymentMethodScreen() {
                 styles.paymentCard,
                 selectedMethod === method.id && styles.selectedCard,
                 { backgroundColor: colors.card, borderColor: colors.border },
-                selectedMethod === method.id && { borderColor: colors.accent },
+                selectedMethod === method.id && { borderColor: '#2196F3' },
               ]}
               onPress={() => handleSelect(method.id)}
               activeOpacity={0.7}
@@ -93,8 +93,8 @@ export default function PaymentMethodScreen() {
                   <Text style={[styles.paymentName, { color: colors.text }]}>{method.name}</Text>
                   <Text style={[styles.paymentDescription, { color: colors.textSecondary }]}>{method.description}</Text>
                 </View>
-                <View style={[styles.radioButton, { borderColor: colors.border }, selectedMethod === method.id && { borderColor: colors.accent }]}>
-                  {selectedMethod === method.id && <View style={[styles.radioInner, { backgroundColor: colors.accent }]} />}
+                <View style={[styles.radioButton, { borderColor: colors.border }, selectedMethod === method.id && { borderColor: '#2196F3' }]}>
+                  {selectedMethod === method.id && <View style={[styles.radioInner, { backgroundColor: '#2196F3' }]} />}
                 </View>
               </View>
             </TouchableOpacity>
@@ -102,7 +102,7 @@ export default function PaymentMethodScreen() {
         </View>
 
         {selectedMethod && (
-          <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
+          <TouchableOpacity style={[styles.continueButton, { backgroundColor: '#2196F3' }]} onPress={handleContinue}>
             <Text style={styles.continueButtonText}>Continue</Text>
           </TouchableOpacity>
         )}
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   backButton: {
-    backgroundColor: '#ff6b35',
+    backgroundColor: '#2196F3',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   continueButton: {
-    backgroundColor: '#ff6b35',
+    backgroundColor: '#2196F3',
     borderRadius: 14,
     padding: 18,
     alignItems: 'center',

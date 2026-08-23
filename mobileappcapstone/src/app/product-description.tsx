@@ -30,7 +30,7 @@ export default function ProductDetailScreen() {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <Text style={[styles.errorText, { color: colors.text }]}>Product not found</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={[styles.backButton, { backgroundColor: '#2196F3' }]} onPress={() => router.back()}>
           <Text style={styles.backButtonText}>Go Back</Text>
         </TouchableOpacity>
       </View>
@@ -39,12 +39,17 @@ export default function ProductDetailScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={styles.header}>
+        <TouchableOpacity style={[styles.headerBackButton, { backgroundColor: '#2196F3' }]} onPress={() => router.back()}>
+          <Text style={styles.backButtonText}>Back</Text>
+        </TouchableOpacity>
+      </View>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Image source={product.image} style={styles.productImage} />
 
         <View style={[styles.productInfo, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.productName, { color: colors.text }]}>{product.name}</Text>
-          <Text style={styles.productPrice}>{product.price}</Text>
+          <Text style={[styles.productPrice, { color: '#2196F3' }]}>{product.price}</Text>
           
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Description</Text>
@@ -53,7 +58,7 @@ export default function ProductDetailScreen() {
 
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>MOQ (Minimum Order Quantity)</Text>
-            <Text style={[styles.moqText, { color: colors.accent }]}>{product.moq}</Text>
+            <Text style={[styles.moqText, { color: '#2196F3' }]}>{product.moq}</Text>
           </View>
         </View>
       </ScrollView>
@@ -62,7 +67,7 @@ export default function ProductDetailScreen() {
         <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.border }]} onPress={() => router.push({ pathname: '/chat-detail', params: { name: product.name } })}>
           <Text style={[styles.backButtonText, { color: colors.text }]}>Inquire</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.sendInquiryButton} onPress={() => router.push({ pathname: '/product-customization', params: { name: product.name } })}>
+        <TouchableOpacity style={[styles.sendInquiryButton, { backgroundColor: '#2196F3' }]} onPress={() => router.push({ pathname: '/product-customization', params: { name: product.name } })}>
           <View style={styles.buttonContent}>
             <Image source={require('@/assets/images/homepageimage/settings.png')} style={styles.iconImage} tintColor={colors.text} />
             <Text style={[styles.sendInquiryText, { color: colors.text }]}>Customize order</Text>
@@ -76,6 +81,23 @@ export default function ProductDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    paddingBottom: 8,
+  },
+  headerBackButton: {
+    backgroundColor: '#2196F3',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  backButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
   },
   scrollContent: {
     padding: 20,
@@ -101,7 +123,7 @@ const styles = StyleSheet.create({
   productPrice: {
     fontSize: 32,
     fontWeight: '800',
-    color: '#ff6b35',
+    color: '#2196F3',
     marginBottom: 24,
   },
   section: {
@@ -133,8 +155,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   backButton: {
-    flex: 1,
-    borderRadius: 14,
+    backgroundColor: '#2196F3',
+    borderRadius: 12,
     padding: 16,
     marginRight: 12,
   },
@@ -152,15 +174,9 @@ const styles = StyleSheet.create({
     height: 20,
     resizeMode: 'contain',
   },
-  backButtonText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
   sendInquiryButton: {
     flex: 2,
-    backgroundColor: '#ff6b35',
+    backgroundColor: '#2196F3',
     borderRadius: 14,
     padding: 16,
   },

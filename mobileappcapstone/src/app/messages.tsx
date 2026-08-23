@@ -3,20 +3,20 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Ima
 import { router } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 
-const HomeIcon = ({ colors }: { colors: any }) => (
-  <Image source={require('@/assets/images/homepageicon/home.png')} style={styles.navIcon} tintColor={colors.text} />
+const HomeIcon = ({ colors, isActive }: { colors: any; isActive?: boolean }) => (
+  <Image source={require('@/assets/images/homepageicon/home.png')} style={styles.navIcon} tintColor={isActive ? '#2196F3' : colors.text} />
 );
 
-const OrdersIcon = ({ colors }: { colors: any }) => (
-  <Image source={require('@/assets/images/homepageicon/booking.png')} style={styles.navIcon} tintColor={colors.text} />
+const OrdersIcon = ({ colors, isActive }: { colors: any; isActive?: boolean }) => (
+  <Image source={require('@/assets/images/homepageicon/booking.png')} style={styles.navIcon} tintColor={isActive ? '#2196F3' : colors.text} />
 );
 
-const MessagesIcon = ({ colors }: { colors: any }) => (
-  <Image source={require('@/assets/images/homepageicon/messages.png')} style={styles.navIcon} tintColor={colors.text} />
+const MessagesIcon = ({ colors, isActive }: { colors: any; isActive?: boolean }) => (
+  <Image source={require('@/assets/images/homepageicon/messages.png')} style={styles.navIcon} tintColor={isActive ? '#2196F3' : colors.text} />
 );
 
-const ProfileIcon = ({ colors }: { colors: any }) => (
-  <Image source={require('@/assets/images/homepageicon/profile.png')} style={styles.navIcon} tintColor={colors.text} />
+const ProfileIcon = ({ colors, isActive }: { colors: any; isActive?: boolean }) => (
+  <Image source={require('@/assets/images/homepageicon/profile.png')} style={styles.navIcon} tintColor={isActive ? '#2196F3' : colors.text} />
 );
 
 export default function MessagesScreen() {
@@ -59,7 +59,7 @@ export default function MessagesScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Messages</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Messages</Text>
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
@@ -72,7 +72,7 @@ export default function MessagesScreen() {
               router.push('/chat-detail');
             }}
           >
-            <View style={styles.avatar}>
+            <View style={[styles.avatar, { backgroundColor: '#2196F3' }]}>
               <Text style={styles.avatarText}>{conversation.avatar}</Text>
             </View>
             <View style={styles.conversationContent}>
@@ -85,7 +85,7 @@ export default function MessagesScreen() {
                   {conversation.lastMessage}
                 </Text>
                 {conversation.unread > 0 && (
-                  <View style={styles.unreadBadge}>
+                  <View style={[styles.unreadBadge, { backgroundColor: '#2196F3' }]}>
                     <Text style={styles.unreadCount}>{conversation.unread}</Text>
                   </View>
                 )}
@@ -105,8 +105,8 @@ export default function MessagesScreen() {
           <Text style={[styles.navText, { color: colors.textSecondary }]}>Orders</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={() => router.push('/messages')}>
-          <MessagesIcon colors={colors} />
-          <Text style={[styles.navText, { color: colors.textSecondary }]}>Messages</Text>
+          <MessagesIcon colors={colors} isActive={true} />
+          <Text style={[styles.navText, { color: '#2196F3' }]}>Messages</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={() => router.push('/profile')}>
           <ProfileIcon colors={colors} />
@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#ff6b35',
+    color: '#2196F3',
   },
   scroll: {
     flex: 1,
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#ff6b35',
+    backgroundColor: '#2196F3',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   unreadBadge: {
-    backgroundColor: '#ff6b35',
+    backgroundColor: '#2196F3',
     borderRadius: 12,
     minWidth: 24,
     height: 24,

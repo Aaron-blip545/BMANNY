@@ -91,7 +91,7 @@ export default function PaymentScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <TouchableOpacity style={[styles.backButton, { backgroundColor: '#2196F3' }]} onPress={() => router.back()}>
             <Text style={styles.backButtonText}>Back</Text>
           </TouchableOpacity>
           <Text style={[styles.title, { color: colors.text }]}>Payment</Text>
@@ -115,7 +115,7 @@ export default function PaymentScreen() {
           </View>
           <View style={[styles.summaryRow, styles.totalRow]}>
             <Text style={[styles.totalLabel, { color: colors.text }]}>Total Amount</Text>
-            <Text style={[styles.totalValue, { color: colors.accent }]}>${totalAmount}</Text>
+            <Text style={[styles.totalValue, { color: '#2196F3' }]}>${totalAmount}</Text>
           </View>
         </View>
 
@@ -169,7 +169,7 @@ export default function PaymentScreen() {
         )}
 
         <TouchableOpacity 
-          style={[styles.submitButton, { backgroundColor: colors.accent }]}
+          style={[styles.submitButton, { backgroundColor: '#2196F3' }]}
           onPress={handleSubmit}
           disabled={isUploading}
         >
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   backButton: {
-    backgroundColor: '#ff6b35',
+    backgroundColor: '#2196F3',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 10,

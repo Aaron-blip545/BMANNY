@@ -34,10 +34,10 @@ export default function EditProfileScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <TouchableOpacity style={[styles.backButton, { backgroundColor: '#2196F3' }]} onPress={() => router.back()}>
             <Text style={styles.backButtonText}>Back</Text>
           </TouchableOpacity>
-          <Text style={[styles.title, { color: colors.accent }]}>Edit Profile</Text>
+          <Text style={[styles.title, { color: colors.text }]}>Edit Profile</Text>
         </View>
 
         <View style={styles.profilePhotoSection}>
@@ -49,7 +49,7 @@ export default function EditProfileScreen() {
                 <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>Add Photo</Text>
               </View>
             )}
-            <View style={[styles.cameraIcon, { backgroundColor: colors.accent }]}>
+            <View style={[styles.cameraIcon, { backgroundColor: '#2196F3' }]}>
               <Image source={require('@/assets/images/settingsicons/camera.png')} style={styles.cameraIconImage} tintColor={colors.text} />
             </View>
           </TouchableOpacity>
@@ -111,7 +111,7 @@ export default function EditProfileScreen() {
           </View>
 
           <TouchableOpacity 
-            style={styles.saveButton}
+            style={[styles.saveButton, { backgroundColor: '#2196F3' }]}
             onPress={() => {
               router.push({
                 pathname: '/profile',
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   backButton: {
-    backgroundColor: '#ff4500',
+    backgroundColor: '#2196F3',
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   saveButton: {
-    backgroundColor: '#ff4500',
+    backgroundColor: '#2196F3',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',

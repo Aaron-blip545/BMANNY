@@ -154,7 +154,7 @@ export default function ProductCustomizationScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <TouchableOpacity style={[styles.backButton, { backgroundColor: '#2196F3' }]} onPress={() => router.back()}>
             <Text style={styles.backButtonText}>Back</Text>
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.text }]}>Product Customization</Text>
@@ -262,8 +262,8 @@ export default function ProductCustomizationScreen() {
 
           <View style={styles.formGroup}>
             <Text style={[styles.label, { color: colors.text }]}>Upload Logo/Label Design</Text>
-            <TouchableOpacity style={[styles.uploadButton, { backgroundColor: colors.border, borderColor: colors.accent }]} onPress={pickImage}>
-              <Text style={[styles.uploadButtonText, { color: colors.accent }]}>
+            <TouchableOpacity style={[styles.uploadButton, { backgroundColor: colors.border, borderColor: '#2196F3' }]} onPress={pickImage}>
+              <Text style={[styles.uploadButtonText, { color: '#2196F3' }]}>
                 {uploadedImage ? 'Change Image' : 'Upload Image'}
               </Text>
             </TouchableOpacity>
@@ -272,7 +272,7 @@ export default function ProductCustomizationScreen() {
             )}
           </View>
 
-          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+          <TouchableOpacity style={[styles.submitButton, { backgroundColor: '#2196F3' }]} onPress={handleSubmit}>
             <Text style={styles.submitButtonText}>Proceed</Text>
           </TouchableOpacity>
         </View>
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   backButton: {
-    backgroundColor: '#ff6b35',
+    backgroundColor: '#2196F3',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
   },
   submitButton: {
-    backgroundColor: '#ff6b35',
+    backgroundColor: '#2196F3',
     borderRadius: 14,
     padding: 18,
     alignItems: 'center',

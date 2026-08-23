@@ -11,20 +11,20 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 
-const HomeIcon = ({ colors }: { colors: any }) => (
-  <Image source={require('@/assets/images/homepageicon/home.png')} style={styles.navIcon} tintColor={colors.text} />
+const HomeIcon = ({ colors, isActive }: { colors: any; isActive?: boolean }) => (
+  <Image source={require('@/assets/images/homepageicon/home.png')} style={styles.navIcon} tintColor={isActive ? '#2196F3' : colors.text} />
 );
 
-const OrdersIcon = ({ colors }: { colors: any }) => (
-  <Image source={require('@/assets/images/homepageicon/booking.png')} style={styles.navIcon} tintColor={colors.text} />
+const OrdersIcon = ({ colors, isActive }: { colors: any; isActive?: boolean }) => (
+  <Image source={require('@/assets/images/homepageicon/booking.png')} style={styles.navIcon} tintColor={isActive ? '#2196F3' : colors.text} />
 );
 
-const MessagesIcon = ({ colors }: { colors: any }) => (
-  <Image source={require('@/assets/images/homepageicon/messages.png')} style={styles.navIcon} tintColor={colors.text} />
+const MessagesIcon = ({ colors, isActive }: { colors: any; isActive?: boolean }) => (
+  <Image source={require('@/assets/images/homepageicon/messages.png')} style={styles.navIcon} tintColor={isActive ? '#2196F3' : colors.text} />
 );
 
-const ProfileIcon = ({ colors }: { colors: any }) => (
-  <Image source={require('@/assets/images/homepageicon/profile.png')} style={styles.navIcon} tintColor={colors.text} />
+const ProfileIcon = ({ colors, isActive }: { colors: any; isActive?: boolean }) => (
+  <Image source={require('@/assets/images/homepageicon/profile.png')} style={styles.navIcon} tintColor={isActive ? '#2196F3' : colors.text} />
 );
 
 interface Order {
@@ -108,13 +108,13 @@ export default function OrdersScreen() {
       {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity
-          style={styles.backButton}
+          style={[styles.backButton, { backgroundColor: '#2196F3' }]}
           onPress={() => router.push('/home')}
         >
           <Text style={styles.backButtonText}>Back</Text>
         </TouchableOpacity>
 
-        <Text style={styles.title}>My Purchases</Text>
+        <Text style={[styles.title, { color: colors.text }]}>My Purchases</Text>
       </View>
 
       {/* STATUS TABS */}
@@ -129,7 +129,7 @@ export default function OrdersScreen() {
               key={tab.id}
               style={[
                 styles.tab,
-                activeTab === tab.id && styles.activeTab,
+                activeTab === tab.id && [styles.activeTab, { backgroundColor: '#2196F3', borderColor: '#2196F3' }],
                 { backgroundColor: colors.card, borderColor: colors.border },
               ]}
               onPress={() => setActiveTab(tab.id)}
@@ -215,7 +215,7 @@ export default function OrdersScreen() {
               </View>
 
               <TouchableOpacity 
-                style={[styles.viewButton, { backgroundColor: colors.accent }]}
+                style={[styles.viewButton, { backgroundColor: '#2196F3' }]}
                 onPress={() => {
                   router.push({
                     pathname: '/order-detail',
@@ -241,8 +241,8 @@ export default function OrdersScreen() {
           <Text style={[styles.navText, { color: colors.textSecondary }]}>Home</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={() => router.push('/orders')}>
-          <OrdersIcon colors={colors} />
-          <Text style={[styles.navText, { color: colors.textSecondary }]}>Orders</Text>
+          <OrdersIcon colors={colors} isActive={true} />
+          <Text style={[styles.navText, { color: '#2196F3' }]}>Orders</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={() => router.push('/messages')}>
           <MessagesIcon colors={colors} />
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
   },
 
   backButton: {
-    backgroundColor: '#ff6b35',
+    backgroundColor: '#2196F3',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#ff6b35',
+    color: '#2196F3',
     flex: 1,
     textAlign: 'center',
     marginRight: 60,
@@ -317,10 +317,10 @@ const styles = StyleSheet.create({
   },
 
   activeTab: {
-    backgroundColor: '#ff6b35',
-    borderColor: '#ff6b35',
+    backgroundColor: '#2196F3',
+    borderColor: '#2196F3',
 
-    shadowColor: '#ff6b35',
+    shadowColor: '#2196F3',
     shadowOffset: {
       width: 0,
       height: 2,
@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
   },
 
   pending: {
-    backgroundColor: '#ff6b35',
+    backgroundColor: '#2196F3',
   },
 
   approved: {

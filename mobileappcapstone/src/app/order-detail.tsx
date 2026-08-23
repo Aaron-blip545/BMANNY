@@ -55,7 +55,7 @@ export default function OrderDetailScreen() {
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.errorContainer}>
           <Text style={[styles.errorText, { color: colors.text }]}>Order not found</Text>
-          <TouchableOpacity style={[styles.backButton, { backgroundColor: '#ff6b35' }]} onPress={() => router.back()}>
+          <TouchableOpacity style={[styles.backButton, { backgroundColor: '#2196F3' }]} onPress={() => router.back()}>
             <Text style={styles.backButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
@@ -66,15 +66,15 @@ export default function OrderDetailScreen() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
-        return '#FFA726';
+        return '#2196F3';
       case 'approved':
-        return '#42A5F5';
+        return '#4CAF50';
       case 'in_production':
-        return '#AB47BC';
+        return '#2196F3';
       case 'for_delivery':
-        return '#26A69A';
+        return '#9C27B0';
       case 'delivered':
-        return '#66BB6A';
+        return '#00BCD4';
       case 'completed':
         return '#4CAF50';
       default:
@@ -90,7 +90,7 @@ export default function OrderDetailScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <TouchableOpacity style={[styles.backButton, { backgroundColor: '#2196F3' }]} onPress={() => router.back()}>
             <Text style={styles.backButtonText}>Back</Text>
           </TouchableOpacity>
           <Text style={[styles.title, { color: colors.text }]}>Order Details</Text>
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   backButton: {
-    backgroundColor: '#ff6b35',
+    backgroundColor: '#2196F3',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 10,

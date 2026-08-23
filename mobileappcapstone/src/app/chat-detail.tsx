@@ -43,11 +43,11 @@ export default function ChatDetailScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={[styles.backButton, { backgroundColor: '#2196F3' }]} onPress={() => router.back()}>
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <View style={styles.headerAvatar}>
+          <View style={[styles.headerAvatar, { backgroundColor: '#2196F3' }]}>
             <Text style={styles.headerAvatarText}>{name?.toString().substring(0, 2).toUpperCase()}</Text>
           </View>
           <Text style={[styles.headerTitle, { color: colors.text }]}>{name}</Text>
@@ -60,7 +60,7 @@ export default function ChatDetailScreen() {
             key={message.id}
             style={[
               styles.messageBubble,
-              message.isUser ? styles.userMessage : [styles.otherMessage, { backgroundColor: colors.card }],
+              message.isUser ? [styles.userMessage, { backgroundColor: '#2196F3' }] : [styles.otherMessage, { backgroundColor: colors.card }],
             ]}
           >
             <Text style={[styles.messageText, { color: message.isUser ? '#ffffff' : colors.text }]}>{message.text}</Text>
@@ -75,7 +75,7 @@ export default function ChatDetailScreen() {
           placeholder="Type a message..."
           placeholderTextColor="#666"
         />
-        <TouchableOpacity style={styles.sendButton}>
+        <TouchableOpacity style={[styles.sendButton, { backgroundColor: '#2196F3' }]}>
           <Text style={styles.sendButtonText}>Send</Text>
         </TouchableOpacity>
       </View>
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   backButton: {
-    backgroundColor: '#ff6b35',
+    backgroundColor: '#2196F3',
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 10,
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#ff6b35',
+    backgroundColor: '#2196F3',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   userMessage: {
-    backgroundColor: '#ff6b35',
+    backgroundColor: '#2196F3',
     alignSelf: 'flex-end',
     borderBottomRightRadius: 4,
   },
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   sendButton: {
-    backgroundColor: '#ff6b35',
+    backgroundColor: '#2196F3',
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 20,
