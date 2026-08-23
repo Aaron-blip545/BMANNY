@@ -1,59 +1,59 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Alert, Image, ImageBackground, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Alert, Image, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { login } from '../services/api';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
 
-  const handleSignIn = () => {
-    console.log('handleSignIn called', { email, password });
+  const handleSignIn = async () => {
     setErrorMessage('');
-    
+
     if (!email) {
-      console.log('Email is empty');
-      setErrorMessage('Please enter your email');
+      setErrorMessage('Please enter your email.');
       return;
     }
-    
-    console.log('Email entered:', email);
-    console.log('Email validation result:', validateEmail(email));
-    
     if (!validateEmail(email)) {
-      console.log('Email validation failed');
-      setErrorMessage('Input must be a valid email address');
+      setErrorMessage('Please enter a valid email address.');
       return;
     }
-    
     if (!password) {
-      console.log('Password is empty');
-      setErrorMessage('Please enter your password');
+      setErrorMessage('Please enter your password.');
       return;
     }
-    
-    console.log('Validation passed, navigating to home');
-    router.push('/home');
+
+    setLoading(true);
+    try {
+      await login(email.trim(), password);
+      router.replace('/home');
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Login failed. Check your email and password.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
-      <Image 
-        source={require('@/assets/images/homepageicon/background.png')} 
-        style={styles.backgroundImage} 
+      <Image
+        source={require('@/assets/images/homepageicon/background.png')}
+        style={styles.backgroundImage}
       />
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.overlay}
       >
@@ -71,7 +71,7 @@ export default function LoginScreen() {
 
             {/* Email Input */}
             <View style={[styles.inputContainer, emailFocused && styles.inputFocused]}>
-              <Text style={[styles.inputIcon, { color: '#2196F3' }]}>✉</Text>
+              <Ionicons name="mail-outline" size={20} color="#2196F3" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Email"
@@ -91,7 +91,7 @@ export default function LoginScreen() {
 
             {/* Password Input */}
             <View style={[styles.inputContainer, passwordFocused && styles.inputFocused]}>
-              <Text style={[styles.inputIcon, { color: '#2196F3' }]}>🔒</Text>
+              <Ionicons name="lock-closed-outline" size={20} color="#2196F3" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Password"
@@ -107,7 +107,7 @@ export default function LoginScreen() {
                 onBlur={() => setPasswordFocused(false)}
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-                <Text style={{ color: '#2196F3', fontSize: 20 }}>{showPassword ? '🙈' : '👁'}</Text>
+                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color="#2196F3" />
               </TouchableOpacity>
             </View>
 
@@ -125,24 +125,28 @@ export default function LoginScreen() {
             </View>
 
             {/* Sign In Button */}
-            <TouchableOpacity style={styles.signInButton} onPress={handleSignIn} disabled={loading}>
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.signInButtonText}>Sign in</Text>
-              )}
+            <TouchableOpacity
+              style={[styles.signInButton, loading && { opacity: 0.7 }]}
+              onPress={handleSignIn}
+              disabled={loading}
+            >
+              {loading
+                ? <ActivityIndicator color="#ffffff" />
+                : <Text style={styles.signInButtonText}>Sign in</Text>
+              }
             </TouchableOpacity>
 
+            {/* Create Account Link */}
             <View style={styles.createAccountContainer}>
               <Text style={styles.createAccountText}>Don't have an account? </Text>
               <TouchableOpacity onPress={() => router.push('/register')}>
                 <Text style={styles.createAccountLink}>Signup</Text>
               </TouchableOpacity>
             </View>
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 

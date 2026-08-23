@@ -64,6 +64,7 @@ export default function ChatDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Text style={styles.backButtonText}>← Back</Text>
@@ -76,34 +77,73 @@ export default function ChatDetailScreen() {
         </View>
       </View>
 
-      <ScrollView style={styles.messagesScroll} contentContainerStyle={styles.messagesContent}>
-        {messages.map((message) => (
-          <View
-            key={message.message_id}
-            style={[
-              styles.messageBubble,
-              isMine(message) ? [styles.userMessage, { backgroundColor: '#2196F3' }] : [styles.otherMessage, { backgroundColor: colors.card }],
-            ]}
-          >
-            <Text style={[styles.messageText, { color: isMine(message) ? '#ffffff' : colors.text }]}>{message.message_body}</Text>
-            <Text style={[styles.messageTime, { color: colors.textSecondary }]}>{new Date(message.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Text>
-          </View>
-        ))}
-      </ScrollView>
+      {/* Messages */}
+      {loading ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator color="#2196F3" size="large" />
+        </View>
+      ) : (
+        <ScrollView
+          ref={scrollRef}
+          style={styles.messagesScroll}
+          contentContainerStyle={styles.messagesContent}
+          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
+        >
+          {messages.length === 0 && (
+            <Text style={{ color: colors.textSecondary, textAlign: 'center', marginTop: 40 }}>
+              No messages yet. Say hi! 👋
+            </Text>
+          )}
+          {messages.map((message) => (
+            <View
+              key={message.message_id}
+              style={[
+                styles.messageBubble,
+                isMine(message)
+                  ? [styles.userMessage, { backgroundColor: '#2196F3' }]
+                  : [styles.otherMessage, { backgroundColor: colors.card }],
+              ]}
+            >
+              <Text style={[styles.messageText, { color: isMine(message) ? '#ffffff' : colors.text }]}>
+                {message.message_body}
+              </Text>
+              <Text style={[styles.messageTime, { color: isMine(message) ? 'rgba(255,255,255,0.7)' : colors.textSecondary }]}>
+                {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </Text>
+            </View>
+          ))}
+        </ScrollView>
+      )}
 
-      <View style={[styles.inputContainer, { borderTopColor: colors.border }]}>
-        <TextInput
-          style={[styles.input, { backgroundColor: colors.card, color: colors.text }]}
-          placeholder="Type a message..."
-          placeholderTextColor="#666"
-        />
-        <TouchableOpacity style={[styles.sendButton, { backgroundColor: '#2196F3' }]} onPress={handleSend} disabled={sending}>
-          <Text style={styles.sendButtonText}>Send</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Input bar */}
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <View style={[styles.inputContainer, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
+          <TextInput
+            style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+            placeholder="Type a message..."
+            placeholderTextColor={colors.textSecondary}
+            value={text}
+            onChangeText={setText}
+            onSubmitEditing={handleSend}
+            returnKeyType="send"
+            multiline
+          />
+          <TouchableOpacity
+            style={[styles.sendButton, { backgroundColor: '#2196F3', opacity: sending ? 0.6 : 1 }]}
+            onPress={handleSend}
+            disabled={sending}
+          >
+            {sending
+              ? <ActivityIndicator color="#ffffff" size="small" />
+              : <Text style={styles.sendButtonText}>Send</Text>
+            }
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
@@ -190,6 +230,8 @@ const styles = StyleSheet.create({
     padding: 12,
     paddingHorizontal: 16,
     marginRight: 12,
+    borderWidth: 1,
+    maxHeight: 100,
   },
   sendButton: {
     paddingVertical: 12,

@@ -40,8 +40,23 @@ export default function MessagesScreen() {
 
   const loadConversations = useCallback(async () => {
     try {
-      const data = await getConversations();
-      setConversations(data);
+      const raw = await getConversations();
+      // Map the API's snake_case fields to the new camelCase interface
+      // so the template can use conversation.name, .lastMessage, etc.
+      const mapped: Conversation[] = (raw ?? []).map((c: any) => ({
+        id:            c.inquiry_id ?? c.other_user_id,
+        other_user_id: c.other_user_id,
+        other_user_name: c.other_user_name,
+        inquiry_id:    c.inquiry_id,
+        avatar:        (c.other_user_name ?? '?').substring(0, 2).toUpperCase(),
+        name:          c.other_user_name,
+        lastMessage:   c.last_message,
+        time:          c.last_message_at
+          ? new Date(c.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          : '',
+        unread:        c.unread_count ?? 0,
+      }));
+      setConversations(mapped);
     } catch (err) {
       console.error('Failed to load conversations', err);
     } finally {
@@ -86,33 +101,43 @@ export default function MessagesScreen() {
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        {conversations.map((conversation) => (
-          <TouchableOpacity
-            key={conversation.id}
-            style={[styles.conversationItem, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={() => openConversation(conversation)}
-          >
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{conversation.avatar}</Text>
-            </View>
-            <View style={styles.conversationContent}>
-              <View style={styles.conversationHeader}>
-                <Text style={[styles.name, { color: colors.text }]}>{conversation.name}</Text>
-                <Text style={[styles.time, { color: colors.textSecondary }]}>{conversation.time}</Text>
+        {conversations.length === 0 ? (
+          <View style={{ alignItems: 'center', paddingTop: 60 }}>
+            <Text style={{ fontSize: 40, marginBottom: 12 }}>💬</Text>
+            <Text style={{ color: colors.textSecondary, fontSize: 16, fontWeight: '600' }}>No conversations yet.</Text>
+            <Text style={{ color: colors.textSecondary, fontSize: 13, marginTop: 6, textAlign: 'center', paddingHorizontal: 32 }}>
+              Submit an inquiry and a sales agent will reach out to you here.
+            </Text>
+          </View>
+        ) : (
+          conversations.map((conversation) => (
+            <TouchableOpacity
+              key={conversation.id}
+              style={[styles.conversationItem, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => openConversation(conversation)}
+            >
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{conversation.avatar}</Text>
               </View>
-              <View style={styles.conversationFooter}>
-                <Text style={[styles.lastMessage, { color: colors.textSecondary }]} numberOfLines={1}>
-                  {conversation.lastMessage}
-                </Text>
-                {conversation.unread > 0 && (
-                  <View style={styles.unreadBadge}>
-                    <Text style={styles.unreadCount}>{conversation.unread}</Text>
-                  </View>
-                )}
+              <View style={styles.conversationContent}>
+                <View style={styles.conversationHeader}>
+                  <Text style={[styles.name, { color: colors.text }]}>{conversation.name}</Text>
+                  <Text style={[styles.time, { color: colors.textSecondary }]}>{conversation.time}</Text>
+                </View>
+                <View style={styles.conversationFooter}>
+                  <Text style={[styles.lastMessage, { color: colors.textSecondary }]} numberOfLines={1}>
+                    {conversation.lastMessage}
+                  </Text>
+                  {conversation.unread > 0 && (
+                    <View style={styles.unreadBadge}>
+                      <Text style={styles.unreadCount}>{conversation.unread}</Text>
+                    </View>
+                  )}
+                </View>
               </View>
-            </View>
-          </TouchableOpacity>
-        ))}
+            </TouchableOpacity>
+          ))
+        )}
       </ScrollView>
 
       <View style={[styles.navigationBar, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
@@ -126,7 +151,7 @@ export default function MessagesScreen() {
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={() => router.push('/messages')}>
           <MessagesIcon colors={colors} />
-          <Text style={[styles.navText, { color: colors.textSecondary }]}>Messages</Text>
+          <Text style={[styles.navText, { color: '#2196F3' }]}>Messages</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={() => router.push('/profile')}>
           <ProfileIcon colors={colors} />
@@ -169,7 +194,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#ff6b35',
+    backgroundColor: '#2196F3',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -206,7 +231,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   unreadBadge: {
-    backgroundColor: '#ff6b35',
+    backgroundColor: '#2196F3',
     borderRadius: 12,
     minWidth: 24,
     height: 24,
