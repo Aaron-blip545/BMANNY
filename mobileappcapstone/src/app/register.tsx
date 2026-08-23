@@ -7,6 +7,7 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
   return (
     <SafeAreaView style={styles.container}>
@@ -113,6 +114,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#a0a0a0',
     marginBottom: 40,
+  },
+  errorMessage: {
+    color: '#ff4444',
+    fontSize: 14,
+    marginBottom: 20,
+    textAlign: 'center',
   },
   inputContainer: {
     backgroundColor: '#16213e',

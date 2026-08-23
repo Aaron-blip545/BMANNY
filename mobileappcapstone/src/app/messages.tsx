@@ -1,7 +1,20 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Image } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Image, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
+import { getConversations } from '../services/api';
+
+interface Conversation {
+  id: number;
+  other_user_id: number;
+  other_user_name: string;
+  inquiry_id?: number;
+  avatar: string;
+  name: string;
+  lastMessage: string;
+  time: string;
+  unread: number;
+}
 
 const HomeIcon = ({ colors }: { colors: any }) => (
   <Image source={require('@/assets/images/homepageicon/home.png')} style={styles.navIcon} tintColor={colors.text} />
@@ -20,6 +33,7 @@ const ProfileIcon = ({ colors }: { colors: any }) => (
 );
 
 export default function MessagesScreen() {
+  const { colors } = useTheme();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -40,11 +54,11 @@ export default function MessagesScreen() {
   // stay fresh after you read a conversation and come back.
   // Also polls every 5 seconds so messages from the sales agent (web)
   // appear without needing a manual pull-to-refresh.
-  useFocusEffect(useCallback(() => {
+  useEffect(() => {
     loadConversations();
     const interval = setInterval(loadConversations, 5000);
     return () => clearInterval(interval);
-  }, [loadConversations]));
+  }, [loadConversations]);
 
   function openConversation(conv: Conversation) {
     router.push({
@@ -76,10 +90,7 @@ export default function MessagesScreen() {
           <TouchableOpacity
             key={conversation.id}
             style={[styles.conversationItem, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={() => {
-              // @ts-ignore
-              router.push('/chat-detail');
-            }}
+            onPress={() => openConversation(conversation)}
           >
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>{conversation.avatar}</Text>

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, SafeAreaView, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { getConversation, sendMessage, markConversationRead } from '../services/api';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface Message {
   message_id: number;
@@ -11,6 +12,7 @@ interface Message {
 }
 
 export default function ChatDetailScreen() {
+  const { colors } = useTheme();
   const { otherUserId, otherUserName, inquiryId } = useLocalSearchParams();
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
@@ -67,24 +69,24 @@ export default function ChatDetailScreen() {
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <View style={styles.headerAvatar}>
-            <Text style={styles.headerAvatarText}>{name?.toString().substring(0, 2).toUpperCase()}</Text>
+          <View style={[styles.headerAvatar, { backgroundColor: '#2196F3' }]}>
+            <Text style={styles.headerAvatarText}>{otherUserName?.toString().substring(0, 2).toUpperCase()}</Text>
           </View>
-          <Text style={styles.headerTitle}>{otherUserName}</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>{otherUserName}</Text>
         </View>
       </View>
 
       <ScrollView style={styles.messagesScroll} contentContainerStyle={styles.messagesContent}>
         {messages.map((message) => (
           <View
-            key={message.id}
+            key={message.message_id}
             style={[
               styles.messageBubble,
-              message.isUser ? styles.userMessage : [styles.otherMessage, { backgroundColor: colors.card }],
+              isMine(message) ? [styles.userMessage, { backgroundColor: '#2196F3' }] : [styles.otherMessage, { backgroundColor: colors.card }],
             ]}
           >
-            <Text style={[styles.messageText, { color: message.isUser ? '#ffffff' : colors.text }]}>{message.text}</Text>
-            <Text style={[styles.messageTime, { color: colors.textSecondary }]}>{message.time}</Text>
+            <Text style={[styles.messageText, { color: isMine(message) ? '#ffffff' : colors.text }]}>{message.message_body}</Text>
+            <Text style={[styles.messageTime, { color: colors.textSecondary }]}>{new Date(message.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Text>
           </View>
         ))}
       </ScrollView>
@@ -95,7 +97,7 @@ export default function ChatDetailScreen() {
           placeholder="Type a message..."
           placeholderTextColor="#666"
         />
-        <TouchableOpacity style={styles.sendButton}>
+        <TouchableOpacity style={[styles.sendButton, { backgroundColor: '#2196F3' }]} onPress={handleSend} disabled={sending}>
           <Text style={styles.sendButtonText}>Send</Text>
         </TouchableOpacity>
       </View>
@@ -114,7 +116,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   backButton: {
-    backgroundColor: '#ff6b35',
+    backgroundColor: '#2196F3',
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 10,
@@ -134,7 +136,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#ff6b35',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -162,7 +163,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   userMessage: {
-    backgroundColor: '#ff6b35',
     alignSelf: 'flex-end',
     borderBottomRightRadius: 4,
   },
@@ -192,7 +192,6 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   sendButton: {
-    backgroundColor: '#ff6b35',
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 20,
