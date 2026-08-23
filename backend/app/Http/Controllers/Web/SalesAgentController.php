@@ -39,7 +39,7 @@ class SalesAgentController extends Controller
     {
         // Pass the list of pending/reviewed inquiries that don't yet have
         // a quotation, so the sales agent can pick one from a dropdown.
-        $pendingInquiries = Inquiry::with('client')
+        $pendingInquiries = Inquiry::with(['client.user', 'customizations'])
             ->whereIn('status', ['pending', 'reviewed'])
             ->whereDoesntHave('quotation')
             ->orderByDesc('created_at')
@@ -107,6 +107,14 @@ class SalesAgentController extends Controller
             return back()->withErrors(['status' => 'Only a sent quotation can be accepted.']);
         }
 
+        // The client must have submitted proof of payment before we create
+        // an Order - this is what actually gates "Accept". Without this
+        // check, a sales agent could accept (and forward to the Order
+        // Manager) a quotation nobody has paid for yet.
+        if (! $quotation->payment_submitted_at) {
+            return back()->withErrors(['status' => 'The client has not submitted payment for this quotation yet.']);
+        }
+
         DB::transaction(function () use ($quotation) {
             Order::create([
                 'client_id'    => $quotation->inquiry->client->client_id,
@@ -121,5 +129,29 @@ class SalesAgentController extends Controller
 
         return redirect()->route('quotations.index')
             ->with('success', 'Order created and forwarded to Order Manager.');
+    }
+
+    /**
+     * Reject a submitted payment proof (e.g. it's blurry, wrong amount,
+     * doesn't match records, etc). Clears the payment fields so the
+     * quotation goes back to "awaiting payment" and the client can
+     * resubmit from the mobile app.
+     */
+    public function rejectPayment($id)
+    {
+        $quotation = Quotation::findOrFail($id);
+
+        if (! $quotation->payment_submitted_at) {
+            return back()->withErrors(['status' => 'This quotation has no payment submission to reject.']);
+        }
+
+        $quotation->update([
+            'payment_method'       => null,
+            'payment_proof_path'   => null,
+            'payment_submitted_at' => null,
+        ]);
+
+        return redirect()->route('quotations.index')
+            ->with('success', 'Payment rejected. The client can resubmit proof of payment.');
     }
 }

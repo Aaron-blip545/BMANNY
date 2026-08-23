@@ -19,6 +19,13 @@ class Order extends Model
         'internal_tracking_number',
         'total_amount',
         'status',
+        // FIXED: these two columns exist on the orders table (added by the
+        // 2026_08_18_072454_update_orders_status_and_tracking migration)
+        // but were missing here, so any mass-assignment (Order::create(),
+        // $order->update()) touching them would have silently been
+        // ignored by Eloquent.
+        'courier_name',
+        'courier_tracking_number',
     ];
 
     // 3. Link to the BusinessClient model

@@ -44,17 +44,19 @@ export default function MessagesScreen() {
       // Map the API's snake_case fields to the new camelCase interface
       // so the template can use conversation.name, .lastMessage, etc.
       const mapped: Conversation[] = (raw ?? []).map((c: any) => ({
-        id:            c.inquiry_id ?? c.other_user_id,
-        other_user_id: c.other_user_id,
+        // Use other_user_id as the stable key — conversations are now
+        // grouped per-person on the backend, not per-inquiry.
+        id:              c.other_user_id,
+        other_user_id:   c.other_user_id,
         other_user_name: c.other_user_name,
-        inquiry_id:    c.inquiry_id,
-        avatar:        (c.other_user_name ?? '?').substring(0, 2).toUpperCase(),
-        name:          c.other_user_name,
-        lastMessage:   c.last_message,
-        time:          c.last_message_at
+        inquiry_id:      c.inquiry_id ?? undefined,
+        avatar:          (c.other_user_name ?? '?').substring(0, 2).toUpperCase(),
+        name:            c.other_user_name,
+        lastMessage:     c.last_message,
+        time:            c.last_message_at
           ? new Date(c.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           : '',
-        unread:        c.unread_count ?? 0,
+        unread:          c.unread_count ?? 0,
       }));
       setConversations(mapped);
     } catch (err) {
@@ -79,28 +81,32 @@ export default function MessagesScreen() {
     router.push({
       pathname: '/chat-detail',
       params: {
-        otherUserId: conv.other_user_id,
+        otherUserId:   conv.other_user_id,
         otherUserName: conv.other_user_name,
-        inquiryId: conv.inquiry_id ?? '',
+        // Don't pass inquiryId — conversations are now per-person, not
+        // per-inquiry. The user can reference any inquiry in the chat.
       },
     });
   }
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator color="#ff6b35" />
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator color="#2196F3" />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { backgroundColor: colors.background }]}>
         <Text style={[styles.title, { color: colors.text }]}>Messages</Text>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={[styles.scroll, { backgroundColor: colors.background }]}
+        contentContainerStyle={styles.scrollContent}
+      >
         {conversations.length === 0 ? (
           <View style={{ alignItems: 'center', paddingTop: 60 }}>
             <Text style={{ fontSize: 40, marginBottom: 12 }}>💬</Text>

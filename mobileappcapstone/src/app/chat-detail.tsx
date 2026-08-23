@@ -65,7 +65,7 @@ export default function ChatDetailScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
@@ -85,7 +85,7 @@ export default function ChatDetailScreen() {
       ) : (
         <ScrollView
           ref={scrollRef}
-          style={styles.messagesScroll}
+          style={[styles.messagesScroll, { backgroundColor: colors.background }]}
           contentContainerStyle={styles.messagesContent}
           onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
         >

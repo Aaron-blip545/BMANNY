@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Ima
 import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../contexts/ThemeContext';
+import { submitQuotationPayment } from '../services/api';
 
 const HomeIcon = ({ colors }: { colors: any }) => (
   <Image source={require('@/assets/images/homepageicon/home.png')} style={styles.navIcon} tintColor={colors.text} />
@@ -22,19 +23,19 @@ const ProfileIcon = ({ colors }: { colors: any }) => (
 
 export default function PaymentScreen() {
   const { colors } = useTheme();
-  const { orderData } = useLocalSearchParams<{ orderData: string }>();
+  const { quotationId, amount, paymentMethod } = useLocalSearchParams<{
+    quotationId: string;
+    amount: string;
+    paymentMethod: string;
+  }>();
   const [proofImage, setProofImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Parse order data
-  const parsedOrderData = orderData ? JSON.parse(orderData) : {};
-  const quantity = parseInt(parsedOrderData.quantity) || 0;
-  const pricePerUnit = 25; // Price per unit in dollars
-  const totalAmount = quantity * pricePerUnit;
-  const paymentMethod = parsedOrderData.paymentMethod || 'gcash';
+  const totalAmount = parseFloat(amount) || 0;
+  const method = paymentMethod || 'gcash';
 
   // Determine QR code based on payment method
-  const qrCodeSource = paymentMethod === 'card' 
+  const qrCodeSource = method === 'card'
     ? require('@/assets/images/paymentmethodimage/debit qr.png')
     : require('@/assets/images/paymentmethodimage/gcash qr.png');
 
@@ -55,36 +56,31 @@ export default function PaymentScreen() {
     }
   };
 
-  const handleSubmit = () => {
-    if (paymentMethod !== 'cod' && !proofImage) {
+  const handleSubmit = async () => {
+    if (method !== 'cod' && !proofImage) {
       Alert.alert('Error', 'Please upload a proof of payment image');
       return;
     }
 
+    if (!quotationId) {
+      Alert.alert('Error', 'Missing quotation reference. Please go back and try again.');
+      return;
+    }
+
     setIsUploading(true);
-    
-    // Simulate upload and navigation
-    setTimeout(() => {
+    try {
+      await submitQuotationPayment(Number(quotationId), method as 'gcash' | 'card' | 'cod', proofImage);
+
+      Alert.alert(
+        'Payment Submitted! 🎉',
+        'Your payment has been sent to our sales team for confirmation. Once confirmed, your order will be created.',
+        [{ text: 'OK', onPress: () => router.push('/orders') }]
+      );
+    } catch (err: any) {
+      Alert.alert('Submission Failed', err.message || 'Something went wrong. Please try again.');
+    } finally {
       setIsUploading(false);
-      
-      // Parse order data and navigate to orders
-      const parsedOrderData = orderData ? JSON.parse(orderData) : {};
-      const finalOrderData = {
-        ...parsedOrderData,
-        proofImage: paymentMethod === 'cod' ? '' : (proofImage || ''),
-        status: 'pending',
-        paymentDate: new Date().toISOString()
-      };
-      
-      console.log('Final order data:', finalOrderData);
-      
-      router.push({
-        pathname: '/orders',
-        params: {
-          orderData: JSON.stringify(finalOrderData)
-        }
-      });
-    }, 1500);
+    }
   };
 
   return (
@@ -100,26 +96,22 @@ export default function PaymentScreen() {
         <View style={[styles.totalSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Payment Summary</Text>
           <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Quantity</Text>
-            <Text style={[styles.summaryValue, { color: colors.text }]}>{quantity} units</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Price per unit</Text>
-            <Text style={[styles.summaryValue, { color: colors.text }]}>${pricePerUnit}</Text>
+            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Quotation</Text>
+            <Text style={[styles.summaryValue, { color: colors.text }]}>#{quotationId}</Text>
           </View>
           <View style={styles.summaryRow}>
             <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Payment Method</Text>
             <Text style={[styles.summaryValue, { color: colors.text }]}>
-              {paymentMethod === 'gcash' ? 'GCash' : paymentMethod === 'card' ? 'Credit/Debit Card' : 'Cash on Delivery'}
+              {method === 'gcash' ? 'GCash' : method === 'card' ? 'Credit/Debit Card' : 'Cash on Delivery'}
             </Text>
           </View>
           <View style={[styles.summaryRow, styles.totalRow]}>
             <Text style={[styles.totalLabel, { color: colors.text }]}>Total Amount</Text>
-            <Text style={[styles.totalValue, { color: '#2196F3' }]}>${totalAmount}</Text>
+            <Text style={[styles.totalValue, { color: '#2196F3' }]}>₱{totalAmount.toLocaleString()}</Text>
           </View>
         </View>
 
-        {paymentMethod === 'cod' ? (
+        {method === 'cod' ? (
           <View style={[styles.codSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Cash on Delivery</Text>
             <Text style={[styles.codInstruction, { color: colors.textSecondary }]}>
@@ -129,18 +121,18 @@ export default function PaymentScreen() {
         ) : (
           <View style={[styles.qrSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Scan QR Code to Pay</Text>
-            <Image 
+            <Image
               source={qrCodeSource}
               style={styles.qrCode}
               resizeMode="contain"
             />
             <Text style={[styles.qrInstruction, { color: colors.textSecondary }]}>
-              Scan this QR code using your {paymentMethod === 'card' ? 'banking app' : 'GCash app'} to complete the payment
+              Scan this QR code using your {method === 'card' ? 'banking app' : 'GCash app'} to complete the payment
             </Text>
           </View>
         )}
 
-        {paymentMethod !== 'cod' && (
+        {method !== 'cod' && (
           <View style={[styles.uploadSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Upload Proof of Payment</Text>
             <Text style={[styles.uploadInstruction, { color: colors.textSecondary }]}>
@@ -150,15 +142,15 @@ export default function PaymentScreen() {
             {proofImage ? (
               <View style={styles.previewContainer}>
                 <Image source={{ uri: proofImage }} style={styles.previewImage} />
-                <TouchableOpacity 
-                  style={styles.removeButton} 
+                <TouchableOpacity
+                  style={styles.removeButton}
                   onPress={() => setProofImage(null)}
                 >
                   <Text style={styles.removeButtonText}>Remove</Text>
                 </TouchableOpacity>
               </View>
             ) : (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.uploadButton, { backgroundColor: colors.border }]}
                 onPress={handlePickImage}
               >
@@ -168,13 +160,13 @@ export default function PaymentScreen() {
           </View>
         )}
 
-        <TouchableOpacity 
-          style={[styles.submitButton, { backgroundColor: '#2196F3' }]}
+        <TouchableOpacity
+          style={[styles.submitButton, { backgroundColor: '#2196F3' }, isUploading && { opacity: 0.6 }]}
           onPress={handleSubmit}
           disabled={isUploading}
         >
           <Text style={styles.submitButtonText}>
-            {isUploading ? 'Processing...' : paymentMethod === 'cod' ? 'Place Order' : 'Submit Payment'}
+            {isUploading ? 'Submitting...' : method === 'cod' ? 'Confirm Cash on Delivery' : 'Submit Payment'}
           </Text>
         </TouchableOpacity>
       </ScrollView>

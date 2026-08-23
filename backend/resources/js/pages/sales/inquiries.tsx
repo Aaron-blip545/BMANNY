@@ -1,10 +1,10 @@
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/react';
-import { ClipboardList, MessageSquare, Plus } from 'lucide-react';
+import { ClipboardList, MessageSquare, Plus, Search } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Inquiries', href: '/inquiries' }];
 
@@ -43,6 +43,8 @@ const STATUS_COLORS: Record<string, string> = {
     closed: 'bg-muted text-muted-foreground',
 };
 
+const STATUS_FILTERS = ['all', 'pending', 'reviewed', 'responded', 'closed'] as const;
+
 function formatDate(iso: string) {
     return new Date(iso).toLocaleDateString('en-PH', {
         year: 'numeric',
@@ -53,9 +55,28 @@ function formatDate(iso: string) {
 
 export default function InquiriesPage({ inquiries }: Props) {
     const { flash } = usePage().props as any;
+    const [search, setSearch] = useState('');
+    const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>('all');
 
     const pending   = inquiries.filter((i) => i.status === 'pending').length;
     const responded = inquiries.filter((i) => i.status === 'responded').length;
+
+    const filteredInquiries = useMemo(() => {
+        const term = search.trim().toLowerCase();
+
+        return inquiries.filter((inquiry) => {
+            if (statusFilter !== 'all' && inquiry.status !== statusFilter) return false;
+            if (!term) return true;
+
+            return (
+                String(inquiry.inquiry_id).includes(term) ||
+                (inquiry.client?.business_name.toLowerCase().includes(term) ?? false) ||
+                (inquiry.client?.contact_person.toLowerCase().includes(term) ?? false) ||
+                (inquiry.client?.user?.email.toLowerCase().includes(term) ?? false) ||
+                inquiry.customizations.some((c) => c.packaging_type.toLowerCase().includes(term))
+            );
+        });
+    }, [inquiries, search, statusFilter]);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -102,13 +123,45 @@ export default function InquiriesPage({ inquiries }: Props) {
                     ))}
                 </div>
 
+                {/* Search & filter controls */}
+                <div className="mb-4 flex flex-col gap-3 rounded-xl border border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                    <p className="text-sm font-medium text-foreground">
+                        {filteredInquiries.length} of {inquiries.length} inquiries
+                    </p>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <div className="relative">
+                            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <input
+                                type="text"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                placeholder="Search business, contact, email…"
+                                className="w-full rounded-md border border-input bg-background py-2 pl-8 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring sm:w-72"
+                            />
+                        </div>
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value as (typeof STATUS_FILTERS)[number])}
+                            className="rounded-md border border-input bg-background px-3 py-2 text-sm capitalize focus:outline-none focus:ring-2 focus:ring-ring"
+                        >
+                            {STATUS_FILTERS.map((s) => (
+                                <option key={s} value={s} className="capitalize">
+                                    {s === 'all' ? 'All Statuses' : s.charAt(0).toUpperCase() + s.slice(1)}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+
                 {/* Table */}
                 <Card className="rounded-xl border-border bg-card shadow-sm">
                     <CardContent className="p-0">
-                        {inquiries.length === 0 ? (
+                        {filteredInquiries.length === 0 ? (
                             <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
                                 <ClipboardList className="h-10 w-10 opacity-40" />
-                                <p className="text-sm">No inquiries yet.</p>
+                                <p className="text-sm">
+                                    {inquiries.length === 0 ? 'No inquiries yet.' : 'No inquiries match your search or filter.'}
+                                </p>
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
@@ -125,7 +178,7 @@ export default function InquiriesPage({ inquiries }: Props) {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {inquiries.map((inquiry) => (
+                                        {filteredInquiries.map((inquiry) => (
                                             <tr
                                                 key={inquiry.inquiry_id}
                                                 className="border-b border-border/50 transition-colors last:border-0 hover:bg-muted/50"

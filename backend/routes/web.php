@@ -56,6 +56,7 @@ Route::middleware(['backend.auth'])->group(function () {
         Route::get('quotations/create', [SalesAgentController::class, 'createQuotation'])->name('quotations.create');
         Route::post('quotations', [SalesAgentController::class, 'storeQuotation'])->name('quotations.store');
         Route::post('quotations/{id}/accept', [SalesAgentController::class, 'acceptQuotation'])->name('quotations.accept');
+        Route::post('quotations/{id}/reject-payment', [SalesAgentController::class, 'rejectPayment'])->name('quotations.reject-payment');
 
         // Chat: one thread per inquiry
         Route::get('inquiries/{inquiry_id}/chat', [ChatController::class, 'show'])->name('chat.show');

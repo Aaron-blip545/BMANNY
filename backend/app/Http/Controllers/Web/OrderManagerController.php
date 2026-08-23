@@ -61,8 +61,21 @@ public function updateTracking(Request $request, $id)
     ]);
 
     $order = Order::findOrFail($id);
-    $order->courier_name = $validated['courier_name'];
-    $order->courier_tracking_number = $validated['courier_tracking_number'];
+    // FIXED: 'nullable' only means "allowed to be null if present" - it
+    // doesn't guarantee the key exists in $validated. Since this is a
+    // PATCH, the caller might send just one of these two fields (or
+    // neither), so accessing $validated['courier_name'] directly threw
+    // "Undefined array key" whenever it wasn't included in the request.
+    //
+    // Using array_key_exists() (rather than ??) keeps this a proper partial
+    // update: an omitted field leaves the existing value untouched, while
+    // a field explicitly sent as null clears it.
+    if (array_key_exists('courier_name', $validated)) {
+        $order->courier_name = $validated['courier_name'];
+    }
+    if (array_key_exists('courier_tracking_number', $validated)) {
+        $order->courier_tracking_number = $validated['courier_tracking_number'];
+    }
     $order->save();
 
     return redirect()->route('orders.index')->with('success', 'Tracking info updated.');

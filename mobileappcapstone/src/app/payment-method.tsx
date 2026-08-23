@@ -33,7 +33,7 @@ const paymentMethods: PaymentMethod[] = [
 
 export default function PaymentMethodScreen() {
   const { colors } = useTheme();
-  const { formData, imageData } = useLocalSearchParams<{ formData: string; imageData: string }>();
+  const { quotationId, amount } = useLocalSearchParams<{ quotationId: string; amount: string }>();
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
 
   const handleSelect = (id: string) => {
@@ -42,22 +42,14 @@ export default function PaymentMethodScreen() {
 
   const handleContinue = () => {
     if (!selectedMethod) return;
-    
-    // Parse the form data
-    const parsedFormData = formData ? JSON.parse(formData) : {};
-    
-    // Navigate to payment with all the data
+
     router.push({
       pathname: '/payment',
       params: {
-        orderData: JSON.stringify({
-          ...parsedFormData,
-          paymentMethod: selectedMethod,
-          imageData: imageData || '',
-          status: 'pending',
-          orderDate: new Date().toISOString()
-        })
-      }
+        quotationId,
+        amount,
+        paymentMethod: selectedMethod,
+      },
     });
   };
 
@@ -72,6 +64,13 @@ export default function PaymentMethodScreen() {
             <Text style={[styles.headerTitle, { color: colors.text }]}>Payment Method</Text>
             <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Choose how you want to pay</Text>
           </View>
+        </View>
+
+        <View style={[styles.amountCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.amountLabel, { color: colors.textSecondary }]}>Amount Due</Text>
+          <Text style={[styles.amountValue, { color: '#2196F3' }]}>
+            ₱{amount ? parseFloat(amount).toLocaleString() : '0'}
+          </Text>
         </View>
 
         <View style={styles.paymentOptions}>
@@ -121,7 +120,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 24,
   },
   backButton: {
     backgroundColor: '#2196F3',
@@ -145,6 +144,21 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 14,
+  },
+  amountCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  amountLabel: {
+    fontSize: 13,
+    marginBottom: 6,
+  },
+  amountValue: {
+    fontSize: 28,
+    fontWeight: '800',
   },
   paymentOptions: {
     marginBottom: 24,

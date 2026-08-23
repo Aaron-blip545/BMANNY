@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import { getMyOrders, getMyInquiries } from '../services/api';
 
@@ -43,7 +43,10 @@ interface Inquiry {
   status: string;
   created_at: string;
   has_quotation: boolean;
+  quotation_id: number | null;
   quotation_amount: string | null;
+  quotation_status: string | null;
+  payment_submitted_at: string | null;
   customizations: { packaging_type: string; serving_size: string | null; client_notes: string | null }[];
 }
 
@@ -81,7 +84,16 @@ export default function OrdersScreen() {
     }
   }, []);
 
-  useEffect(() => { loadAll(); }, [loadAll]);
+  // Refetch every time this screen gains focus - not just on first mount.
+  // Without this, coming back to the Orders tab after paying a quotation
+  // (or after the sales agent accepts it elsewhere) kept showing whatever
+  // was fetched the first time the screen mounted, since expo-router
+  // doesn't remount already-visited screens by default.
+  useFocusEffect(
+    useCallback(() => {
+      loadAll();
+    }, [loadAll])
+  );
 
   const getStatusStyle = (status: string) => {
     switch (status) {
@@ -199,6 +211,29 @@ export default function OrdersScreen() {
                     </Text>
                   </View>
                 </View>
+
+                {inq.has_quotation && inq.quotation_status === 'sent' && !inq.payment_submitted_at ? (
+                  <TouchableOpacity
+                    style={styles.viewBtn}
+                    onPress={() => router.push({
+                      pathname: '/payment-method',
+                      params: {
+                        quotationId: String(inq.quotation_id),
+                        amount: String(inq.quotation_amount),
+                      },
+                    })}
+                  >
+                    <Text style={styles.viewBtnText}>Pay Now</Text>
+                  </TouchableOpacity>
+                ) : inq.has_quotation && inq.quotation_status === 'sent' && inq.payment_submitted_at ? (
+                  <View style={[styles.badge, { backgroundColor: '#2196F3', alignSelf: 'flex-start', marginTop: 8 }]}>
+                    <Text style={styles.badgeText}>Payment Submitted — Awaiting Confirmation</Text>
+                  </View>
+                ) : inq.has_quotation && inq.quotation_status === 'accepted' ? (
+                  <View style={[styles.badge, { backgroundColor: '#4CAF50', alignSelf: 'flex-start', marginTop: 8 }]}>
+                    <Text style={styles.badgeText}>Order Created — see Orders tab</Text>
+                  </View>
+                ) : null}
 
                 <Text style={[styles.cardDate, { color: colors.textSecondary }]}>
                   Submitted {new Date(inq.created_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}

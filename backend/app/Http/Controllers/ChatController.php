@@ -8,9 +8,9 @@ use Illuminate\Http\Request;
 class ChatController extends Controller
 {
     /**
-     * List every conversation this user is part of - grouped by inquiry
-     * (or by the other person, if the messages aren't tied to an inquiry).
-     * This is what powers the conversations list screen.
+     * List every conversation this user is part of — grouped by the OTHER
+     * person, not by inquiry. This means the client always sees exactly one
+     * chat row per sales agent, even if they have multiple inquiries.
      */
     public function conversations(Request $request)
     {
@@ -22,24 +22,37 @@ class ChatController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
+        // Group by the OTHER person's user_id so that all messages
+        // between this user and any given agent collapse into one row.
         $conversations = $messages
             ->groupBy(function ($message) use ($userId) {
-                // Group by inquiry if there is one, otherwise just by
-                // whoever the other person is.
-                $otherId = $message->sender_id === $userId ? $message->receiver_id : $message->sender_id;
-                return $message->inquiry_id ? "inquiry_{$message->inquiry_id}" : "user_{$otherId}";
+                $otherId = $message->sender_id === $userId
+                    ? $message->receiver_id
+                    : $message->sender_id;
+                return $otherId;
             })
             ->map(function ($group) use ($userId) {
-                $latest = $group->first(); // already sorted newest-first
-                $other = $latest->sender_id === $userId ? $latest->receiver : $latest->sender;
+                $latest = $group->first(); // newest-first, so first = latest
+
+                // Resolve the other user's name from the relationship
+                $other = $latest->sender_id === $userId
+                    ? $latest->receiver
+                    : $latest->sender;
+
+                $unread = $group
+                    ->where('receiver_id', $userId)
+                    ->where('is_read', false)
+                    ->count();
 
                 return [
-                    'inquiry_id'     => $latest->inquiry_id,
-                    'other_user_id'  => $other->user_id,
-                    'other_user_name'=> $other->full_name,
-                    'last_message'   => $latest->message_body,
-                    'last_message_at'=> $latest->created_at,
-                    'unread_count'   => $group->where('receiver_id', $userId)->where('is_read', false)->count(),
+                    // inquiry_id is no longer used as the key but kept for
+                    // backwards-compat in case the mobile still reads it
+                    'inquiry_id'      => null,
+                    'other_user_id'   => $other->user_id,
+                    'other_user_name' => $other->full_name,
+                    'last_message'    => $latest->message_body,
+                    'last_message_at' => $latest->created_at,
+                    'unread_count'    => $unread,
                 ];
             })
             ->values();

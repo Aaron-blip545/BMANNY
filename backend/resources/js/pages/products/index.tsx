@@ -2,7 +2,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
-import { PackageSearch } from 'lucide-react';
+import { PackageSearch, Search } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Products', href: '/products' }];
 
@@ -20,8 +21,14 @@ interface Product {
     category?: { category_id: number; name: string } | null;
 }
 
+interface Category {
+    category_id: number;
+    name: string;
+}
+
 interface Props {
     products: Product[];
+    categories: Category[];
     error: string | null;
 }
 
@@ -40,7 +47,30 @@ function formatPrice(value: string) {
         : value;
 }
 
-export default function ProductsIndex({ products, error }: Props) {
+export default function ProductsIndex({ products, categories, error }: Props) {
+    const [search, setSearch] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState<string>('all');
+
+    const filteredProducts = useMemo(() => {
+        const term = search.trim().toLowerCase();
+
+        return products.filter((product) => {
+            const matchesCategory =
+                categoryFilter === 'all' ||
+                (categoryFilter === 'uncategorized' ? !product.category_id : String(product.category_id) === categoryFilter);
+
+            if (!matchesCategory) return false;
+            if (!term) return true;
+
+            return (
+                product.name.toLowerCase().includes(term) ||
+                product.sku.toLowerCase().includes(term) ||
+                (product.description?.toLowerCase().includes(term) ?? false) ||
+                (product.category?.name.toLowerCase().includes(term) ?? false)
+            );
+        });
+    }, [products, search, categoryFilter]);
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Products" />
@@ -69,9 +99,38 @@ export default function ProductsIndex({ products, error }: Props) {
                     </section>
 
                     <section aria-label="Product catalogue controls" className="mb-4 rounded-xl border border-border bg-card px-4 py-3 sm:px-5">
-                        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                            <p className="text-sm font-medium text-foreground">Product catalogue</p>
-                            <p className="text-xs text-muted-foreground">Search and filters are not available yet.</p>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <p className="text-sm font-medium text-foreground">
+                                Product catalogue
+                                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                                    {filteredProducts.length} of {products.length}
+                                </span>
+                            </p>
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                <div className="relative">
+                                    <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <input
+                                        type="text"
+                                        value={search}
+                                        onChange={(e) => setSearch(e.target.value)}
+                                        placeholder="Search by name, SKU, description…"
+                                        className="w-full rounded-md border border-input bg-background py-2 pl-8 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring sm:w-72"
+                                    />
+                                </div>
+                                <select
+                                    value={categoryFilter}
+                                    onChange={(e) => setCategoryFilter(e.target.value)}
+                                    className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                                >
+                                    <option value="all">All Categories</option>
+                                    <option value="uncategorized">Uncategorized</option>
+                                    {categories.map((category) => (
+                                        <option key={category.category_id} value={String(category.category_id)}>
+                                            {category.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                     </section>
 
@@ -83,12 +142,16 @@ export default function ProductsIndex({ products, error }: Props) {
                         </Card>
                     ) : (
                         <Card className="overflow-hidden rounded-xl border-border bg-card shadow-sm">
-                            {products.length === 0 ? (
+                            {filteredProducts.length === 0 ? (
                                 <CardContent className="flex min-h-64 flex-col items-center justify-center px-6 py-12 text-center">
                                     <PackageSearch className="mb-3 size-8 text-muted-foreground/60" aria-hidden="true" />
-                                    <h2 className="text-sm font-semibold text-foreground">No products available</h2>
+                                    <h2 className="text-sm font-semibold text-foreground">
+                                        {products.length === 0 ? 'No products available' : 'No products match your filters'}
+                                    </h2>
                                     <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                                        Products will appear here once they are added to the system.
+                                        {products.length === 0
+                                            ? 'Products will appear here once they are added to the system.'
+                                            : 'Try a different search term or category.'}
                                     </p>
                                 </CardContent>
                             ) : (
@@ -104,7 +167,7 @@ export default function ProductsIndex({ products, error }: Props) {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {products.map((product) => (
+                                            {filteredProducts.map((product) => (
                                                 <tr key={product.product_id} className="border-b border-border/60 last:border-0">
                                                     <td className="px-5 py-4">
                                                         <p className="font-medium text-foreground">{product.name}</p>

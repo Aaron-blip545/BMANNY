@@ -32,7 +32,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/inquiries', [InquiryController::class, 'store']);
         Route::get('/inquiries/my-inquiries', [InquiryController::class, 'myInquiries']);
         Route::post('/inquiries/{inquiry_id}/upload-design', [FileUploadController::class, 'uploadDesign']);
-        Route::get('/quotations/my-quotes', [QuotationController::class, 'show']);
+        Route::get('/quotations/my-quotes', [QuotationController::class, 'myQuotes']);
+        Route::post('/quotations/{quotation_id}/pay', [QuotationController::class, 'submitPayment']);
         Route::post('/orders/{order_id}/upload-receipt', [FileUploadController::class, 'uploadReceipt']);
         Route::get('/orders/my-orders', [OrderController::class, 'myOrders']);
     });

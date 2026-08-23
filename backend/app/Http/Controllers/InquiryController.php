@@ -92,7 +92,10 @@ class InquiryController extends Controller
                     'client_notes'    => $c->client_notes,
                 ])->values(),
                 'has_quotation'  => $inquiry->quotation !== null,
+                'quotation_id' => $inquiry->quotation?->quotation_id,
                 'quotation_amount' => $inquiry->quotation?->total_amount,
+                'quotation_status' => $inquiry->quotation?->status,
+                'payment_submitted_at' => $inquiry->quotation?->payment_submitted_at,
             ])->values();
 
         return response()->json($inquiries);

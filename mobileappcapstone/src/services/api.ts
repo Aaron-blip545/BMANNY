@@ -162,4 +162,74 @@ export async function getMyInquiries() {
 export async function getMyQuotations() {
     return request('/quotations/my-quotes');
 }
-
+
+/**
+ * Submit proof of payment for a quotation that's awaiting payment.
+ * This does NOT create an order - the sales agent still has to review
+ * the proof and accept the quotation first.
+ *
+ * IMPORTANT: this deliberately uses XMLHttpRequest instead of `fetch()`.
+ * Expo SDK 53+ (with the New Architecture) replaces the global `fetch`
+ * with its own WinterCG-compliant implementation, which only accepts
+ * real Blob/File parts in a FormData body. expo-image-picker only gives
+ * us a local file `uri`, so appending the classic React Native shorthand
+ * `{ uri, name, type }` to a FormData throws:
+ *   "Unsupported FormDataPart implementation"
+ * XMLHttpRequest is React Native's own networking bridge (unrelated to
+ * Expo's fetch polyfill) and still supports that shorthand correctly.
+ */
+export async function submitQuotationPayment(
+    quotationId: number,
+    paymentMethod: 'gcash' | 'card' | 'cod',
+    proofImageUri?: string | null,
+) {
+    const token = await getToken();
+
+    const form = new FormData();
+    form.append('payment_method', paymentMethod);
+
+    if (proofImageUri) {
+        const filename = proofImageUri.split('/').pop() || 'proof.jpg';
+        const extensionMatch = /\.(\w+)$/.exec(filename);
+        const type = extensionMatch ? `image/${extensionMatch[1]}` : 'image/jpeg';
+
+        form.append('proof', { uri: proofImageUri, name: filename, type } as any);
+    }
+
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `${API_BASE_URL}/quotations/${quotationId}/pay`);
+        xhr.setRequestHeader('Accept', 'application/json');
+        if (token) {
+            xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        }
+        // Deliberately no 'Content-Type' header - XHR sets the multipart
+        // boundary itself when sending a FormData body. Setting it
+        // manually breaks the upload.
+
+        xhr.onload = () => {
+            let data: any = {};
+            try {
+                data = JSON.parse(xhr.responseText);
+            } catch {
+                // Non-JSON response (e.g. a raw 500 HTML page) - fall through
+                // to the generic error message below.
+            }
+
+            if (xhr.status >= 200 && xhr.status < 300) {
+                resolve(data);
+                return;
+            }
+
+            const message = data.errors
+                ? Object.values(data.errors).flat().join('\n')
+                : data.message || 'Something went wrong.';
+            reject(new Error(message));
+        };
+
+        xhr.onerror = () => reject(new Error('Network request failed.'));
+
+        xhr.send(form as any);
+    });
+}
+
