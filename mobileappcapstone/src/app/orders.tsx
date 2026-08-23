@@ -435,6 +435,40 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
+  emptySubtext: {
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 8,
+    paddingHorizontal: 32,
+  },
+
+  /* INQUIRIES / ORDERS SWITCHER */
+  switcherRow: {
+    flexDirection: 'row',
+    marginHorizontal: 20,
+    marginBottom: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+
+  switcherBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  switcherActive: {
+    backgroundColor: '#ff6b35',
+  },
+
+  switcherText: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+
   /* ORDER CARD */
   orderCard: {
     borderRadius: 20,
