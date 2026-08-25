@@ -1,7 +1,3 @@
-import { Button } from '@/components/ui/button';
-import { useAppearance } from '@/hooks/use-appearance';
-import { Moon, Sun } from 'lucide-react';
-
 interface AuthLayoutProps {
     children: React.ReactNode;
     name?: string;
@@ -10,12 +6,6 @@ interface AuthLayoutProps {
 }
 
 export default function AuthSimpleLayout({ children, title, description }: AuthLayoutProps) {
-    const { updateAppearance } = useAppearance();
-
-    const toggleAppearance = () => {
-        updateAppearance(document.documentElement.classList.contains('dark') ? 'light' : 'dark');
-    };
-
     return (
         <main className="flex min-h-screen items-center bg-[#F7F9FC] px-4 py-8 text-[#172033] sm:px-6 lg:px-8 dark:bg-[#0B1118] dark:text-[#F8FAFC]">
             <div className="mx-auto grid w-full max-w-6xl overflow-hidden rounded-2xl border border-[#DDE3EA] bg-white shadow-[0_20px_45px_rgba(15,39,66,0.12)] lg:grid-cols-2 dark:border-[#263241] dark:bg-[#0F1B29] dark:shadow-2xl dark:shadow-black/30">
@@ -55,17 +45,6 @@ export default function AuthSimpleLayout({ children, title, description }: AuthL
                 </section>
 
                 <section className="relative flex min-h-[calc(100vh-4rem)] items-center bg-white px-6 py-12 sm:px-10 lg:min-h-[680px] lg:px-14 xl:px-16 dark:bg-[#111A24]">
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={toggleAppearance}
-                        className="absolute top-5 right-5 h-10 w-10 rounded-md border border-[#DDE3EA] text-[#174EA6] hover:bg-[#E8EDF3] hover:text-[#0F2742] focus-visible:ring-[#D4A017] focus-visible:ring-offset-white dark:border-[#263241] dark:text-[#9CA9B8] dark:hover:bg-[#162231] dark:hover:text-[#F8FAFC] dark:focus-visible:ring-[#F2B735] dark:focus-visible:ring-offset-[#111A24]"
-                        aria-label="Toggle light and dark mode"
-                    >
-                        <Sun className="size-4 dark:hidden" aria-hidden="true" />
-                        <Moon className="hidden size-4 dark:block" aria-hidden="true" />
-                    </Button>
                     <div className="mx-auto w-full max-w-md">
                         <div className="mb-9">
                             <div className="mb-8 lg:hidden">

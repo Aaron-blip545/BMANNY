@@ -1,4 +1,3 @@
-import HeadingSmall from '@/components/heading-small';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 import { type BreadcrumbItem } from '@/types';
@@ -17,9 +16,7 @@ export default function Password() {
             <Head title="Password settings" />
 
             <SettingsLayout>
-                <div className="space-y-6">
-                    <HeadingSmall title="Update password" description="Manage your account security" />
-                </div>
+                <div />
             </SettingsLayout>
         </AppLayout>
     );

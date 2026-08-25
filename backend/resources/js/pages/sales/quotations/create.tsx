@@ -74,7 +74,7 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId }:
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="New Quotation" />
 
-            <div className="p-4 sm:p-6 lg:p-8">
+            <main className="bmanny-page">
                 <div className="mb-6 flex items-center gap-4">
                     <Button variant="ghost" size="sm" asChild>
                         <Link href={route('inquiries.index')}>
@@ -85,6 +85,7 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId }:
                 </div>
 
                 <div className="mx-auto max-w-5xl">
+                    <p className="bmanny-page-eyebrow">Sales Workspace</p>
                     <h1 className="mb-1 text-2xl font-semibold tracking-tight">New Quotation</h1>
                     <p className="mb-6 text-sm text-muted-foreground">
                         Select an inquiry, enter the price, and send the quote to the client.
@@ -94,8 +95,8 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId }:
                         {/* Form column */}
                         <form onSubmit={handleSubmit} className="space-y-6 lg:col-span-2">
                             {/* Inquiry selector */}
-                            <Card className="border-border/60">
-                                <CardHeader className="pb-3">
+                            <Card className="bmanny-form-card">
+                                <CardHeader className="border-b border-border pb-3">
                                     <CardTitle className="text-base">Select Inquiry</CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-3">
@@ -126,8 +127,8 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId }:
                             </Card>
 
                             {/* Pricing */}
-                            <Card className="border-border/60">
-                                <CardHeader className="pb-3">
+                            <Card className="bmanny-form-card">
+                                <CardHeader className="border-b border-border pb-3">
                                     <CardTitle className="text-base">Pricing & Validity</CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
@@ -220,8 +221,8 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId }:
                         {/* Inquiry details sidebar */}
                         <div className="lg:col-span-1">
                             <div className="lg:sticky lg:top-6">
-                                <Card className="border-border/60">
-                                    <CardHeader className="pb-3">
+                                <Card className="bmanny-workspace overflow-hidden">
+                                    <CardHeader className="border-b border-border pb-3">
                                         <CardTitle className="text-base">Inquiry Details</CardTitle>
                                     </CardHeader>
                                     <CardContent>
@@ -329,7 +330,7 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId }:
                         </div>
                     </div>
                 </div>
-            </div>
+            </main>
         </AppLayout>
     );
 }

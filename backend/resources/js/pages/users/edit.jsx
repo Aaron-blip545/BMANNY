@@ -28,9 +28,15 @@ export default function EditUser({ user }) {
         <AppLayout breadcrumbs={[{ title: 'Manage Users', href: '/users' }, { title: 'Edit Account', href: '#' }]}>
             <Head title="Edit Account" />
 
-            <div className="mx-auto max-w-lg p-4 sm:p-6 lg:p-8">
-                <Card>
-                    <CardHeader>
+            <main className="bmanny-page">
+                <div className="mx-auto max-w-xl">
+                    <header className="bmanny-page-header">
+                        <p className="bmanny-page-eyebrow">Administration</p>
+                        <h1 className="text-2xl font-semibold tracking-tight">Edit Account</h1>
+                        <p className="mt-1 text-sm text-muted-foreground">Update account details, role access, or credentials.</p>
+                    </header>
+                <Card className="bmanny-form-card">
+                    <CardHeader className="border-b border-border">
                         <CardTitle>Edit Account</CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -98,7 +104,8 @@ export default function EditUser({ user }) {
                         </form>
                     </CardContent>
                 </Card>
-            </div>
+                </div>
+            </main>
         </AppLayout>
     );
 }

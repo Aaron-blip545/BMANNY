@@ -28,9 +28,15 @@ export default function CreateUser() {
         <AppLayout breadcrumbs={[{ title: 'Manage Users', href: '/users' }, { title: 'Add Account', href: '/users/create' }]}>
             <Head title="Add Account" />
 
-            <div className="mx-auto max-w-lg p-4 sm:p-6 lg:p-8">
-                <Card>
-                    <CardHeader>
+            <main className="bmanny-page">
+                <div className="mx-auto max-w-xl">
+                    <header className="bmanny-page-header">
+                        <p className="bmanny-page-eyebrow">Administration</p>
+                        <h1 className="text-2xl font-semibold tracking-tight">Add Account</h1>
+                        <p className="mt-1 text-sm text-muted-foreground">Create access for a customer or staff member.</p>
+                    </header>
+                <Card className="bmanny-form-card">
+                    <CardHeader className="border-b border-border">
                         <CardTitle>Add New Account</CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -97,7 +103,8 @@ export default function CreateUser() {
                         </form>
                     </CardContent>
                 </Card>
-            </div>
+                </div>
+            </main>
         </AppLayout>
     );
 }

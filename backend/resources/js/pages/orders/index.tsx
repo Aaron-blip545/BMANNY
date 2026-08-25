@@ -43,14 +43,25 @@ const STATUS_FILTER_OPTIONS = ['all', ...ORDER_STATUSES] as const;
 type StatusFilter = (typeof STATUS_FILTER_OPTIONS)[number];
 
 const STATUS_STYLES: Record<OrderStatus, string> = {
-    pending: 'bg-muted text-muted-foreground',
-    approved: 'bg-muted text-muted-foreground',
-    in_production: 'bg-muted text-muted-foreground',
-    packed: 'bg-muted text-muted-foreground',
-    for_delivery: 'bg-muted text-muted-foreground',
-    delivered: 'bg-muted text-muted-foreground',
-    completed: 'bg-muted text-muted-foreground',
-    cancelled: 'bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300',
+    pending: 'bg-amber-50 text-amber-800 dark:bg-amber-950/35 dark:text-amber-300',
+    approved: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/35 dark:text-emerald-300',
+    in_production: 'bg-indigo-50 text-indigo-800 dark:bg-indigo-950/35 dark:text-indigo-300',
+    packed: 'bg-indigo-50 text-indigo-800 dark:bg-indigo-950/35 dark:text-indigo-300',
+    for_delivery: 'bg-sky-50 text-sky-800 dark:bg-sky-950/35 dark:text-sky-300',
+    delivered: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/35 dark:text-emerald-300',
+    completed: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/35 dark:text-emerald-300',
+    cancelled: 'bg-rose-50 text-rose-800 dark:bg-rose-950/35 dark:text-rose-300',
+};
+
+const STATUS_ACCENTS: Record<OrderStatus, string> = {
+    pending: 'bg-amber-500',
+    approved: 'bg-emerald-600',
+    in_production: 'bg-indigo-600',
+    packed: 'bg-violet-600',
+    for_delivery: 'bg-sky-600',
+    delivered: 'bg-teal-600',
+    completed: 'bg-green-700',
+    cancelled: 'bg-rose-600',
 };
 
 function formatDate(iso: string) {
@@ -102,7 +113,7 @@ function OrderRow({ order, updatingId, onUpdateStatus, onRequestCancel, onTracki
             <td className="p-4 font-medium">{formatAmount(order.total_amount)}</td>
             <td className="p-4 text-muted-foreground text-xs">{formatDate(order.created_at)}</td>
             <td className="p-4">
-                <span className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium capitalize ${STATUS_STYLES[order.status] ?? ''}`}>
+                <span className={`bmanny-status bmanny-status-${order.status === 'in_production' ? 'production' : order.status === 'for_delivery' ? 'delivery' : order.status} capitalize ${STATUS_STYLES[order.status] ?? ''}`}>
                     {order.status}
                 </span>
             </td>
@@ -239,14 +250,15 @@ export default function OrdersIndex({ orders }: Props) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Orders" />
 
-            <div className="bg-background p-4 sm:p-6 lg:p-8">
+            <div className="bmanny-page">
                 {/* Header */}
-                <div className="mb-6">
+                <header className="bmanny-page-header">
+                    <p className="bmanny-page-eyebrow">Order Operations</p>
                     <h1 className="text-2xl font-semibold tracking-tight">Orders</h1>
                     <p className="mt-1 text-sm text-muted-foreground">
                         Manage production and delivery status for all orders.
                     </p>
-                </div>
+                </header>
 
                 {/* Flash */}
                 {flash?.success && (
@@ -258,7 +270,8 @@ export default function OrdersIndex({ orders }: Props) {
                 {/* Stats */}
                 <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
                     {ORDER_STATUSES.map((s) => (
-                        <Card key={s} className="rounded-xl border-border bg-card shadow-sm">
+                        <Card key={s} className="bmanny-kpi">
+                            <span className={`absolute inset-x-0 top-0 h-[3px] ${STATUS_ACCENTS[s]}`} aria-hidden="true" />
                             <CardContent className="p-4">
                                 <p className="text-xs font-medium capitalize text-muted-foreground">{s.replace('_', ' ')}</p>
                                 <p className="mt-1 text-2xl font-semibold tracking-tight text-card-foreground">
@@ -270,7 +283,7 @@ export default function OrdersIndex({ orders }: Props) {
                 </div>
 
                 {/* Search & filter controls */}
-                <div className="mb-4 flex flex-col gap-3 rounded-xl border border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                <div className="bmanny-workspace mb-4 flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
                     <p className="text-sm font-medium text-foreground">
                         {filteredOrders.length} of {orders.length} orders
                     </p>
@@ -300,19 +313,20 @@ export default function OrdersIndex({ orders }: Props) {
                 </div>
 
                 {/* Table */}
-                <Card className="rounded-xl border-border bg-card shadow-sm">
+                <Card className="bmanny-workspace overflow-hidden">
                     <CardContent className="p-0">
                         {filteredOrders.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
-                                <PackageCheck className="h-10 w-10 opacity-40" />
-                                <p className="text-sm">
+                            <div className="bmanny-empty-state py-16 text-muted-foreground">
+                                <PackageCheck />
+                                <h2 className="text-base font-semibold text-foreground">No orders found</h2>
+                                <p className="mt-1 text-sm">
                                     {orders.length === 0 ? 'No orders yet.' : 'No orders match your search or filter.'}
                                 </p>
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left text-sm">
-                                    <thead className="border-b border-border text-xs text-muted-foreground">
+                                    <thead className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                                         <tr>
                                             <th className="p-4 font-medium">Order #</th>
                                             <th className="p-4 font-medium">Client</th>

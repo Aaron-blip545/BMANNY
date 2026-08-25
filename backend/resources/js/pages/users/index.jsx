@@ -27,11 +27,13 @@ export default function UsersIndex({ users, activeRole }) {
         <AppLayout breadcrumbs={[{ title: 'Manage Users', href: '/users' }]}>
             <Head title="Manage Users" />
 
-            <div className="p-4 sm:p-6 lg:p-8">
-                <div className="mb-6 flex items-center justify-between">
+            <main className="bmanny-page">
+                <div className="bmanny-page-inner">
+                <div className="bmanny-page-header flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                     <div>
+                        <p className="bmanny-page-eyebrow">Administration</p>
                         <h1 className="text-2xl font-semibold tracking-tight">Manage Users</h1>
-                        <p className="text-sm text-muted-foreground">Create and manage staff and customer accounts.</p>
+                        <p className="mt-1 text-sm text-muted-foreground">Create and manage staff and customer accounts.</p>
                     </div>
                     <Button asChild>
                         <Link href={route('users.create')}>+ Add Account</Link>
@@ -46,17 +48,17 @@ export default function UsersIndex({ users, activeRole }) {
 
                 <div className="mb-4 flex flex-wrap gap-2">
                     {ROLES.map((r) => (
-                        <Button key={r.value} variant={activeRole === r.value ? 'default' : 'outline'} size="sm" asChild>
+                        <Button key={r.value} variant={activeRole === r.value ? 'default' : 'outline'} className={activeRole === r.value ? '' : 'bmanny-filter-chip'} size="sm" asChild>
                             <Link href={route('users.index', r.value === 'all' ? {} : { role: r.value })}>{r.label}</Link>
                         </Button>
                     ))}
                 </div>
 
-                <Card>
+                <Card className="bmanny-workspace overflow-hidden">
                     <CardContent className="p-0">
                         <table className="w-full text-left text-sm">
                             <thead className="border-b text-xs text-muted-foreground">
-                                <tr>
+                                <tr className="bg-muted/40">
                                     <th className="p-4 font-medium">Name</th>
                                     <th className="p-4 font-medium">Email</th>
                                     <th className="p-4 font-medium">Role</th>
@@ -73,7 +75,7 @@ export default function UsersIndex({ users, activeRole }) {
                                     </tr>
                                 ) : (
                                     users.map((user) => (
-                                        <tr key={user.user_id} className="border-b last:border-0">
+                                        <tr key={user.user_id} className="border-b border-border/70 transition-colors hover:bg-muted/40 last:border-0">
                                             <td className="p-4 font-medium">{user.full_name}</td>
                                             <td className="p-4 text-muted-foreground">{user.email}</td>
                                             <td className="p-4">
@@ -101,7 +103,8 @@ export default function UsersIndex({ users, activeRole }) {
                         </table>
                     </CardContent>
                 </Card>
-            </div>
+                </div>
+            </main>
         </AppLayout>
     );
 }

@@ -77,10 +77,10 @@ export default function ChatPage({ inquiry, messages }: Props) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Chat — ${inquiry.business}`} />
 
-            <div className="flex h-[calc(100vh-64px)] flex-col p-4 sm:p-6 lg:p-8">
+            <main className="bmanny-page flex h-[calc(100vh-64px)] flex-col">
 
                 {/* ── Header ── */}
-                <div className="mb-4 flex items-start gap-4">
+                <div className="bmanny-page-header mb-4 flex items-start gap-4">
                     <Button variant="ghost" size="sm" asChild>
                         <Link href={route('inquiries.index')}>
                             <ArrowLeft className="mr-1 h-4 w-4" />
@@ -98,7 +98,7 @@ export default function ChatPage({ inquiry, messages }: Props) {
                 </div>
 
                 {/* ── Message Thread ── */}
-                <Card className="flex flex-1 flex-col overflow-hidden rounded-xl border-border bg-card shadow-sm">
+                <Card className="bmanny-workspace flex flex-1 flex-col overflow-hidden">
                     <CardContent className="flex flex-1 flex-col overflow-hidden p-0">
 
                         {/* Scrollable message list */}
@@ -170,7 +170,7 @@ export default function ChatPage({ inquiry, messages }: Props) {
 
                     </CardContent>
                 </Card>
-            </div>
+            </main>
         </AppLayout>
     );
 }

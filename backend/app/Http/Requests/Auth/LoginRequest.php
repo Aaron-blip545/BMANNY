@@ -49,6 +49,17 @@ class LoginRequest extends FormRequest
             ]);
         }
 
+        $user = Auth::guard('web')->user();
+
+        if ($user?->role === 'customer') {
+            Auth::guard('web')->logout();
+            RateLimiter::clear($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                'email' => 'Customer accounts can only sign in through the BMANNY mobile app.',
+            ]);
+        }
+
         RateLimiter::clear($this->throttleKey());
     }
 

@@ -1,9 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { BmannyMetricCard } from '@/components/bmanny-metric-card';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { FileText, ImageIcon, Search } from 'lucide-react';
+import { CircleCheck, FileText, ImageIcon, Search, Send } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -149,16 +150,17 @@ export default function QuotationsPage({ quotations }: Props) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Quotations" />
 
-            <div className="p-4 sm:p-6 lg:p-8">
+            <div className="bmanny-page">
                 {/* Header */}
-                <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <header className="bmanny-page-header flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
+                        <p className="bmanny-page-eyebrow">Sales Workspace</p>
                         <h1 className="text-2xl font-semibold tracking-tight">Quotations</h1>
                         <p className="mt-1 text-sm text-muted-foreground">
                             Review sent quotations. Once a client submits payment, confirm it here to create the Order.
                         </p>
                     </div>
-                </div>
+                </header>
 
                 {/* Flash / error messages */}
                 {flash?.success && (
@@ -180,17 +182,12 @@ export default function QuotationsPage({ quotations }: Props) {
                         { label: 'Payment Submitted',     value: awaitingConfirmation,    color: 'text-blue-600 dark:text-blue-400' },
                         { label: 'Accepted',              value: accepted,                color: 'text-green-600 dark:text-green-400' },
                     ].map((s) => (
-                        <Card key={s.label} className="border-border/60">
-                            <CardContent className="p-4">
-                                <p className="text-xs text-muted-foreground">{s.label}</p>
-                                <p className={`mt-1 text-2xl font-bold ${s.color}`}>{s.value}</p>
-                            </CardContent>
-                        </Card>
+                        <BmannyMetricCard key={s.label} label={s.label} value={s.value} description={s.label === 'Awaiting Payment' ? 'Waiting for client action' : s.label === 'Payment Submitted' ? 'Ready for review' : s.label === 'Accepted' ? 'Forwarded to orders' : 'All quotations'} icon={s.label === 'Accepted' ? CircleCheck : s.label === 'Total' ? FileText : Send} accent={s.label === 'Awaiting Payment' ? 'gold' : s.label === 'Payment Submitted' ? 'blue' : s.label === 'Accepted' ? 'green' : 'navy'} />
                     ))}
                 </div>
 
                 {/* Search & filter controls */}
-                <div className="mb-4 flex flex-col gap-3 rounded-xl border border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                <div className="bmanny-workspace mb-4 flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
                     <p className="text-sm font-medium text-foreground">
                         {filteredQuotations.length} of {quotations.length} quotations
                     </p>
@@ -220,19 +217,20 @@ export default function QuotationsPage({ quotations }: Props) {
                 </div>
 
                 {/* Table */}
-                <Card className="border-border/60 shadow-sm">
+                <Card className="bmanny-workspace overflow-hidden">
                     <CardContent className="p-0">
                         {filteredQuotations.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
-                                <FileText className="h-10 w-10 opacity-40" />
-                                <p className="text-sm">
+                            <div className="bmanny-empty-state py-16 text-muted-foreground">
+                                <FileText />
+                                <h2 className="text-base font-semibold text-foreground">No quotations found</h2>
+                                <p className="mt-1 text-sm">
                                     {quotations.length === 0 ? 'No quotations yet.' : 'No quotations match your search or filter.'}
                                 </p>
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left text-sm">
-                                    <thead className="border-b border-border text-xs text-muted-foreground">
+                                    <thead className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                                         <tr>
                                             <th className="p-4 font-medium">#</th>
                                             <th className="p-4 font-medium">Client</th>
@@ -272,7 +270,7 @@ export default function QuotationsPage({ quotations }: Props) {
                                                     </td>
                                                     <td className="p-4">
                                                         <span
-                                                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${STATUS_COLORS[quotation.status] ?? ''}`}
+                                                            className={`bmanny-status bmanny-status-${quotation.status === 'sent' ? 'pending' : quotation.status === 'rejected' ? 'closed' : quotation.status} capitalize ${STATUS_COLORS[quotation.status] ?? ''}`}
                                                         >
                                                             {quotation.status}
                                                         </span>

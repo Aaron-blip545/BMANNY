@@ -1,7 +1,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { BmannyMetricCard } from '@/components/bmanny-metric-card';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
+import { AlertCircle, Boxes, CircleCheck, History, PackageCheck } from 'lucide-react';
 
 interface DashboardStats {
     totalConfigurations: number | null;
@@ -48,19 +50,32 @@ interface StatCardProps {
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Product Controller', href: '/product-controller/dashboard' }];
 
 function StatCard({ label, value, description }: StatCardProps) {
+    const metric = label.includes('Available')
+        ? { icon: CircleCheck, accent: 'green' as const }
+        : label.includes('Unavailable')
+            ? { icon: PackageCheck, accent: 'navy' as const }
+            : label.includes('MOQ')
+                ? { icon: AlertCircle, accent: 'gold' as const }
+                : label.includes('Updated')
+                    ? { icon: History, accent: 'blue' as const }
+                    : { icon: Boxes, accent: 'blue' as const };
+
+    return <BmannyMetricCard label={label} value={value ?? '—'} description={description} icon={metric.icon} accent={metric.accent} />;
+
+    /* Legacy markup kept below temporarily for reference. */
     return (
-        <Card className="border-border bg-card shadow-none">
-            <CardHeader className="space-y-1 p-5 pb-2">
-                <CardDescription className="text-xs font-medium uppercase tracking-wide">{label}</CardDescription>
+        <Card className="bmanny-summary-cell border-0 bg-transparent shadow-none">
+            <CardHeader className="space-y-0 p-0">
+                <CardDescription className="text-[11px] font-semibold uppercase tracking-[0.08em]">{label}</CardDescription>
                 <CardTitle className="text-3xl font-semibold tracking-tight">{value ?? '—'}</CardTitle>
             </CardHeader>
-            <CardContent className="p-5 pt-2 text-sm text-muted-foreground">{description}</CardContent>
+            <CardContent className="mt-2 p-0 text-[13px] text-muted-foreground">{description}</CardContent>
         </Card>
     );
 }
 
 function EmptyState({ children }: { children: React.ReactNode }) {
-    return <p className="border-t border-border px-5 py-7 text-sm text-muted-foreground">{children}</p>;
+    return <p className="border-t border-border px-5 py-5 text-sm text-muted-foreground">{children}</p>;
 }
 
 export default function ProductControllerDashboard({ stats, recentUpdates, moqAlerts, configurationStatus }: Props) {
@@ -68,16 +83,17 @@ export default function ProductControllerDashboard({ stats, recentUpdates, moqAl
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Product Controller Dashboard" />
 
-            <main className="min-h-full bg-slate-50/70 p-4 sm:p-6 lg:p-8 dark:bg-background">
-                <div className="mx-auto max-w-7xl space-y-6">
-                    <section className="border-b border-border pb-6">
+            <main className="bmanny-page">
+                <div className="bmanny-page-inner space-y-5">
+                    <section className="bmanny-page-header">
+                        <p className="bmanny-page-eyebrow">Product Controller</p>
                         <h1 className="text-2xl font-semibold tracking-tight text-slate-950 dark:text-foreground">Dashboard</h1>
                         <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
                             Manage and maintain product configurations, variants, packaging, customization options, and MOQ.
                         </p>
                     </section>
 
-                    <section aria-label="Configuration summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+                    <section aria-label="Configuration summary" className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
                         <StatCard label="Total Product Configurations" value={stats.totalConfigurations} description="All product configurations" />
                         <StatCard label="Available Configurations" value={stats.availableConfigurations} description="Currently marked available" />
                         <StatCard label="Unavailable Configurations" value={stats.unavailableConfigurations} description="Currently marked unavailable" />
@@ -85,8 +101,8 @@ export default function ProductControllerDashboard({ stats, recentUpdates, moqAl
                         <StatCard label="Recently Updated" value={stats.recentlyUpdated} description="Recently modified configurations" />
                     </section>
 
-                    <section className="grid gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(18rem,1fr)]">
-                        <Card id="recent-product-updates" className="border-border bg-card shadow-none">
+                    <section className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(18rem,1fr)]">
+                        <Card id="recent-product-updates" className="bmanny-workspace self-start overflow-hidden">
                             <CardHeader className="border-b border-border p-5">
                                 <CardTitle className="text-base">Recent Product Updates</CardTitle>
                                 <CardDescription>Changes to product configuration records.</CardDescription>
@@ -120,7 +136,7 @@ export default function ProductControllerDashboard({ stats, recentUpdates, moqAl
                         </Card>
 
                         <div className="space-y-6">
-                            <Card id="configuration-status" className="border-border bg-card shadow-none">
+                            <Card id="configuration-status" className="bmanny-workspace overflow-hidden">
                                 <CardHeader className="border-b border-border p-5">
                                     <CardTitle className="text-base">Configuration Status</CardTitle>
                                     <CardDescription>Availability and MOQ review status.</CardDescription>
@@ -136,7 +152,7 @@ export default function ProductControllerDashboard({ stats, recentUpdates, moqAl
                                 )}
                             </Card>
 
-                            <Card id="moq-attention" className="border-border bg-card shadow-none">
+                            <Card id="moq-attention" className="bmanny-workspace overflow-hidden">
                                 <CardHeader className="border-b border-border p-5">
                                     <CardTitle className="text-base">MOQ Attention</CardTitle>
                                     <CardDescription>Configurations requiring MOQ review.</CardDescription>
