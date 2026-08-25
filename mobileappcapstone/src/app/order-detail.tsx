@@ -93,7 +93,9 @@ export default function OrderDetailScreen() {
           <TouchableOpacity style={[styles.backButton, { backgroundColor: '#2196F3' }]} onPress={() => router.back()}>
             <Text style={styles.backButtonText}>Back</Text>
           </TouchableOpacity>
-          <Text style={[styles.title, { color: colors.text }]}>Order Details</Text>
+          <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
+            {order.brandName || 'Order Details'}
+          </Text>
         </View>
 
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>

@@ -86,23 +86,36 @@ class InquiryController extends Controller
             ->orderBy('created_at')
             ->get()
             ->values()
-            ->map(fn ($inquiry, $index) => [
-                'inquiry_id'           => $inquiry->inquiry_id,
-                'client_inquiry_number'=> $index + 1,   // 1-based per-client sequence
-                'status'               => $inquiry->status,
-                'created_at'           => $inquiry->created_at,
-                'customizations'       => $inquiry->customizations->map(fn ($c) => [
-                    'packaging_type' => $c->packaging_type,
-                    'serving_size'   => $c->serving_size,
-                    'client_notes'   => $c->client_notes,
-                ])->values(),
-                'has_quotation'        => $inquiry->quotation !== null,
-                'quotation_id'         => $inquiry->quotation?->quotation_id,
-                'quotation_amount'     => $inquiry->quotation?->total_amount,
-                'quotation_status'     => $inquiry->quotation?->status,
-                'payment_submitted_at' => $inquiry->quotation?->payment_submitted_at,
-                'cancelled_at'         => $inquiry->cancelled_at,
-            ]);
+            ->map(function ($inquiry, $index) {
+                $firstCust = $inquiry->customizations->first();
+                $brandName = null;
+                if ($firstCust && $firstCust->client_notes) {
+                    if (preg_match('/Brand:\s*([^|]+)/i', $firstCust->client_notes, $matches)) {
+                        $brandName = trim($matches[1]);
+                    }
+                }
+
+                return [
+                    'inquiry_id'           => $inquiry->inquiry_id,
+                    'client_inquiry_number'=> $index + 1,   // 1-based per-client sequence
+                    'brand_name'           => $brandName,
+                    'status'               => $inquiry->status,
+                    'created_at'           => $inquiry->created_at,
+                    'customizations'       => $inquiry->customizations->map(fn ($c) => [
+                        'packaging_type' => $c->packaging_type,
+                        'serving_size'   => $c->serving_size,
+                        'client_notes'   => $c->client_notes,
+                    ])->values(),
+                    'has_quotation'        => $inquiry->quotation !== null,
+                    'quotation_id'         => $inquiry->quotation?->quotation_id,
+                    'quotation_amount'     => $inquiry->quotation?->total_amount,
+                    'quotation_status'     => $inquiry->quotation?->status,
+                    'payment_submitted_at' => $inquiry->quotation?->payment_submitted_at,
+                    'cancelled_at'         => $inquiry->cancelled_at,
+                ];
+            })
+            ->reverse()
+            ->values();
 
         return response()->json($inquiries);
     }

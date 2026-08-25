@@ -30,18 +30,20 @@ const ProfileIcon = ({ colors, isActive }: { colors: any; isActive?: boolean }) 
 
 interface Order {
   order_id: number;
+  brand_name?: string | null;
   status: string;
   total_amount: string;
   internal_tracking_number: string | null;
   created_at: string;
   item_details: string | null;
   inquiry_id: number | null;
-  customizations: { packaging_type: string; serving_size: string | null }[];
+  customizations: { packaging_type: string; serving_size: string | null; client_notes?: string | null }[];
 }
 
 interface Inquiry {
   inquiry_id: number;
   client_inquiry_number: number;  // per-customer sequential number (1, 2, 3…)
+  brand_name?: string | null;
   status: string;
   created_at: string;
   has_quotation: boolean;
@@ -51,6 +53,37 @@ interface Inquiry {
   payment_submitted_at: string | null;
   cancelled_at: string | null;
   customizations: { packaging_type: string; serving_size: string | null; client_notes: string | null }[];
+}
+
+function getBrandTitle(
+  item: {
+    brand_name?: string | null;
+    customizations?: { client_notes?: string | null; packaging_type?: string | null }[];
+    client_inquiry_number?: number;
+    inquiry_id?: number | null;
+    order_id?: number;
+  },
+  fallback: string
+): string {
+  if (item.brand_name && item.brand_name.trim()) {
+    return item.brand_name.trim();
+  }
+  if (item.customizations?.[0]?.client_notes) {
+    const match = item.customizations[0].client_notes.match(/Brand:\s*([^|]+)/i);
+    if (match && match[1]?.trim()) {
+      return match[1].trim();
+    }
+  }
+  if ('client_inquiry_number' in item && item.client_inquiry_number) {
+    return `Inquiry #${item.client_inquiry_number}`;
+  }
+  if ('inquiry_id' in item && item.inquiry_id) {
+    return `Inquiry #${item.inquiry_id}`;
+  }
+  if ('order_id' in item && item.order_id) {
+    return `Order #${item.order_id}`;
+  }
+  return fallback;
 }
 
 export default function OrdersScreen() {
@@ -131,10 +164,10 @@ export default function OrdersScreen() {
     return inq.status.charAt(0).toUpperCase() + inq.status.slice(1);
   };
 
-  const handleCancelInquiry = (inquiryId: number, inquiryNum: number) => {
+  const handleCancelInquiry = (inquiryId: number, title: string) => {
     Alert.alert(
       'Cancel Inquiry?',
-      `Are you sure you want to cancel Inquiry #${inquiryNum}? This cannot be undone.`,
+      `Are you sure you want to cancel "${title}"? This cannot be undone.`,
       [
         { text: 'Keep Inquiry', style: 'cancel' },
         {
@@ -211,79 +244,82 @@ export default function OrdersScreen() {
               </Text>
             </View>
           ) : (
-            inquiries.map((inq) => (
-              <View key={inq.inquiry_id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={styles.cardHeader}>
-                  <Text style={[styles.cardTitle, { color: colors.text }]}>
-                    Inquiry #{inq.client_inquiry_number ?? inq.inquiry_id}
-                    {inq.customizations?.[0]?.packaging_type ? ` — ${inq.customizations[0].packaging_type}` : ''}
+            inquiries.map((inq) => {
+              const inqTitle = getBrandTitle(inq, `Inquiry #${inq.client_inquiry_number ?? inq.inquiry_id}`);
+              return (
+                <View key={inq.inquiry_id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <View style={styles.cardHeader}>
+                    <Text style={[styles.cardTitle, { color: colors.text }]}>
+                      {inqTitle}
+                      {inq.customizations?.[0]?.packaging_type ? ` — ${inq.customizations[0].packaging_type}` : ''}
+                    </Text>
+                    <View style={[styles.badge, { backgroundColor: inquiryStatusColor(inq) }]}>
+                      <Text style={styles.badgeText}>{inquiryStatusLabel(inq)}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.cardBody}>
+                    {inq.customizations?.[0]?.serving_size ? (
+                      <View style={styles.row}>
+                        <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Specs:</Text>
+                        <Text style={[styles.rowValue, { color: colors.text }]}>{inq.customizations[0].serving_size}</Text>
+                      </View>
+                    ) : null}
+                    {inq.customizations?.[0]?.client_notes ? (
+                      <View style={styles.row}>
+                        <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Notes:</Text>
+                        <Text style={[styles.rowValue, { color: colors.text }]} numberOfLines={2}>{inq.customizations[0].client_notes}</Text>
+                      </View>
+                    ) : null}
+                    <View style={styles.row}>
+                      <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Quotation:</Text>
+                      <Text style={[styles.rowValue, { color: inq.has_quotation ? '#4CAF50' : colors.textSecondary }]}>
+                        {inq.has_quotation ? `₱${parseFloat(inq.quotation_amount!).toLocaleString()}` : 'Awaiting quote...'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {inq.has_quotation && inq.quotation_status === 'sent' && !inq.payment_submitted_at ? (
+                    <TouchableOpacity
+                      style={styles.viewBtn}
+                      onPress={() => router.push({
+                        pathname: '/payment-method',
+                        params: {
+                          quotationId: String(inq.quotation_id),
+                          amount: String(inq.quotation_amount),
+                        },
+                      })}
+                    >
+                      <Text style={styles.viewBtnText}>Pay Now</Text>
+                    </TouchableOpacity>
+                  ) : inq.has_quotation && inq.quotation_status === 'sent' && inq.payment_submitted_at ? (
+                    <View style={[styles.badge, { backgroundColor: '#2196F3', alignSelf: 'flex-start', marginTop: 8 }]}>
+                      <Text style={styles.badgeText}>Payment Submitted — Awaiting Confirmation</Text>
+                    </View>
+                  ) : inq.has_quotation && inq.quotation_status === 'accepted' ? (
+                    <View style={[styles.badge, { backgroundColor: '#4CAF50', alignSelf: 'flex-start', marginTop: 8 }]}>
+                      <Text style={styles.badgeText}>Order Created — see Orders tab</Text>
+                    </View>
+                  ) : null}
+
+                  {!inq.has_quotation && !inq.cancelled_at && (inq.status === 'pending' || inq.status === 'reviewed') && (
+                    <TouchableOpacity
+                      style={[styles.cancelInquiryBtn, { borderColor: '#E53935' }]}
+                      disabled={cancellingId === inq.inquiry_id}
+                      onPress={() => handleCancelInquiry(inq.inquiry_id, inqTitle)}
+                    >
+                      <Text style={styles.cancelInquiryBtnText}>
+                        {cancellingId === inq.inquiry_id ? 'Cancelling…' : 'Cancel Inquiry'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+
+                  <Text style={[styles.cardDate, { color: colors.textSecondary }]}>
+                    Submitted {new Date(inq.created_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
                   </Text>
-                  <View style={[styles.badge, { backgroundColor: inquiryStatusColor(inq) }]}>
-                    <Text style={styles.badgeText}>{inquiryStatusLabel(inq)}</Text>
-                  </View>
                 </View>
-
-                <View style={styles.cardBody}>
-                  {inq.customizations?.[0]?.serving_size ? (
-                    <View style={styles.row}>
-                      <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Specs:</Text>
-                      <Text style={[styles.rowValue, { color: colors.text }]}>{inq.customizations[0].serving_size}</Text>
-                    </View>
-                  ) : null}
-                  {inq.customizations?.[0]?.client_notes ? (
-                    <View style={styles.row}>
-                      <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Notes:</Text>
-                      <Text style={[styles.rowValue, { color: colors.text }]} numberOfLines={2}>{inq.customizations[0].client_notes}</Text>
-                    </View>
-                  ) : null}
-                  <View style={styles.row}>
-                    <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Quotation:</Text>
-                    <Text style={[styles.rowValue, { color: inq.has_quotation ? '#4CAF50' : colors.textSecondary }]}>
-                      {inq.has_quotation ? `₱${parseFloat(inq.quotation_amount!).toLocaleString()}` : 'Awaiting quote...'}
-                    </Text>
-                  </View>
-                </View>
-
-                {inq.has_quotation && inq.quotation_status === 'sent' && !inq.payment_submitted_at ? (
-                  <TouchableOpacity
-                    style={styles.viewBtn}
-                    onPress={() => router.push({
-                      pathname: '/payment-method',
-                      params: {
-                        quotationId: String(inq.quotation_id),
-                        amount: String(inq.quotation_amount),
-                      },
-                    })}
-                  >
-                    <Text style={styles.viewBtnText}>Pay Now</Text>
-                  </TouchableOpacity>
-                ) : inq.has_quotation && inq.quotation_status === 'sent' && inq.payment_submitted_at ? (
-                  <View style={[styles.badge, { backgroundColor: '#2196F3', alignSelf: 'flex-start', marginTop: 8 }]}>
-                    <Text style={styles.badgeText}>Payment Submitted — Awaiting Confirmation</Text>
-                  </View>
-                ) : inq.has_quotation && inq.quotation_status === 'accepted' ? (
-                  <View style={[styles.badge, { backgroundColor: '#4CAF50', alignSelf: 'flex-start', marginTop: 8 }]}>
-                    <Text style={styles.badgeText}>Order Created — see Orders tab</Text>
-                  </View>
-                ) : null}
-
-                {!inq.has_quotation && !inq.cancelled_at && (inq.status === 'pending' || inq.status === 'reviewed') && (
-                  <TouchableOpacity
-                    style={[styles.cancelInquiryBtn, { borderColor: '#E53935' }]}
-                    disabled={cancellingId === inq.inquiry_id}
-                    onPress={() => handleCancelInquiry(inq.inquiry_id, inq.client_inquiry_number ?? inq.inquiry_id)}
-                  >
-                    <Text style={styles.cancelInquiryBtnText}>
-                      {cancellingId === inq.inquiry_id ? 'Cancelling…' : 'Cancel Inquiry'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-
-                <Text style={[styles.cardDate, { color: colors.textSecondary }]}>
-                  Submitted {new Date(inq.created_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
-                </Text>
-              </View>
-            ))
+              );
+            })
           )}
         </ScrollView>
       )}
@@ -327,49 +363,77 @@ export default function OrdersScreen() {
                 </Text>
               </View>
             ) : (
-              filteredOrders.map((order) => (
-                <View key={order.order_id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  <View style={styles.cardHeader}>
-                    <Text style={[styles.cardTitle, { color: colors.text }]}>
-                      Order #{order.order_id}
-                      {order.customizations?.[0]?.packaging_type ? ` — ${order.customizations[0].packaging_type}` : ''}
+              filteredOrders.map((order) => {
+                const orderTitle = getBrandTitle(order, `Order #${order.order_id}`);
+                return (
+                  <View key={order.order_id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <View style={styles.cardHeader}>
+                      <Text style={[styles.cardTitle, { color: colors.text }]}>
+                        {orderTitle}
+                        {order.customizations?.[0]?.packaging_type ? ` — ${order.customizations[0].packaging_type}` : ''}
+                      </Text>
+                      <View style={[styles.badge, getStatusStyle(order.status)]}>
+                        <Text style={styles.badgeText}>{getStatusLabel(order.status)}</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.cardBody}>
+                      {order.customizations?.[0]?.serving_size ? (
+                        <View style={styles.row}>
+                          <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Specs:</Text>
+                          <Text style={[styles.rowValue, { color: colors.text }]}>{order.customizations[0].serving_size}</Text>
+                        </View>
+                      ) : null}
+                      <View style={styles.row}>
+                        <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Amount:</Text>
+                        <Text style={[styles.rowValue, { color: colors.text }]}>₱{parseFloat(order.total_amount).toLocaleString()}</Text>
+                      </View>
+                      {order.internal_tracking_number ? (
+                        <View style={styles.row}>
+                          <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Tracking:</Text>
+                          <Text style={[styles.rowValue, { color: colors.text }]}>{order.internal_tracking_number}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+
+                    <TouchableOpacity
+                      style={styles.viewBtn}
+                      onPress={() => {
+                        const notes = order.customizations?.[0]?.client_notes || '';
+                        const flavorMatch = notes.match(/Flavor:\s*([^|]+)/i);
+                        const labelMatch = notes.match(/Label:\s*([^|]+)/i);
+                        const serving = order.customizations?.[0]?.serving_size || '';
+                        const sizeMatch = serving.match(/^([^\s×x]+)/);
+                        const qtyMatch = serving.match(/[×x]\s*([^\s]+(?:\s+units)?)/i);
+
+                        const detailPayload = {
+                          ...order,
+                          brandName: orderTitle,
+                          productType: order.customizations?.[0]?.packaging_type || 'Custom Order',
+                          packaging: order.customizations?.[0]?.packaging_type || 'N/A',
+                          flavor: flavorMatch ? flavorMatch[1].trim() : undefined,
+                          size: sizeMatch ? sizeMatch[1].trim() : undefined,
+                          quantity: qtyMatch ? qtyMatch[1].trim() : undefined,
+                          labelDesign: labelMatch ? labelMatch[1].trim() : undefined,
+                          container: order.customizations?.[0]?.packaging_type || undefined,
+                          orderDate: order.created_at,
+                        };
+
+                        router.push({
+                          pathname: '/order-detail',
+                          params: { orderData: JSON.stringify(detailPayload) },
+                        });
+                      }}
+                    >
+                      <Text style={styles.viewBtnText}>View Details</Text>
+                    </TouchableOpacity>
+
+                    <Text style={[styles.cardDate, { color: colors.textSecondary }]}>
+                      {new Date(order.created_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
                     </Text>
-                    <View style={[styles.badge, getStatusStyle(order.status)]}>
-                      <Text style={styles.badgeText}>{getStatusLabel(order.status)}</Text>
-                    </View>
                   </View>
-
-                  <View style={styles.cardBody}>
-                    {order.customizations?.[0]?.serving_size ? (
-                      <View style={styles.row}>
-                        <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Specs:</Text>
-                        <Text style={[styles.rowValue, { color: colors.text }]}>{order.customizations[0].serving_size}</Text>
-                      </View>
-                    ) : null}
-                    <View style={styles.row}>
-                      <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Amount:</Text>
-                      <Text style={[styles.rowValue, { color: colors.text }]}>₱{parseFloat(order.total_amount).toLocaleString()}</Text>
-                    </View>
-                    {order.internal_tracking_number ? (
-                      <View style={styles.row}>
-                        <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Tracking:</Text>
-                        <Text style={[styles.rowValue, { color: colors.text }]}>{order.internal_tracking_number}</Text>
-                      </View>
-                    ) : null}
-                  </View>
-
-                  <TouchableOpacity
-                    style={styles.viewBtn}
-                    onPress={() => router.push({ pathname: '/order-detail', params: { orderData: JSON.stringify(order) } })}
-                  >
-                    <Text style={styles.viewBtnText}>View Details</Text>
-                  </TouchableOpacity>
-
-                  <Text style={[styles.cardDate, { color: colors.textSecondary }]}>
-                    {new Date(order.created_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
-                  </Text>
-                </View>
-              ))
+                );
+              })
             )}
           </ScrollView>
         </>

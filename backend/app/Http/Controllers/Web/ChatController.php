@@ -27,7 +27,10 @@ class ChatController extends Controller
         // Load only messages between THIS agent/admin and the customer —
         // not every message on the inquiry. This keeps the admin's chat
         // thread separate from the sales agent's chat thread.
-        $messages = Message::where('inquiry_id', $inquiryId)
+        $messages = Message::where(function ($q) use ($inquiryId) {
+                $q->where('inquiry_id', $inquiryId)
+                  ->orWhereNull('inquiry_id');
+            })
             ->where(function ($q) use ($agent, $customer) {
                 $q->where(function ($inner) use ($agent, $customer) {
                     $inner->where('sender_id',   $agent->user_id)
@@ -51,7 +54,10 @@ class ChatController extends Controller
 
         // Mark unread messages from the customer to this specific agent as read.
         if ($customer) {
-            Message::where('inquiry_id', $inquiryId)
+            Message::where(function ($q) use ($inquiryId) {
+                    $q->where('inquiry_id', $inquiryId)
+                      ->orWhereNull('inquiry_id');
+                })
                 ->where('sender_id',   $customer->user_id)
                 ->where('receiver_id', $agent->user_id)
                 ->where('is_read', false)

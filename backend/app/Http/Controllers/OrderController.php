@@ -105,22 +105,33 @@ class OrderController extends Controller
         ->where('client_id', $client->client_id)
         ->orderByDesc('created_at')
         ->get()
-        ->map(fn ($order) => [
-            'order_id'                 => $order->order_id,
-            'status'                   => $order->status,
-            'total_amount'             => $order->total_amount,
-            'internal_tracking_number' => $order->internal_tracking_number,
-            'created_at'               => $order->created_at,
-            'item_details'             => $order->quotation?->item_details,
-            'valid_until'              => $order->quotation?->valid_until,
-            'inquiry_id'               => $order->quotation?->inquiry?->inquiry_id,
-            'customizations'           => $order->quotation?->inquiry?->customizations
-                ?->map(fn ($c) => [
-                    'packaging_type' => $c->packaging_type,
-                    'serving_size'   => $c->serving_size,
-                    'client_notes'   => $c->client_notes,
-                ])->values() ?? [],
-        ])->values();
+        ->map(function ($order) {
+            $firstCust = $order->quotation?->inquiry?->customizations?->first();
+            $brandName = null;
+            if ($firstCust && $firstCust->client_notes) {
+                if (preg_match('/Brand:\s*([^|]+)/i', $firstCust->client_notes, $matches)) {
+                    $brandName = trim($matches[1]);
+                }
+            }
+
+            return [
+                'order_id'                 => $order->order_id,
+                'brand_name'               => $brandName,
+                'status'                   => $order->status,
+                'total_amount'             => $order->total_amount,
+                'internal_tracking_number' => $order->internal_tracking_number,
+                'created_at'               => $order->created_at,
+                'item_details'             => $order->quotation?->item_details,
+                'valid_until'              => $order->quotation?->valid_until,
+                'inquiry_id'               => $order->quotation?->inquiry?->inquiry_id,
+                'customizations'           => $order->quotation?->inquiry?->customizations
+                    ?->map(fn ($c) => [
+                        'packaging_type' => $c->packaging_type,
+                        'serving_size'   => $c->serving_size,
+                        'client_notes'   => $c->client_notes,
+                    ])->values() ?? [],
+            ];
+        })->values();
 
         return response()->json($orders);
     }

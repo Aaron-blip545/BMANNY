@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import { ArrowLeft, Send } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 
@@ -53,6 +53,14 @@ export default function ChatPage({ inquiry, messages }: Props) {
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
+
+    // Poll for new messages every 4 seconds
+    useEffect(() => {
+        const interval = setInterval(() => {
+            router.reload({ only: ['messages'] });
+        }, 4000);
+        return () => clearInterval(interval);
+    }, []);
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
