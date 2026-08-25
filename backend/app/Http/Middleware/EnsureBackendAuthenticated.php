@@ -17,6 +17,16 @@ class EnsureBackendAuthenticated
             return redirect()->route('login');
         }
 
+        if ($request->user('web')?->role === 'customer') {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()->route('login')->withErrors([
+                'email' => 'Customer accounts can only sign in through the BMANNY mobile app.',
+            ]);
+        }
+
         $response = $next($request);
 
         // Authenticated pages must not be restored from the browser cache after

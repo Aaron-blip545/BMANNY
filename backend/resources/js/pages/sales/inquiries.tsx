@@ -1,9 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { BmannyMetricCard } from '@/components/bmanny-metric-card';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/react';
-import { ClipboardList, MessageSquare, Plus, Search } from 'lucide-react';
+import { CircleCheck, CircleX, ClipboardList, Clock3, MessageSquare, Plus, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Inquiries', href: '/inquiries' }];
@@ -37,10 +38,10 @@ interface Props {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-    pending: 'bg-muted text-muted-foreground',
-    reviewed: 'bg-muted text-muted-foreground',
-    responded: 'bg-muted text-muted-foreground',
-    closed: 'bg-muted text-muted-foreground',
+    pending: 'bg-amber-50 text-amber-800 dark:bg-amber-950/35 dark:text-amber-300',
+    reviewed: 'bg-blue-50 text-blue-800 dark:bg-blue-950/35 dark:text-blue-300',
+    responded: 'bg-sky-50 text-sky-800 dark:bg-sky-950/35 dark:text-sky-300',
+    closed: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
 };
 
 const STATUS_FILTERS = ['all', 'pending', 'reviewed', 'responded', 'closed'] as const;
@@ -82,10 +83,11 @@ export default function InquiriesPage({ inquiries }: Props) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Inquiries" />
 
-            <div className="bg-background p-4 sm:p-6 lg:p-8">
+            <div className="bmanny-page">
                 {/* Header */}
-                <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <header className="bmanny-page-header flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
+                        <p className="bmanny-page-eyebrow">Sales Workspace</p>
                         <h1 className="text-2xl font-semibold tracking-tight">Inquiries</h1>
                         <p className="mt-1 text-sm text-muted-foreground">
                             Customer rebranding &amp; packaging inquiries. Create a quotation to respond.
@@ -97,7 +99,7 @@ export default function InquiriesPage({ inquiries }: Props) {
                             New Quotation
                         </Link>
                     </Button>
-                </div>
+                </header>
 
                 {/* Flash message */}
                 {flash?.success && (
@@ -114,17 +116,12 @@ export default function InquiriesPage({ inquiries }: Props) {
                         { label: 'Responded', value: responded },
                         { label: 'Closed',    value: inquiries.filter((i) => i.status === 'closed').length },
                     ].map((s) => (
-                        <Card key={s.label} className="rounded-xl border-border bg-card shadow-sm">
-                            <CardContent className="p-4">
-                                <p className="text-xs font-medium text-muted-foreground">{s.label}</p>
-                                <p className="mt-1 text-2xl font-semibold tracking-tight text-card-foreground">{s.value}</p>
-                            </CardContent>
-                        </Card>
+                        <BmannyMetricCard key={s.label} label={s.label} value={s.value} description={s.label === 'Pending' ? 'Awaiting review' : s.label === 'Responded' ? 'Quotation sent' : s.label === 'Closed' ? 'Completed or declined' : 'All customer inquiries'} icon={s.label === 'Pending' ? Clock3 : s.label === 'Responded' ? CircleCheck : s.label === 'Closed' ? CircleX : ClipboardList} accent={s.label === 'Pending' ? 'gold' : s.label === 'Responded' ? 'green' : s.label === 'Closed' ? 'navy' : 'blue'} />
                     ))}
                 </div>
 
                 {/* Search & filter controls */}
-                <div className="mb-4 flex flex-col gap-3 rounded-xl border border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                <div className="bmanny-workspace mb-4 flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
                     <p className="text-sm font-medium text-foreground">
                         {filteredInquiries.length} of {inquiries.length} inquiries
                     </p>
@@ -154,19 +151,20 @@ export default function InquiriesPage({ inquiries }: Props) {
                 </div>
 
                 {/* Table */}
-                <Card className="rounded-xl border-border bg-card shadow-sm">
+                <Card className="bmanny-workspace overflow-hidden">
                     <CardContent className="p-0">
                         {filteredInquiries.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
-                                <ClipboardList className="h-10 w-10 opacity-40" />
-                                <p className="text-sm">
+                            <div className="bmanny-empty-state py-16 text-muted-foreground">
+                                <ClipboardList />
+                                <h2 className="text-base font-semibold text-foreground">No inquiries found</h2>
+                                <p className="mt-1 text-sm">
                                     {inquiries.length === 0 ? 'No inquiries yet.' : 'No inquiries match your search or filter.'}
                                 </p>
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left text-sm">
-                                    <thead className="border-b border-border text-xs text-muted-foreground">
+                                    <thead className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                                         <tr>
                                             <th className="p-4 font-medium">#</th>
                                             <th className="p-4 font-medium">Business</th>
@@ -211,7 +209,7 @@ export default function InquiriesPage({ inquiries }: Props) {
                                                 </td>
                                                 <td className="p-4">
                                                     <span
-                                                        className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium capitalize ${STATUS_COLORS[inquiry.status] ?? ''}`}
+                                                        className={`bmanny-status bmanny-status-${inquiry.status} capitalize ${STATUS_COLORS[inquiry.status] ?? ''}`}
                                                     >
                                                         {inquiry.status}
                                                     </span>

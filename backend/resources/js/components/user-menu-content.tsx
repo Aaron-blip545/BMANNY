@@ -1,9 +1,9 @@
-import { DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { UserInfo } from '@/components/user-info';
 import { useMobileNavigation } from '@/hooks/use-mobile-navigation';
 import { type User } from '@/types';
 import { Link, router } from '@inertiajs/react';
-import { LogOut, Settings } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 
 interface UserMenuContentProps {
     user: User;
@@ -20,18 +20,9 @@ export function UserMenuContent({ user }: UserMenuContentProps) {
                 </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-                <DropdownMenuItem asChild>
-                    <Link className="block w-full" href={route('profile.edit')} as="button" onClick={cleanup}>
-                        <Settings className="mr-2" />
-                        Settings
-                    </Link>
-                </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
+            <DropdownMenuItem asChild className="cursor-pointer data-[highlighted]:bg-rose-50 data-[highlighted]:text-rose-800 dark:data-[highlighted]:bg-rose-950/40 dark:data-[highlighted]:text-rose-300">
                 <Link
-                    className="block w-full"
+                    className="block w-full rounded-sm px-2 py-1.5 transition-colors hover:bg-rose-50 hover:text-rose-800 dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
                     method="post"
                     href={route('logout')}
                     as="button"

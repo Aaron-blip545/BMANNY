@@ -1,8 +1,9 @@
 import { Card, CardContent } from '@/components/ui/card';
+import { BmannyMetricCard } from '@/components/bmanny-metric-card';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
-import { PackageSearch, Search } from 'lucide-react';
+import { AlertCircle, Boxes, PackageCheck, PackageSearch, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Products', href: '/products' }];
@@ -75,9 +76,10 @@ export default function ProductsIndex({ products, categories, error }: Props) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Products" />
 
-            <main className="min-h-full bg-background p-4 sm:p-6 lg:p-8">
-                <div className="mx-auto max-w-7xl">
-                    <header className="mb-6">
+            <main className="bmanny-page">
+                <div className="bmanny-page-inner">
+                    <header className="bmanny-page-header">
+                        <p className="bmanny-page-eyebrow">Inventory</p>
                         <h1 className="text-2xl font-semibold tracking-tight text-foreground">Products</h1>
                         <p className="mt-1 text-sm text-muted-foreground">
                             View and monitor products available in the system.
@@ -85,20 +87,13 @@ export default function ProductsIndex({ products, categories, error }: Props) {
                     </header>
 
                     <section aria-label="Product summary" className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                        {summaryCards.map((card) => (
-                            <Card key={card.label} className="rounded-xl border-border bg-card shadow-sm">
-                                <CardContent className="p-5">
-                                    <p className="text-sm font-medium text-muted-foreground">{card.label}</p>
-                                    <p className="mt-2 text-2xl font-semibold tracking-tight text-card-foreground">
-                                        {card.value(products)}
-                                    </p>
-                                    <p className="mt-1 text-xs text-muted-foreground">{card.detail}</p>
-                                </CardContent>
-                            </Card>
-                        ))}
+                        <BmannyMetricCard label={summaryCards[0].label} value={summaryCards[0].value(products)} description={summaryCards[0].detail} icon={Boxes} />
+                        <BmannyMetricCard label={summaryCards[1].label} value={summaryCards[1].value(products)} description={summaryCards[1].detail} icon={PackageCheck} accent="green" />
+                        <BmannyMetricCard label={summaryCards[2].label} value={summaryCards[2].value(products)} description={summaryCards[2].detail} icon={Boxes} accent="navy" />
+                        <BmannyMetricCard label={summaryCards[3].label} value={summaryCards[3].value(products)} description={summaryCards[3].detail} icon={AlertCircle} accent="gold" />
                     </section>
 
-                    <section aria-label="Product catalogue controls" className="mb-4 rounded-xl border border-border bg-card px-4 py-3 sm:px-5">
+                    <section aria-label="Product catalogue controls" className="mb-4 border-b border-border px-1 py-3 sm:px-2">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <p className="text-sm font-medium text-foreground">
                                 Product catalogue
@@ -141,11 +136,11 @@ export default function ProductsIndex({ products, categories, error }: Props) {
                             </CardContent>
                         </Card>
                     ) : (
-                        <Card className="overflow-hidden rounded-xl border-border bg-card shadow-sm">
+                        <Card className="bmanny-workspace overflow-hidden">
                             {filteredProducts.length === 0 ? (
-                                <CardContent className="flex min-h-64 flex-col items-center justify-center px-6 py-12 text-center">
-                                    <PackageSearch className="mb-3 size-8 text-muted-foreground/60" aria-hidden="true" />
-                                    <h2 className="text-sm font-semibold text-foreground">
+                                <CardContent className="bmanny-empty-state py-16">
+                                    <span className="mb-4 flex size-11 items-center justify-center rounded-lg bg-muted text-muted-foreground"><PackageSearch className="size-6" aria-hidden="true" /></span>
+                                    <h2 className="text-base font-semibold text-foreground">
                                         {products.length === 0 ? 'No products available' : 'No products match your filters'}
                                     </h2>
                                     <p className="mt-1 max-w-sm text-sm text-muted-foreground">

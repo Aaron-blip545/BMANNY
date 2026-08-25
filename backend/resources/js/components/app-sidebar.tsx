@@ -60,11 +60,11 @@ export function AppSidebar() {
     const mainNavItems = isProductController ? productControllerNavItems : standardNavItems;
 
     return (
-        <Sidebar collapsible="icon" variant="inset" className="border-r border-sidebar-border">
-            <SidebarHeader className="border-b border-sidebar-border px-3 py-4 group-data-[collapsible=icon]:px-2">
+        <Sidebar collapsible="icon" variant="inset" className="border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
+            <SidebarHeader className="border-b border-sidebar-border px-4 py-5 group-data-[collapsible=icon]:px-2">
                 <SidebarMenu>
                     <SidebarMenuItem>
-                        <SidebarMenuButton size="lg" asChild className="h-12 rounded-lg px-2 hover:bg-transparent">
+                        <SidebarMenuButton size="lg" asChild className="h-14 rounded-md px-1 hover:bg-transparent">
                             <Link href={dashboardHref}>
                                 <AppLogo />
                             </Link>
@@ -77,7 +77,7 @@ export function AppSidebar() {
                 <NavMain items={mainNavItems} />
             </SidebarContent>
 
-            <SidebarFooter className="border-t border-sidebar-border px-3 py-3 group-data-[collapsible=icon]:px-2">
+            <SidebarFooter className="border-t border-sidebar-border px-3 py-4 group-data-[collapsible=icon]:px-2">
                 <NavUser />
             </SidebarFooter>
         </Sidebar>
