@@ -30,7 +30,7 @@ export default function ProductDetailScreen() {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <Text style={[styles.errorText, { color: colors.text }]}>Product not found</Text>
-        <TouchableOpacity style={[styles.backButton, { backgroundColor: '#2196F3' }]} onPress={() => router.back()}>
+        <TouchableOpacity style={[styles.headerBackButton, { backgroundColor: '#2196F3' }]} onPress={() => router.back()}>
           <Text style={styles.backButtonText}>Go Back</Text>
         </TouchableOpacity>
       </View>
@@ -40,9 +40,6 @@ export default function ProductDetailScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
-        <TouchableOpacity style={[styles.headerBackButton, { backgroundColor: '#2196F3' }]} onPress={() => router.back()}>
-          <Text style={styles.backButtonText}>Back</Text>
-        </TouchableOpacity>
       </View>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Image source={product.image} style={styles.productImage} />
@@ -50,7 +47,7 @@ export default function ProductDetailScreen() {
         <View style={[styles.productInfo, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.productName, { color: colors.text }]}>{product.name}</Text>
           <Text style={[styles.productPrice, { color: '#2196F3' }]}>{product.price}</Text>
-          
+
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Description</Text>
             <Text style={[styles.description, { color: colors.textSecondary }]}>{product.description}</Text>
@@ -64,13 +61,10 @@ export default function ProductDetailScreen() {
       </ScrollView>
 
       <View style={[styles.bottomButtons, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
-        <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.border }]} onPress={() => router.push({ pathname: '/chat-detail', params: { name: product.name } })}>
-          <Text style={[styles.backButtonText, { color: colors.text }]}>Inquire</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.sendInquiryButton, { backgroundColor: '#2196F3' }]} onPress={() => router.push({ pathname: '/product-customization', params: { name: product.name } })}>
+        <TouchableOpacity style={[styles.customizeButton, { backgroundColor: '#2196F3' }]} onPress={() => router.push({ pathname: '/product-customization', params: { name: product.name } })}>
           <View style={styles.buttonContent}>
-            <Image source={require('@/assets/images/homepageimage/settings.png')} style={styles.iconImage} tintColor={colors.text} />
-            <Text style={[styles.sendInquiryText, { color: colors.text }]}>Customize order</Text>
+            <Image source={require('@/assets/images/homepageimage/settings.png')} style={styles.iconImage} tintColor="#ffffff" />
+            <Text style={styles.sendInquiryText}>Customize order</Text>
           </View>
         </TouchableOpacity>
       </View>
@@ -154,11 +148,11 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
     borderTopWidth: 1,
   },
-  backButton: {
+  customizeButton: {
+    flex: 1,
     backgroundColor: '#2196F3',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 16,
-    marginRight: 12,
   },
   buttonContent: {
     flexDirection: 'row',

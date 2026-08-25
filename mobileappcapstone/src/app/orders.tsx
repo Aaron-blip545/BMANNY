@@ -41,6 +41,7 @@ interface Order {
 
 interface Inquiry {
   inquiry_id: number;
+  client_inquiry_number: number;  // per-customer sequential number (1, 2, 3…)
   status: string;
   created_at: string;
   has_quotation: boolean;
@@ -63,12 +64,12 @@ export default function OrdersScreen() {
   const [cancellingId, setCancellingId] = useState<number | null>(null);
 
   const statusTabs = [
-    { id: 'approved',      label: 'Approved' },
+    { id: 'approved', label: 'Approved' },
     { id: 'in_production', label: 'In Production' },
-    { id: 'for_delivery',  label: 'For Delivery' },
-    { id: 'delivered',     label: 'Delivered' },
-    { id: 'completed',     label: 'Completed' },
-    { id: 'pending',       label: 'Pending' },
+    { id: 'for_delivery', label: 'For Delivery' },
+    { id: 'delivered', label: 'Delivered' },
+    { id: 'completed', label: 'Completed' },
+    { id: 'pending', label: 'Pending' },
   ];
 
   const loadAll = useCallback(async () => {
@@ -100,20 +101,20 @@ export default function OrdersScreen() {
 
   const getStatusStyle = (status: string) => {
     switch (status) {
-      case 'pending':       return styles.pending;
-      case 'approved':      return styles.approved;
+      case 'pending': return styles.pending;
+      case 'approved': return styles.approved;
       case 'in_production': return styles.in_production;
-      case 'for_delivery':  return styles.for_delivery;
-      case 'delivered':     return styles.delivered;
-      case 'completed':     return styles.completed;
-      default:              return styles.pending;
+      case 'for_delivery': return styles.for_delivery;
+      case 'delivered': return styles.delivered;
+      case 'completed': return styles.completed;
+      default: return styles.pending;
     }
   };
 
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'in_production': return 'In Production';
-      case 'for_delivery':  return 'For Delivery';
+      case 'for_delivery': return 'For Delivery';
       default: return status.charAt(0).toUpperCase() + status.slice(1);
     }
   };
@@ -121,7 +122,7 @@ export default function OrdersScreen() {
   const inquiryStatusColor = (inq: Inquiry) => {
     if (inq.cancelled_at) return '#E53935';
     if (inq.status === 'responded') return '#4CAF50';
-    if (inq.status === 'reviewed')  return '#2196F3';
+    if (inq.status === 'reviewed') return '#2196F3';
     return '#78909C'; // pending → gray
   };
 
@@ -130,10 +131,10 @@ export default function OrdersScreen() {
     return inq.status.charAt(0).toUpperCase() + inq.status.slice(1);
   };
 
-  const handleCancelInquiry = (inquiryId: number) => {
+  const handleCancelInquiry = (inquiryId: number, inquiryNum: number) => {
     Alert.alert(
       'Cancel Inquiry?',
-      `Are you sure you want to cancel Inquiry #${inquiryId}? This cannot be undone.`,
+      `Are you sure you want to cancel Inquiry #${inquiryNum}? This cannot be undone.`,
       [
         { text: 'Keep Inquiry', style: 'cancel' },
         {
@@ -170,9 +171,6 @@ export default function OrdersScreen() {
 
       {/* HEADER */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.push('/home')}>
-          <Text style={styles.backButtonText}>Back</Text>
-        </TouchableOpacity>
         <Text style={styles.title}>{view === 'inquiries' ? 'My Inquiries' : 'My Orders'}</Text>
       </View>
 
@@ -182,7 +180,7 @@ export default function OrdersScreen() {
           style={[styles.switcherBtn, view === 'inquiries' && styles.switcherActive]}
           onPress={() => setView('inquiries')}
         >
-          <Text style={[styles.switcherText, { color: view === 'inquiries' ? '#ffffff' : colors.textSecondary }]}>
+          <Text style={[styles.switcherText, { color: view === 'inquiries' ? '#ffffffff' : colors.textSecondary }]}>
             Inquiries{inquiries.length > 0 ? ` (${inquiries.length})` : ''}
           </Text>
         </TouchableOpacity>
@@ -217,7 +215,7 @@ export default function OrdersScreen() {
               <View key={inq.inquiry_id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View style={styles.cardHeader}>
                   <Text style={[styles.cardTitle, { color: colors.text }]}>
-                    Inquiry #{inq.inquiry_id}
+                    Inquiry #{inq.client_inquiry_number ?? inq.inquiry_id}
                     {inq.customizations?.[0]?.packaging_type ? ` — ${inq.customizations[0].packaging_type}` : ''}
                   </Text>
                   <View style={[styles.badge, { backgroundColor: inquiryStatusColor(inq) }]}>
@@ -273,7 +271,7 @@ export default function OrdersScreen() {
                   <TouchableOpacity
                     style={[styles.cancelInquiryBtn, { borderColor: '#E53935' }]}
                     disabled={cancellingId === inq.inquiry_id}
-                    onPress={() => handleCancelInquiry(inq.inquiry_id)}
+                    onPress={() => handleCancelInquiry(inq.inquiry_id, inq.client_inquiry_number ?? inq.inquiry_id)}
                   >
                     <Text style={styles.cancelInquiryBtnText}>
                       {cancellingId === inq.inquiry_id ? 'Cancelling…' : 'Cancel Inquiry'}
@@ -305,7 +303,7 @@ export default function OrdersScreen() {
                 style={[styles.tab, activeTab === tab.id && styles.activeTab, { backgroundColor: colors.card, borderColor: colors.border }]}
                 onPress={() => setActiveTab(tab.id)}
               >
-                <Text style={[styles.tabText, { color: activeTab === tab.id ? '#ffffff' : colors.textSecondary }]}>
+                <Text style={[styles.tabText, { color: activeTab === tab.id ? '#5377ebff' : colors.textSecondary }]}>
                   {tab.label}
                 </Text>
               </TouchableOpacity>
@@ -493,18 +491,18 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   cardTitle: { fontSize: 15, fontWeight: '700', flex: 1, marginRight: 8 },
-  cardBody:  { marginBottom: 10 },
-  cardDate:  { fontSize: 11, marginTop: 6 },
+  cardBody: { marginBottom: 10 },
+  cardDate: { fontSize: 11, marginTop: 6 },
 
   /* STATUS BADGES */
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
   badgeText: { color: '#ffffff', fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
-  pending:       { backgroundColor: '#78909C' },
-  approved:      { backgroundColor: '#4CAF50' },
+  pending: { backgroundColor: '#78909C' },
+  approved: { backgroundColor: '#4CAF50' },
   in_production: { backgroundColor: '#FF9800' },
-  for_delivery:  { backgroundColor: '#9C27B0' },
-  delivered:     { backgroundColor: '#00BCD4' },
-  completed:     { backgroundColor: '#4CAF50' },
+  for_delivery: { backgroundColor: '#9C27B0' },
+  delivered: { backgroundColor: '#00BCD4' },
+  completed: { backgroundColor: '#4CAF50' },
 
   /* ROWS */
   row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },

@@ -114,13 +114,13 @@ export default function ProductCustomizationScreen() {
 
       // 2. Map the form fields to the backend's customization schema.
       const customizations = [{
-        packaging_type:   formData.packaging || formData.productType,
+        packaging_type: formData.packaging || formData.productType,
         packaging_finish: formData.container || undefined,
-        serving_size:     `${formData.size} × ${formData.quantity} units`,
-        client_notes:     [
-          formData.flavor    ? `Flavor: ${formData.flavor}`         : null,
-          formData.brandName ? `Brand: ${formData.brandName}`       : null,
-          formData.labelDesign ? `Label: ${formData.labelDesign}`   : null,
+        serving_size: `${formData.size} × ${formData.quantity} units`,
+        client_notes: [
+          formData.flavor ? `Flavor: ${formData.flavor}` : null,
+          formData.brandName ? `Brand: ${formData.brandName}` : null,
+          formData.labelDesign ? `Label: ${formData.labelDesign}` : null,
         ].filter(Boolean).join(' | ') || undefined,
       }];
 
@@ -181,9 +181,6 @@ export default function ProductCustomizationScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <TouchableOpacity style={[styles.backButton, { backgroundColor: '#2196F3' }]} onPress={() => router.back()}>
-            <Text style={styles.backButtonText}>Back</Text>
-          </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.text }]}>Product Customization</Text>
         </View>
 

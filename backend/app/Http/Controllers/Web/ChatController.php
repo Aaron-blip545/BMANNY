@@ -24,8 +24,19 @@ class ChatController extends Controller
         $agent    = $request->user('web');
         $customer = optional($inquiry->client)->user;
 
-        // Load the full message thread for this inquiry, oldest first.
+        // Load only messages between THIS agent/admin and the customer —
+        // not every message on the inquiry. This keeps the admin's chat
+        // thread separate from the sales agent's chat thread.
         $messages = Message::where('inquiry_id', $inquiryId)
+            ->where(function ($q) use ($agent, $customer) {
+                $q->where(function ($inner) use ($agent, $customer) {
+                    $inner->where('sender_id',   $agent->user_id)
+                          ->where('receiver_id', optional($customer)->user_id);
+                })->orWhere(function ($inner) use ($agent, $customer) {
+                    $inner->where('sender_id',   optional($customer)->user_id)
+                          ->where('receiver_id', $agent->user_id);
+                });
+            })
             ->with(['sender', 'receiver'])
             ->orderBy('created_at')
             ->get()
@@ -38,11 +49,10 @@ class ChatController extends Controller
                 'is_read'      => $m->is_read,
             ]);
 
-        // Mark any unread messages from the customer as read now that
-        // the agent has opened the thread.
+        // Mark unread messages from the customer to this specific agent as read.
         if ($customer) {
             Message::where('inquiry_id', $inquiryId)
-                ->where('sender_id', $customer->user_id)
+                ->where('sender_id',   $customer->user_id)
                 ->where('receiver_id', $agent->user_id)
                 ->where('is_read', false)
                 ->update(['is_read' => true]);
@@ -60,6 +70,7 @@ class ChatController extends Controller
             'agentId'    => $agent->user_id,
         ]);
     }
+
 
     /**
      * Store a new message from the sales agent to the customer.

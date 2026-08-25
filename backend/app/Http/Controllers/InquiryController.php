@@ -78,26 +78,31 @@ class InquiryController extends Controller
             return response()->json([]);
         }
 
+        // Compute a per-client sequential number using a window function so
+        // the customer always sees Inquiry #1, #2, #3 — not the global IDs
+        // (which include every other customer's inquiries in the sequence).
         $inquiries = Inquiry::with(['customizations', 'quotation'])
             ->where('client_id', $client->client_id)
-            ->orderByDesc('created_at')
+            ->orderBy('created_at')
             ->get()
-            ->map(fn ($inquiry) => [
-                'inquiry_id'     => $inquiry->inquiry_id,
-                'status'         => $inquiry->status,
-                'created_at'     => $inquiry->created_at,
-                'customizations' => $inquiry->customizations->map(fn ($c) => [
-                    'packaging_type'  => $c->packaging_type,
-                    'serving_size'    => $c->serving_size,
-                    'client_notes'    => $c->client_notes,
+            ->values()
+            ->map(fn ($inquiry, $index) => [
+                'inquiry_id'           => $inquiry->inquiry_id,
+                'client_inquiry_number'=> $index + 1,   // 1-based per-client sequence
+                'status'               => $inquiry->status,
+                'created_at'           => $inquiry->created_at,
+                'customizations'       => $inquiry->customizations->map(fn ($c) => [
+                    'packaging_type' => $c->packaging_type,
+                    'serving_size'   => $c->serving_size,
+                    'client_notes'   => $c->client_notes,
                 ])->values(),
-                'has_quotation'  => $inquiry->quotation !== null,
-                'quotation_id' => $inquiry->quotation?->quotation_id,
-                'quotation_amount' => $inquiry->quotation?->total_amount,
-                'quotation_status' => $inquiry->quotation?->status,
+                'has_quotation'        => $inquiry->quotation !== null,
+                'quotation_id'         => $inquiry->quotation?->quotation_id,
+                'quotation_amount'     => $inquiry->quotation?->total_amount,
+                'quotation_status'     => $inquiry->quotation?->status,
                 'payment_submitted_at' => $inquiry->quotation?->payment_submitted_at,
-                'cancelled_at' => $inquiry->cancelled_at,
-            ])->values();
+                'cancelled_at'         => $inquiry->cancelled_at,
+            ]);
 
         return response()->json($inquiries);
     }
