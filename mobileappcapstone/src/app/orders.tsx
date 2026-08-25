@@ -9,10 +9,11 @@ import {
   Image,
   RefreshControl,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
-import { getMyOrders, getMyInquiries } from '../services/api';
+import { getMyOrders, getMyInquiries, cancelInquiry } from '../services/api';
 
 const HomeIcon = ({ colors, isActive }: { colors: any; isActive?: boolean }) => (
   <Image source={require('@/assets/images/homepageicon/home.png')} style={styles.navIcon} tintColor={isActive ? '#2196F3' : colors.text} />
@@ -47,6 +48,7 @@ interface Inquiry {
   quotation_amount: string | null;
   quotation_status: string | null;
   payment_submitted_at: string | null;
+  cancelled_at: string | null;
   customizations: { packaging_type: string; serving_size: string | null; client_notes: string | null }[];
 }
 
@@ -58,6 +60,7 @@ export default function OrdersScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('approved');
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
 
   const statusTabs = [
     { id: 'approved',      label: 'Approved' },
@@ -115,10 +118,41 @@ export default function OrdersScreen() {
     }
   };
 
-  const inquiryStatusColor = (status: string) => {
-    if (status === 'responded') return '#4CAF50';
-    if (status === 'reviewed')  return '#2196F3';
+  const inquiryStatusColor = (inq: Inquiry) => {
+    if (inq.cancelled_at) return '#E53935';
+    if (inq.status === 'responded') return '#4CAF50';
+    if (inq.status === 'reviewed')  return '#2196F3';
     return '#78909C'; // pending → gray
+  };
+
+  const inquiryStatusLabel = (inq: Inquiry) => {
+    if (inq.cancelled_at) return 'Cancelled';
+    return inq.status.charAt(0).toUpperCase() + inq.status.slice(1);
+  };
+
+  const handleCancelInquiry = (inquiryId: number) => {
+    Alert.alert(
+      'Cancel Inquiry?',
+      `Are you sure you want to cancel Inquiry #${inquiryId}? This cannot be undone.`,
+      [
+        { text: 'Keep Inquiry', style: 'cancel' },
+        {
+          text: 'Cancel Inquiry',
+          style: 'destructive',
+          onPress: async () => {
+            setCancellingId(inquiryId);
+            try {
+              await cancelInquiry(inquiryId);
+              await loadAll();
+            } catch (err: any) {
+              Alert.alert('Unable to Cancel', err.message || 'Something went wrong. Please try again.');
+            } finally {
+              setCancellingId(null);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const filteredOrders = orders.filter(o => o.status === activeTab);
@@ -186,8 +220,8 @@ export default function OrdersScreen() {
                     Inquiry #{inq.inquiry_id}
                     {inq.customizations?.[0]?.packaging_type ? ` — ${inq.customizations[0].packaging_type}` : ''}
                   </Text>
-                  <View style={[styles.badge, { backgroundColor: inquiryStatusColor(inq.status) }]}>
-                    <Text style={styles.badgeText}>{inq.status.charAt(0).toUpperCase() + inq.status.slice(1)}</Text>
+                  <View style={[styles.badge, { backgroundColor: inquiryStatusColor(inq) }]}>
+                    <Text style={styles.badgeText}>{inquiryStatusLabel(inq)}</Text>
                   </View>
                 </View>
 
@@ -234,6 +268,18 @@ export default function OrdersScreen() {
                     <Text style={styles.badgeText}>Order Created — see Orders tab</Text>
                   </View>
                 ) : null}
+
+                {!inq.has_quotation && !inq.cancelled_at && (inq.status === 'pending' || inq.status === 'reviewed') && (
+                  <TouchableOpacity
+                    style={[styles.cancelInquiryBtn, { borderColor: '#E53935' }]}
+                    disabled={cancellingId === inq.inquiry_id}
+                    onPress={() => handleCancelInquiry(inq.inquiry_id)}
+                  >
+                    <Text style={styles.cancelInquiryBtnText}>
+                      {cancellingId === inq.inquiry_id ? 'Cancelling…' : 'Cancel Inquiry'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
 
                 <Text style={[styles.cardDate, { color: colors.textSecondary }]}>
                   Submitted {new Date(inq.created_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
@@ -474,6 +520,16 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   viewBtnText: { color: '#ffffff', fontSize: 14, fontWeight: '700' },
+
+  /* CANCEL INQUIRY BUTTON */
+  cancelInquiryBtn: {
+    borderRadius: 10,
+    borderWidth: 1.5,
+    paddingVertical: 9,
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  cancelInquiryBtnText: { color: '#E53935', fontSize: 14, fontWeight: '700' },
 
   /* NAV */
   navBar: { flexDirection: 'row', borderTopWidth: 1, paddingBottom: 20 },

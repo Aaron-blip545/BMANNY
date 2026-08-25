@@ -96,8 +96,44 @@ class InquiryController extends Controller
                 'quotation_amount' => $inquiry->quotation?->total_amount,
                 'quotation_status' => $inquiry->quotation?->status,
                 'payment_submitted_at' => $inquiry->quotation?->payment_submitted_at,
+                'cancelled_at' => $inquiry->cancelled_at,
             ])->values();
 
         return response()->json($inquiries);
+    }
+
+    /**
+     * Let a customer cancel their own inquiry - but only while it hasn't
+     * been quoted yet. Once a quotation exists, the sales agent has
+     * already done work on it, so cancellation has to go through them
+     * instead (e.g. via chat) rather than silently disappearing here.
+     */
+    public function cancel(Request $request, $inquiry_id)
+    {
+        $client = $request->user()->businessClient;
+
+        if (! $client) {
+            return response()->json(['message' => 'No business client profile found.'], 422);
+        }
+
+        $inquiry = Inquiry::with('quotation')->findOrFail($inquiry_id);
+
+        if ((int) $inquiry->client_id !== (int) $client->client_id) {
+            return response()->json(['message' => 'This inquiry does not belong to you.'], 403);
+        }
+
+        if ($inquiry->quotation !== null || ! in_array($inquiry->status, ['pending', 'reviewed'], true)) {
+            return response()->json(['message' => 'This inquiry has already been quoted and can no longer be cancelled here.'], 422);
+        }
+
+        $inquiry->update([
+            'status' => 'closed',
+            'cancelled_at' => now(),
+        ]);
+
+        return response()->json([
+            'message' => 'Inquiry cancelled.',
+            'inquiry' => $inquiry->fresh(),
+        ]);
     }
 }

@@ -28,6 +28,7 @@ interface Inquiry {
     inquiry_id: number;
     status: 'pending' | 'reviewed' | 'responded' | 'closed';
     created_at: string;
+    cancelled_at: string | null;
     client: BusinessClient | null;
     customizations: Customization[];
     quotation: null | { quotation_id: number };
@@ -37,13 +38,6 @@ interface Props {
     inquiries: Inquiry[];
 }
 
-const STATUS_COLORS: Record<string, string> = {
-    pending: 'bg-amber-50 text-amber-800 dark:bg-amber-950/35 dark:text-amber-300',
-    reviewed: 'bg-blue-50 text-blue-800 dark:bg-blue-950/35 dark:text-blue-300',
-    responded: 'bg-sky-50 text-sky-800 dark:bg-sky-950/35 dark:text-sky-300',
-    closed: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
-};
-
 const STATUS_FILTERS = ['all', 'pending', 'reviewed', 'responded', 'closed'] as const;
 
 function formatDate(iso: string) {
@@ -52,6 +46,10 @@ function formatDate(iso: string) {
         month: 'short',
         day: 'numeric',
     });
+}
+
+function inquiryStatusLabel(inquiry: Inquiry) {
+    return inquiry.cancelled_at ? 'Cancelled' : inquiry.status;
 }
 
 export default function InquiriesPage({ inquiries }: Props) {
@@ -209,9 +207,9 @@ export default function InquiriesPage({ inquiries }: Props) {
                                                 </td>
                                                 <td className="p-4">
                                                     <span
-                                                        className={`bmanny-status bmanny-status-${inquiry.status} capitalize ${STATUS_COLORS[inquiry.status] ?? ''}`}
+                                                        className={`bmanny-status bmanny-status-${inquiry.cancelled_at ? 'cancelled' : inquiry.status} capitalize`}
                                                     >
-                                                        {inquiry.status}
+                                                        {inquiryStatusLabel(inquiry)}
                                                     </span>
                                                 </td>
                                                 <td className="p-4 text-muted-foreground text-xs">
@@ -235,7 +233,7 @@ export default function InquiriesPage({ inquiries }: Props) {
                                                                 </Link>
                                                             </Button>
                                                         ) : (
-                                                            <span className="text-xs text-muted-foreground capitalize">{inquiry.status}</span>
+                                                            <span className="text-xs text-muted-foreground capitalize">{inquiryStatusLabel(inquiry)}</span>
                                                         )}
                                                     </div>
                                                 </td>

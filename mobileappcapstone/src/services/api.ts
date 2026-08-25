@@ -157,6 +157,14 @@ export async function getMyInquiries() {
 }
 
 /**
+ * Cancel an inquiry that hasn't been quoted yet. The backend rejects this
+ * once a quotation exists for the inquiry.
+ */
+export async function cancelInquiry(inquiryId: number) {
+    return request(`/inquiries/${inquiryId}/cancel`, { method: 'POST' });
+}
+
+/**
  * Fetch all quotations sent to the authenticated customer.
  */
 export async function getMyQuotations() {
