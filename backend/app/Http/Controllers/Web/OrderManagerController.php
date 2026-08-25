@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -14,6 +15,32 @@ class OrderManagerController extends Controller
      * Show the orders list page.
      * Visible to: order_manager, admin.
      */
+    public function dashboard(): Response
+    {
+        $statusCounts = Order::select('status', DB::raw('count(*) as total'))
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        return Inertia::render('order-manager/dashboard', [
+            'stats' => [
+                'pending'     => $statusCounts['pending']     ?? 0,
+                'approved'    => $statusCounts['approved']    ?? 0,
+                'inProduction'=> ($statusCounts['in_production'] ?? 0) + ($statusCounts['packed'] ?? 0),
+                'forDelivery' => ($statusCounts['for_delivery'] ?? 0) + ($statusCounts['delivered'] ?? 0),
+            ],
+            'recentOrders' => Order::with('client')
+                ->orderByDesc('created_at')
+                ->limit(8)
+                ->get()
+                ->map(fn ($o) => [
+                    'order_id'   => $o->order_id,
+                    'status'     => $o->status,
+                    'created_at' => $o->created_at,
+                    'client'     => $o->client ? ['business_name' => $o->client->business_name] : null,
+                ]),
+        ]);
+    }
+
     public function index(): Response
     {
         $orders = Order::with([

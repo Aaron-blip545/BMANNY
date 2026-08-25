@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Image, Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
+import { logout } from '../services/api';
 
 const HomeIcon = ({ colors, isActive }: { colors: any; isActive?: boolean }) => (
   <Image source={require('@/assets/images/homepageicon/home.png')} style={styles.navIcon} tintColor={isActive ? '#2196F3' : colors.text} />
@@ -25,6 +26,27 @@ export default function ProfileScreen() {
   const { profileImage, name } = useLocalSearchParams<{ profileImage: string; name: string }>();
   const [avatarImage, setAvatarImage] = useState<string | null>(profileImage || null);
   const [userName, setUserName] = useState<string>(name || 'John Doe');
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to log out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            await logout(); // clears the Sanctum token from SecureStore
+            // Replace the entire stack with the login screen so
+            // pressing Back cannot return to authenticated screens.
+            router.dismissAll();
+            router.replace('/login');
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -56,9 +78,9 @@ export default function ProfileScreen() {
             <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem} onPress={() => router.replace('/login')}>
-            <Ionicons name="log-out-outline" size={24} color={colors.text} style={styles.menuIcon} />
-            <Text style={[styles.menuText, { color: colors.text }]}>Logout</Text>
+          <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
+            <Ionicons name="log-out-outline" size={24} color="#ef4444" style={styles.menuIcon} />
+            <Text style={[styles.menuText, { color: '#ef4444' }]}>Logout</Text>
             <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>

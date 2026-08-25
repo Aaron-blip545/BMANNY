@@ -33,18 +33,13 @@ class AuthenticatedSessionController extends Controller
      */
     public function store(LoginRequest $request): RedirectResponse
     {
-        // Always discard the complete prior session before starting a new
-        // login. Logging out alone leaves other session data behind, which
-        // can make an Inertia page appear to belong to the previous user.
-        if (Auth::guard('web')->check()) {
-            Auth::guard('web')->logout();
-        }
-
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
-
+        // Authenticate first — this throws a ValidationException on bad
+        // credentials, which Inertia catches and returns as form errors.
         $request->authenticate();
 
+        // Only after a successful login: regenerate the session ID to
+        // prevent session fixation, and if there was a prior session
+        // (e.g. a different user), clear it entirely.
         $request->session()->regenerate();
 
         $dashboardRoute = RoleDashboard::routeNameFor($request->user('web')?->role);

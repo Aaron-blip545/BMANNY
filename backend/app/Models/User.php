@@ -29,6 +29,10 @@ class User extends Authenticatable
         'remember_token',
     ];
 
+    protected $casts = [
+        'is_active' => 'boolean',
+    ];
+
     // Tell Laravel Sanctum/Auth where the hashed password column lives
     public function getAuthPassword()
     {

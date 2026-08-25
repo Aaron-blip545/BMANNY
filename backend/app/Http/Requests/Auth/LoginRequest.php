@@ -51,12 +51,23 @@ class LoginRequest extends FormRequest
 
         $user = Auth::guard('web')->user();
 
+        // Customer accounts belong to the mobile app only.
         if ($user?->role === 'customer') {
             Auth::guard('web')->logout();
             RateLimiter::clear($this->throttleKey());
 
             throw ValidationException::withMessages([
                 'email' => 'Customer accounts can only sign in through the BMANNY mobile app.',
+            ]);
+        }
+
+        // Deactivated staff accounts cannot log in.
+        if (! $user?->is_active) {
+            Auth::guard('web')->logout();
+            RateLimiter::clear($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                'email' => 'Your account has been deactivated. Contact an administrator.',
             ]);
         }
 
