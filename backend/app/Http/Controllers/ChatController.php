@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Message;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 
 class ChatController extends Controller
@@ -91,13 +92,29 @@ class ChatController extends Controller
             'inquiry_id'   => 'nullable|integer|exists:inquiries,inquiry_id',
         ]);
 
+        $sender = $request->user();
+
         $message = Message::create([
-            'sender_id'    => $request->user()->user_id,
+            'sender_id'    => $sender->user_id,
             'receiver_id'  => $validated['receiver_id'],
             'message_body' => $validated['message_body'],
             'inquiry_id'   => $validated['inquiry_id'] ?? null,
             'is_read'      => false,
         ]);
+
+        // Dispatch real-time notification to recipient
+        NotificationService::send(
+            (int) $validated['receiver_id'],
+            'message',
+            'New message from ' . $sender->full_name,
+            $validated['message_body'],
+            [
+                'sender_id'   => $sender->user_id,
+                'sender_name' => $sender->full_name,
+                'inquiry_id'  => $validated['inquiry_id'] ?? null,
+                'message_id'  => $message->message_id,
+            ]
+        );
 
         return response()->json($message->load(['sender', 'receiver']), 201);
     }

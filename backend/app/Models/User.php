@@ -44,4 +44,9 @@ class User extends Authenticatable
     {
         return $this->hasOne(BusinessClient::class, 'user_id', 'user_id');
     }
+
+    public function appNotifications()
+    {
+        return $this->hasMany(AppNotification::class, 'user_id', 'user_id')->orderByDesc('created_at');
+    }
 }

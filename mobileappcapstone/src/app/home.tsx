@@ -1,8 +1,14 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, TextInput, Dimensions, Modal } from 'react-native';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, TextInput, Dimensions, Modal, RefreshControl } from 'react-native';
 import { router } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
+import {
+  getNotifications,
+  getUnreadNotificationCount,
+  markNotificationRead,
+  markAllNotificationsRead,
+} from '../services/api';
 
 const HomeIcon = ({ colors, isActive }: { colors: any; isActive?: boolean }) => (
   <Image source={require('@/assets/images/homepageicon/home.png')} style={styles.navIcon} tintColor={isActive ? '#2196F3' : colors.text} />
@@ -37,44 +43,107 @@ const coffeeSupplements = [
   { id: 6, name: 'Cold Brew Supplement', price: '$22.99', image: require('@/assets/images/homepageimage/sup6.jpg') },
 ];
 
+function formatRelativeTime(dateString: string) {
+  if (!dateString) return 'Just now';
+  const now = new Date();
+  const date = new Date(dateString);
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  if (diffInSeconds < 60) return 'Just now';
+  const diffInMinutes = Math.floor(diffInSeconds / 60);
+  if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  if (diffInHours < 24) return `${diffInHours}h ago`;
+  const diffInDays = Math.floor(diffInHours / 24);
+  return `${diffInDays}d ago`;
+}
+
+interface NotificationItem {
+  notification_id: number;
+  type: string;
+  title: string;
+  message: string;
+  data?: any;
+  is_read: boolean;
+  created_at: string;
+}
+
 export default function HomeScreen() {
   const { colors } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [refreshing, setRefreshing] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const { width } = Dimensions.get('window');
 
-  // Notification data based on project models (User, Message, Order)
-  const [notifications] = useState([
-    {
-      id: 1,
-      type: 'message',
-      user: { full_name: 'John Doe', user_id: 1 },
-      action: 'sent you a message',
-      description: 'Regarding your inquiry about Premium Coffee Protein',
-      timestamp: '2 hours ago',
-      avatarColor: '#2196F3'
-    },
-    {
-      id: 2,
-      type: 'order',
-      user: { full_name: 'Alice Smith', user_id: 2 },
-      action: 'order status updated',
-      description: 'Order #1234 is now processing',
-      timestamp: '5 hours ago',
-      avatarColor: '#FF5722'
-    },
-    {
-      id: 3,
-      type: 'inquiry',
-      user: { full_name: 'Mike Johnson', user_id: 3 },
-      action: 'new quotation received',
-      description: 'Quotation for Organic Coffee Energy is ready for review',
-      timestamp: '1 day ago',
-      avatarColor: '#4CAF50'
+  const loadNotifications = useCallback(async () => {
+    try {
+      const data = await getNotifications();
+      setNotifications(data.notifications || []);
+      setUnreadCount(data.unread_count || 0);
+    } catch (err) {
+      console.warn('Failed to load notifications:', err);
     }
-  ]);
+  }, []);
+
+  const loadUnreadCount = useCallback(async () => {
+    try {
+      const data = await getUnreadNotificationCount();
+      setUnreadCount(data.unread_count ?? 0);
+    } catch (err) {
+      // Silently ignore polling network hiccups
+    }
+  }, []);
+
+  useEffect(() => {
+    loadNotifications();
+    const poll = setInterval(loadUnreadCount, 8000);
+    return () => clearInterval(poll);
+  }, [loadNotifications, loadUnreadCount]);
+
+  const handleNotificationPress = async (item: NotificationItem) => {
+    if (!item.is_read) {
+      markNotificationRead(item.notification_id).catch(() => {});
+      setNotifications((prev) =>
+        prev.map((n) => (n.notification_id === item.notification_id ? { ...n, is_read: true } : n))
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    }
+    setShowNotifications(false);
+
+    if (item.type === 'message') {
+      const otherUserId = item.data?.sender_id;
+      const otherUserName = item.data?.sender_name || 'Sales Agent';
+      const inquiryId = item.data?.inquiry_id;
+      if (otherUserId) {
+        router.push(
+          `/chat-detail?otherUserId=${otherUserId}&otherUserName=${encodeURIComponent(
+            otherUserName
+          )}${inquiryId ? `&inquiryId=${inquiryId}` : ''}`
+        );
+      } else {
+        router.push('/messages');
+      }
+    } else if (item.type === 'order') {
+      router.push('/orders');
+    } else if (item.type === 'quotation') {
+      router.push('/orders');
+    } else if (item.type === 'inquiry') {
+      router.push('/orders');
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllNotificationsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      setUnreadCount(0);
+    } catch (err) {
+      console.log('Failed to mark all as read');
+    }
+  };
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -88,7 +157,7 @@ export default function HomeScreen() {
     return () => clearInterval(interval);
   }, [carouselIndex, width]);
 
-  const filteredProducts = coffeeSupplements.filter(product =>
+  const filteredProducts = coffeeSupplements.filter((product) =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -100,8 +169,21 @@ export default function HomeScreen() {
             <Image source={require('@/assets/images/homepageicon/BMANNYLOGO.png')} style={styles.headerLogo} />
             <Text style={styles.headerTitle}>BMANNY Partners Inc.</Text>
           </View>
-          <TouchableOpacity style={styles.notificationIcon} onPress={() => setShowNotifications(true)}>
+          <TouchableOpacity
+            style={styles.notificationIcon}
+            onPress={() => {
+              setShowNotifications(true);
+              loadNotifications();
+            }}
+          >
             <Ionicons name="notifications-outline" size={28} color="#2196F3" />
+            {unreadCount > 0 && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadBadgeText}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -207,38 +289,100 @@ export default function HomeScreen() {
       >
         <View style={[styles.fullScreenModal, { backgroundColor: colors.background }]}>
           <View style={[styles.notificationHeader, { borderBottomColor: colors.border }]}>
-            <TouchableOpacity onPress={() => setShowNotifications(false)}>
+            <TouchableOpacity onPress={() => setShowNotifications(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
               <Ionicons name="arrow-back" size={24} color={colors.text} />
             </TouchableOpacity>
             <Text style={[styles.notificationTitle, { color: colors.text }]}>Notifications</Text>
-            <View style={{ width: 24 }} />
+            {unreadCount > 0 ? (
+              <TouchableOpacity onPress={handleMarkAllRead}>
+                <Text style={{ color: '#2196F3', fontSize: 13, fontWeight: '700' }}>Mark all read</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={{ width: 24 }} />
+            )}
           </View>
           
-          <ScrollView style={styles.notificationList}>
-            {notifications.map((notification) => {
-              const initials = notification.user.full_name
-                .split(' ')
-                .map((name: string) => name[0])
-                .join('')
-                .toUpperCase()
-                .slice(0, 2);
-              
-              return (
-                <View key={notification.id} style={styles.notificationItem}>
-                  <View style={styles.notificationAvatarContainer}>
-                    <View style={[styles.notificationAvatar, { backgroundColor: notification.avatarColor }]}>
-                      <Text style={styles.avatarInitials}>{initials}</Text>
-                    </View>
-                  </View>
-                  <View style={styles.notificationContent}>
-                    <Text style={[styles.notificationName, { color: colors.text }]}>{notification.user.full_name}</Text>
-                    <Text style={[styles.notificationAction, { color: colors.text }]}>{notification.action}</Text>
-                    <Text style={[styles.notificationDescription, { color: colors.textSecondary }]}>{notification.description}</Text>
-                    <Text style={[styles.notificationTime, { color: colors.textSecondary }]}>{notification.timestamp}</Text>
-                  </View>
+          <ScrollView
+            style={styles.notificationList}
+            contentContainerStyle={{ paddingBottom: 40 }}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={async () => {
+                  setRefreshing(true);
+                  await loadNotifications();
+                  setRefreshing(false);
+                }}
+                tintColor="#2196F3"
+                colors={['#2196F3']}
+              />
+            }
+          >
+            {notifications.length === 0 ? (
+              <View style={styles.emptyNotifications}>
+                <View style={[styles.emptyNotificationIconCircle, { backgroundColor: colors.card }]}>
+                  <Ionicons name="notifications-off-outline" size={42} color="#2196F3" />
                 </View>
-              );
-            })}
+                <Text style={[styles.emptyNotificationTitle, { color: colors.text }]}>No notifications yet</Text>
+                <Text style={[styles.emptyNotificationSubtitle, { color: colors.textSecondary }]}>
+                  When your inquiries, quotations, orders, or messages update, you'll receive real-time alerts right here.
+                </Text>
+              </View>
+            ) : (
+              notifications.map((notification) => {
+                const getMeta = (type: string) => {
+                  switch (type) {
+                    case 'inquiry':
+                      return { icon: 'help-circle-outline', color: '#2196F3' };
+                    case 'quotation':
+                      return { icon: 'document-text-outline', color: '#4CAF50' };
+                    case 'order':
+                      return { icon: 'cube-outline', color: '#FF9800' };
+                    case 'message':
+                      return { icon: 'chatbubble-ellipses-outline', color: '#9C27B0' };
+                    default:
+                      return { icon: 'notifications-outline', color: '#607D8B' };
+                  }
+                };
+
+                const meta = getMeta(notification.type);
+
+                return (
+                  <TouchableOpacity
+                    key={notification.notification_id}
+                    style={[
+                      styles.notificationItem,
+                      { borderBottomColor: colors.border },
+                      !notification.is_read && { backgroundColor: colors.card },
+                    ]}
+                    onPress={() => handleNotificationPress(notification)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.notificationAvatarContainer}>
+                      <View style={[styles.notificationAvatar, { backgroundColor: meta.color }]}>
+                        <Ionicons name={meta.icon as any} size={24} color="#ffffff" />
+                      </View>
+                    </View>
+                    <View style={styles.notificationContent}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Text style={[styles.notificationName, { color: colors.text, flex: 1 }]} numberOfLines={1}>
+                          {notification.title}
+                        </Text>
+                        {!notification.is_read && (
+                          <View style={styles.unreadDot} />
+                        )}
+                      </View>
+                      <Text style={[styles.notificationDescription, { color: colors.textSecondary }]} numberOfLines={2}>
+                        {notification.message}
+                      </Text>
+                      <Text style={[styles.notificationTime, { color: colors.textSecondary }]}>
+                        {formatRelativeTime(notification.created_at)}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
+            )}
           </ScrollView>
         </View>
       </Modal>
@@ -267,97 +411,124 @@ const styles = StyleSheet.create({
   headerLogo: {
     width: 28,
     height: 28,
-    marginRight: 6,
     resizeMode: 'contain',
+    marginRight: 8,
   },
   headerTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#2196F3',
-    flex: 1,
+    fontSize: 18,
+    fontWeight: '700',
   },
   notificationIcon: {
-    padding: 8,
+    position: 'relative',
+    padding: 4,
+  },
+  unreadBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: '#E53935',
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: '#ffffff',
+  },
+  unreadBadgeText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '800',
   },
   searchContainer: {
     marginBottom: 20,
-  },
-  carouselContainer: {
-    marginBottom: 24,
-    position: 'relative',
-  },
-  carouselImage: {
-    width: Dimensions.get('window').width - 40,
-    height: 180,
-    borderRadius: 12,
-  },
-  carouselInquireButton: {
-    position: 'absolute',
-    bottom: 40,
-    left: 12,
-    backgroundColor: '#2196F3',
-    paddingHorizontal: 28,
-    paddingVertical: 14,
-    borderRadius: 4,
-  },
-  carouselInquireButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  featuredProductTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#fff',
-    marginBottom: 16,
-  },
-  carouselDots: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 12,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#ccc',
-    marginHorizontal: 4,
-  },
-  activeDot: {
-    backgroundColor: '#2196F3',
-    width: 20,
   },
   searchInput: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
     borderWidth: 1,
+    paddingHorizontal: 12,
+    height: 48,
   },
   searchIcon: {
-    marginRight: 12,
+    marginRight: 8,
   },
   searchField: {
     flex: 1,
+    fontSize: 15,
+    color: '#333',
+  },
+  carouselContainer: {
+    marginBottom: 24,
+    borderRadius: 16,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  carouselImage: {
+    width: Dimensions.get('window').width - 40,
+    height: 180,
+    resizeMode: 'cover',
+    borderRadius: 16,
+  },
+  carouselInquireButton: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    backgroundColor: '#2196F3',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  carouselInquireButtonText: {
+    color: '#ffffff',
+    fontWeight: '700',
     fontSize: 14,
-    color: '#fff',
+  },
+  carouselDots: {
+    position: 'absolute',
+    bottom: 12,
+    left: 20,
+    flexDirection: 'row',
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    marginRight: 6,
+  },
+  activeDot: {
+    backgroundColor: '#2196F3',
+    width: 20,
+  },
+  featuredProductTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 16,
   },
   productsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    marginBottom: 20,
   },
   productCard: {
     width: '48%',
     borderRadius: 12,
-    marginBottom: 16,
     overflow: 'hidden',
+    marginBottom: 16,
     elevation: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 2,
   },
   productImage: {
     width: '100%',
@@ -400,29 +571,13 @@ const styles = StyleSheet.create({
   fullScreenModal: {
     flex: 1,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  notificationBox: {
-    width: '90%',
-    maxHeight: '80%',
-    borderRadius: 16,
-    padding: 20,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-  },
   notificationHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingTop: 50,
+    paddingBottom: 16,
     borderBottomWidth: 1,
   },
   notificationTitle: {
@@ -430,51 +585,72 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   notificationList: {
-    maxHeight: 300,
+    flex: 1,
   },
   notificationItem: {
     flexDirection: 'row',
-    paddingVertical: 16,
+    paddingVertical: 14,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    alignItems: 'flex-start',
   },
   notificationAvatarContainer: {
-    marginRight: 12,
+    marginRight: 14,
+    marginTop: 2,
   },
   notificationAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  avatarInitials: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
   },
   notificationContent: {
     flex: 1,
   },
   notificationName: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  notificationAction: {
     fontSize: 14,
-    marginBottom: 2,
+    fontWeight: '700',
+    marginBottom: 3,
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#2196F3',
+    marginLeft: 6,
   },
   notificationDescription: {
     fontSize: 13,
-    marginBottom: 4,
-  },
-  notificationText: {
-    fontSize: 14,
+    lineHeight: 18,
     marginBottom: 4,
   },
   notificationTime: {
-    fontSize: 12,
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  emptyNotifications: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 90,
+    paddingHorizontal: 36,
+  },
+  emptyNotificationIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  emptyNotificationTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  emptyNotificationSubtitle: {
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 19,
   },
 });

@@ -241,3 +241,33 @@ export async function submitQuotationPayment(
     });
 }
 
+/**
+ * Real-Time Notifications API
+ */
+export async function getNotifications(limit = 30) {
+    return request(`/notifications?limit=${limit}`);
+}
+
+export async function getUnreadNotificationCount(): Promise<{ unread_count: number }> {
+    return request('/notifications/unread-count');
+}
+
+export async function markNotificationRead(notificationId: number) {
+    return request(`/notifications/${notificationId}/read`, {
+        method: 'PATCH',
+    });
+}
+
+export async function markAllNotificationsRead() {
+    return request('/notifications/read-all', {
+        method: 'POST',
+    });
+}
+
+export async function deleteNotification(notificationId: number) {
+    return request(`/notifications/${notificationId}`, {
+        method: 'DELETE',
+    });
+}
+
+

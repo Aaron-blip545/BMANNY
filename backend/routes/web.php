@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\Web\AdminDashboardController;
 use App\Http\Controllers\Web\ChatController;
 use App\Http\Controllers\Web\OrderManagerController;
@@ -19,6 +20,13 @@ Route::get('/', function () {
 })->name('home');
 
 Route::middleware(['backend.auth'])->group(function () {
+    // Real-Time Notification Endpoints (Web Authenticated)
+    Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::get('notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
+    Route::patch('notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
+    Route::post('notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
+    Route::delete('notifications/{id}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
+
     Route::get('dashboard', function (Request $request) {
         $dashboardRoute = RoleDashboard::routeNameFor($request->user('web')?->role);
 

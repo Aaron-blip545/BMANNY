@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Inquiry;
 use App\Models\InquiryCustomization;
+use App\Services\NotificationService;
 use Illuminate\Support\Facades\DB;
 
 class InquiryController extends Controller
@@ -49,6 +50,19 @@ class InquiryController extends Controller
             }
 
             DB::commit();
+
+            // Notify sales agents and admin about the new inquiry
+            $clientName = $request->user()->businessClient?->business_name ?? $request->user()->full_name;
+            NotificationService::sendToRoles(
+                ['sales_agent', 'admin'],
+                'inquiry',
+                'New Inquiry Received',
+                "New rebranding inquiry submitted by {$clientName}",
+                [
+                    'inquiry_id' => $inquiry->inquiry_id,
+                    'client_id'  => $request->client_id,
+                ]
+            );
 
             return response()->json([
                 'message' => 'Rebranding inquiry and customization specs submitted successfully.',

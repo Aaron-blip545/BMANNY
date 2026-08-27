@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\Inquiry;
 use App\Models\Message;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -95,13 +96,27 @@ class ChatController extends Controller
             'message_body' => 'required|string|max:2000',
         ]);
 
-        Message::create([
+        $message = Message::create([
             'sender_id'    => $agent->user_id,
             'receiver_id'  => $customer->user_id,
             'inquiry_id'   => $inquiryId,
             'message_body' => $validated['message_body'],
             'is_read'      => false,
         ]);
+
+        // Dispatch real-time notification to the customer
+        NotificationService::send(
+            $customer->user_id,
+            'message',
+            'New message from ' . $agent->full_name,
+            $validated['message_body'],
+            [
+                'sender_id'   => $agent->user_id,
+                'sender_name' => $agent->full_name,
+                'inquiry_id'  => $inquiryId,
+                'message_id'  => $message->message_id,
+            ]
+        );
 
         return redirect()->route('chat.show', $inquiryId);
     }

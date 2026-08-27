@@ -7,6 +7,7 @@ use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\FileUploadController;
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\UserController;
 use Illuminate\Http\Request;
 
@@ -59,6 +60,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/messages', [ChatController::class, 'sendMessage']);
     Route::get('/messages/{other_user_id}', [ChatController::class, 'getConversation']);
     Route::post('/messages/{other_user_id}/read', [ChatController::class, 'markAsRead']);
+
+    // 6. Real-Time Notification Routes
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+    Route::patch('/notifications/{notification_id}/read', [NotificationController::class, 'markAsRead']);
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+    Route::delete('/notifications/{notification_id}', [NotificationController::class, 'destroy']);
     
     Route::get('/user', function (Request $request) {
         // Include the businessClient profile so the mobile app can read

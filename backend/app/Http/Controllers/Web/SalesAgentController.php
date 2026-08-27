@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Inquiry;
 use App\Models\Order;
 use App\Models\Quotation;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -63,7 +64,7 @@ class SalesAgentController extends Controller
             'item_details' => 'nullable|string',
         ]);
 
-        Quotation::create([
+        $quotation = Quotation::create([
             'inquiry_id'   => $validated['inquiry_id'],
             'total_amount' => $validated['total_amount'],
             'valid_until'  => $validated['valid_until'] ?? null,
@@ -72,8 +73,23 @@ class SalesAgentController extends Controller
         ]);
 
         // Mark the inquiry as responded now that a quote has been sent.
-        Inquiry::where('inquiry_id', $validated['inquiry_id'])
-            ->update(['status' => 'responded']);
+        $inquiry = Inquiry::with('client.user')->find($validated['inquiry_id']);
+        if ($inquiry) {
+            $inquiry->update(['status' => 'responded']);
+
+            if ($inquiry->client && $inquiry->client->user) {
+                NotificationService::send(
+                    $inquiry->client->user->user_id,
+                    'quotation',
+                    'New Quotation Received',
+                    "A quotation of ₱" . number_format($quotation->total_amount, 2) . " has been prepared for your inquiry.",
+                    [
+                        'quotation_id' => $quotation->quotation_id,
+                        'inquiry_id'   => $inquiry->inquiry_id,
+                    ]
+                );
+            }
+        }
 
         return redirect()->route('inquiries.index')
             ->with('success', 'Quotation sent to client.');
@@ -101,7 +117,7 @@ class SalesAgentController extends Controller
      */
     public function acceptQuotation($id)
     {
-        $quotation = Quotation::with('inquiry.client')->findOrFail($id);
+        $quotation = Quotation::with('inquiry.client.user')->findOrFail($id);
 
         if ($quotation->status !== 'sent') {
             return back()->withErrors(['status' => 'Only a sent quotation can be accepted.']);
@@ -115,8 +131,10 @@ class SalesAgentController extends Controller
             return back()->withErrors(['status' => 'The client has not submitted payment for this quotation yet.']);
         }
 
-        DB::transaction(function () use ($quotation) {
-            Order::create([
+        $order = null;
+
+        DB::transaction(function () use ($quotation, &$order) {
+            $order = Order::create([
                 'client_id'    => $quotation->inquiry->client->client_id,
                 'quotation_id' => $quotation->quotation_id,
                 'total_amount' => $quotation->total_amount,
@@ -126,6 +144,31 @@ class SalesAgentController extends Controller
             $quotation->status = 'accepted';
             $quotation->save();
         });
+
+        // Notify client that payment was accepted and order created
+        if ($quotation->inquiry?->client?->user) {
+            NotificationService::send(
+                $quotation->inquiry->client->user->user_id,
+                'order',
+                'Payment Verified & Order Created',
+                "Your payment for Quotation #{$quotation->quotation_id} was confirmed. Order #{$order->order_id} is now approved!",
+                [
+                    'order_id'     => $order->order_id,
+                    'quotation_id' => $quotation->quotation_id,
+                ]
+            );
+        }
+
+        // Notify order managers and admin about the new approved order
+        NotificationService::sendToRoles(
+            ['order_manager', 'admin'],
+            'order',
+            'New Confirmed Order',
+            "Order #{$order->order_id} from " . ($quotation->inquiry->client->business_name ?? 'Client') . " is confirmed and ready for production.",
+            [
+                'order_id' => $order->order_id,
+            ]
+        );
 
         return redirect()->route('quotations.index')
             ->with('success', 'Order created and forwarded to Order Manager.');
@@ -139,7 +182,7 @@ class SalesAgentController extends Controller
      */
     public function rejectPayment($id)
     {
-        $quotation = Quotation::findOrFail($id);
+        $quotation = Quotation::with('inquiry.client.user')->findOrFail($id);
 
         if (! $quotation->payment_submitted_at) {
             return back()->withErrors(['status' => 'This quotation has no payment submission to reject.']);
@@ -150,6 +193,20 @@ class SalesAgentController extends Controller
             'payment_proof_path'   => null,
             'payment_submitted_at' => null,
         ]);
+
+        // Notify client that payment proof was rejected
+        if ($quotation->inquiry?->client?->user) {
+            NotificationService::send(
+                $quotation->inquiry->client->user->user_id,
+                'quotation',
+                'Payment Proof Rejected',
+                "Your payment proof for Quotation #{$quotation->quotation_id} could not be verified. Please check and re-upload.",
+                [
+                    'quotation_id' => $quotation->quotation_id,
+                    'inquiry_id'   => $quotation->inquiry_id,
+                ]
+            );
+        }
 
         return redirect()->route('quotations.index')
             ->with('success', 'Payment rejected. The client can resubmit proof of payment.');

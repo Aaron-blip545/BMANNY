@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Quotation;
 use App\Models\Inquiry;
+use App\Services\NotificationService;
 
 class QuotationController extends Controller
 {
@@ -26,7 +27,23 @@ class QuotationController extends Controller
         // FIXED: 'Quoted' isn't in the inquiries.status enum (pending,
         // reviewed, responded, closed). 'responded' is the closest valid
         // match - the sales agent has now responded with a price.
-        Inquiry::where('inquiry_id', $request->inquiry_id)->update(['status' => 'responded']);
+        $inquiry = Inquiry::with('client.user')->find($request->inquiry_id);
+        if ($inquiry) {
+            $inquiry->update(['status' => 'responded']);
+
+            if ($inquiry->client && $inquiry->client->user) {
+                NotificationService::send(
+                    $inquiry->client->user->user_id,
+                    'quotation',
+                    'New Quotation Received',
+                    "A quotation of ₱" . number_format($quotation->total_amount, 2) . " has been prepared for your inquiry.",
+                    [
+                        'quotation_id' => $quotation->quotation_id,
+                        'inquiry_id'   => $inquiry->inquiry_id,
+                    ]
+                );
+            }
+        }
 
         return response()->json([
             'message' => 'Quotation successfully generated and sent to client.',
@@ -76,7 +93,7 @@ class QuotationController extends Controller
             return response()->json(['message' => 'No business client profile found.'], 422);
         }
 
-        $quotation = Quotation::with('inquiry')->findOrFail($quotation_id);
+        $quotation = Quotation::with('inquiry.client')->findOrFail($quotation_id);
 
         if (! $quotation->inquiry || (int) $quotation->inquiry->client_id !== (int) $client->client_id) {
             return response()->json(['message' => 'This quotation does not belong to you.'], 403);
@@ -103,9 +120,23 @@ class QuotationController extends Controller
             'payment_submitted_at' => now(),
         ]);
 
+        // Notify sales agents and admin about payment proof submission
+        $businessName = $client->business_name ?? $request->user()->full_name;
+        NotificationService::sendToRoles(
+            ['sales_agent', 'admin'],
+            'quotation',
+            'Payment Proof Submitted',
+            "{$businessName} submitted payment for Quotation #{$quotation->quotation_id}",
+            [
+                'quotation_id' => $quotation->quotation_id,
+                'inquiry_id'   => $quotation->inquiry_id,
+            ]
+        );
+
         return response()->json([
             'message' => 'Payment submitted. Our sales team will confirm it shortly.',
             'quotation' => $quotation->fresh('inquiry.customizations'),
         ]);
     }
 }
+
