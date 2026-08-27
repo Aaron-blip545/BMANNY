@@ -68,6 +68,7 @@ Route::middleware(['backend.auth'])->group(function () {
         // Chat: one thread per inquiry
         Route::get('inquiries/{inquiry_id}/chat', [ChatController::class, 'show'])->name('chat.show');
         Route::post('inquiries/{inquiry_id}/chat', [ChatController::class, 'send'])->name('chat.send');
+        Route::delete('inquiries/{inquiry_id}/chat', [ChatController::class, 'destroy'])->name('chat.destroy');
     });
 
     // Order Manager + Admin: Orders list and status updates

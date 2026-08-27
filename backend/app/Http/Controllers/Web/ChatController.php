@@ -7,6 +7,7 @@ use App\Models\Inquiry;
 use App\Models\Message;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -47,6 +48,7 @@ class ChatController extends Controller
             ->map(fn ($m) => [
                 'message_id'   => $m->message_id,
                 'body'         => $m->message_body,
+                'image_url'    => $m->image_url,
                 'sent_by_me'   => $m->sender_id === $agent->user_id,
                 'sender_name'  => $m->sender?->full_name ?? 'Unknown',
                 'created_at'   => $m->created_at->toIso8601String(),
@@ -93,23 +95,38 @@ class ChatController extends Controller
         }
 
         $validated = $request->validate([
-            'message_body' => 'required|string|max:2000',
+            'message_body' => 'nullable|string|max:2000',
+            'image'        => 'nullable|image|max:10240',
         ]);
+
+        if (empty($validated['message_body']) && !$request->hasFile('image')) {
+            return back()->withErrors(['message' => 'Please enter a message or attach an image.']);
+        }
+
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('chat-images', 'public');
+        }
 
         $message = Message::create([
             'sender_id'    => $agent->user_id,
             'receiver_id'  => $customer->user_id,
             'inquiry_id'   => $inquiryId,
-            'message_body' => $validated['message_body'],
+            'message_body' => $validated['message_body'] ?? null,
+            'image_path'   => $imagePath,
             'is_read'      => false,
         ]);
+
+        $notificationBody = !empty($validated['message_body'])
+            ? $validated['message_body']
+            : '📷 Sent a photo';
 
         // Dispatch real-time notification to the customer
         NotificationService::send(
             $customer->user_id,
             'message',
             'New message from ' . $agent->full_name,
-            $validated['message_body'],
+            $notificationBody,
             [
                 'sender_id'   => $agent->user_id,
                 'sender_name' => $agent->full_name,
@@ -117,6 +134,42 @@ class ChatController extends Controller
                 'message_id'  => $message->message_id,
             ]
         );
+
+        return redirect()->route('chat.show', $inquiryId);
+    }
+
+    /**
+     * Delete all messages for this inquiry/conversation.
+     */
+    public function destroy(Request $request, int $inquiryId)
+    {
+        $inquiry  = Inquiry::with('client.user')->findOrFail($inquiryId);
+        $agent    = $request->user('web');
+        $customer = optional($inquiry->client)->user;
+
+        if ($customer) {
+            $messages = Message::where(function ($q) use ($inquiryId) {
+                    $q->where('inquiry_id', $inquiryId)
+                      ->orWhereNull('inquiry_id');
+                })
+                ->where(function ($q) use ($agent, $customer) {
+                    $q->where(function ($inner) use ($agent, $customer) {
+                        $inner->where('sender_id',   $agent->user_id)
+                              ->where('receiver_id', $customer->user_id);
+                    })->orWhere(function ($inner) use ($agent, $customer) {
+                        $inner->where('sender_id',   $customer->user_id)
+                              ->where('receiver_id', $agent->user_id);
+                    });
+                })
+                ->get();
+
+            foreach ($messages as $msg) {
+                if ($msg->image_path && Storage::disk('public')->exists($msg->image_path)) {
+                    Storage::disk('public')->delete($msg->image_path);
+                }
+                $msg->delete();
+            }
+        }
 
         return redirect()->route('chat.show', $inquiryId);
     }

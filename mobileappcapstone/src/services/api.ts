@@ -92,6 +92,20 @@ export async function register(data: {
 }
 
 
+export function resolveImageUrl(urlOrPath?: string | null): string | null {
+    if (!urlOrPath) return null;
+    if (urlOrPath.startsWith('http://') || urlOrPath.startsWith('https://')) {
+        const baseHostMatch = API_BASE_URL.match(/^https?:\/\/[^\/]+/);
+        if (baseHostMatch) {
+            return urlOrPath.replace(/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/, baseHostMatch[0]);
+        }
+        return urlOrPath;
+    }
+    const baseHost = API_BASE_URL.replace(/\/api\/?$/, '');
+    const cleanPath = urlOrPath.startsWith('/') ? urlOrPath : `/${urlOrPath}`;
+    return `${baseHost}${cleanPath}`;
+}
+
 export async function getConversations() {
     return request('/conversations');
 }
@@ -100,12 +114,64 @@ export async function getConversation(otherUserId: number) {
     return request(`/messages/${otherUserId}`);
 }
 
-export async function sendMessage(receiverId: number, messageBody: string, inquiryId?: number) {
+export async function sendMessage(
+    receiverId: number,
+    messageBody?: string | null,
+    inquiryId?: number,
+    imageUri?: string | null,
+) {
+    if (imageUri) {
+        const token = await getToken();
+        const form = new FormData();
+        form.append('receiver_id', String(receiverId));
+        if (messageBody && messageBody.trim()) {
+            form.append('message_body', messageBody.trim());
+        }
+        if (inquiryId) {
+            form.append('inquiry_id', String(inquiryId));
+        }
+
+        const filename = imageUri.split('/').pop() || 'chat_image.jpg';
+        const extensionMatch = /\.(\w+)$/.exec(filename);
+        const type = extensionMatch ? `image/${extensionMatch[1]}` : 'image/jpeg';
+
+        form.append('image', { uri: imageUri, name: filename, type } as any);
+
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', `${API_BASE_URL}/messages`);
+            xhr.setRequestHeader('Accept', 'application/json');
+            if (token) {
+                xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+            }
+
+            xhr.onload = () => {
+                let data: any = {};
+                try {
+                    data = JSON.parse(xhr.responseText);
+                } catch { }
+
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    resolve(data);
+                    return;
+                }
+
+                const message = data.errors
+                    ? Object.values(data.errors).flat().join('\n')
+                    : data.message || 'Something went wrong.';
+                reject(new Error(message));
+            };
+
+            xhr.onerror = () => reject(new Error('Network request failed.'));
+            xhr.send(form as any);
+        });
+    }
+
     return request('/messages', {
         method: 'POST',
         body: JSON.stringify({
             receiver_id: receiverId,
-            message_body: messageBody,
+            message_body: messageBody?.trim() || null,
             inquiry_id: inquiryId ?? null,
         }),
     });
@@ -113,6 +179,10 @@ export async function sendMessage(receiverId: number, messageBody: string, inqui
 
 export async function markConversationRead(otherUserId: number) {
     return request(`/messages/${otherUserId}/read`, { method: 'POST' });
+}
+
+export async function deleteConversation(otherUserId: number) {
+    return request(`/messages/${otherUserId}`, { method: 'DELETE' });
 }
 
 /**

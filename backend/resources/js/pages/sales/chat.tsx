@@ -1,14 +1,24 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { ArrowLeft, Send } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { ArrowLeft, Image as ImageIcon, Send, Trash2, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
 interface Message {
     message_id: number;
-    body: string;
+    body: string | null;
+    image_url: string | null;
     sent_by_me: boolean;
     sender_name: string;
     created_at: string;
@@ -44,10 +54,22 @@ export default function ChatPage({ inquiry, messages }: Props) {
         { title: `Chat — ${inquiry.business}`, href: `/inquiries/${inquiry.inquiry_id}/chat` },
     ];
 
-    const { data, setData, post, processing, reset } = useForm({ message_body: '' });
+    const { data, setData, post, processing, reset } = useForm<{
+        message_body: string;
+        image: File | null;
+    }>({
+        message_body: '',
+        image: null,
+    });
+
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [selectedLightboxImage, setSelectedLightboxImage] = useState<string | null>(null);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const bottomRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Scroll to the latest message whenever messages change.
     useEffect(() => {
@@ -62,12 +84,34 @@ export default function ChatPage({ inquiry, messages }: Props) {
         return () => clearInterval(interval);
     }, []);
 
+    function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (file) {
+            setData('image', file);
+            setImagePreview(URL.createObjectURL(file));
+        }
+    }
+
+    function removeImage() {
+        setData('image', null);
+        if (imagePreview) {
+            URL.revokeObjectURL(imagePreview);
+            setImagePreview(null);
+        }
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    }
+
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        if (!data.message_body.trim()) return;
+        if (!data.message_body.trim() && !data.image) return;
+
         post(route('chat.send', inquiry.inquiry_id), {
+            forceFormData: true,
             onSuccess: () => {
-                reset('message_body');
+                reset('message_body', 'image');
+                removeImage();
                 textareaRef.current?.focus();
             },
         });
@@ -81,6 +125,16 @@ export default function ChatPage({ inquiry, messages }: Props) {
         }
     }
 
+    function handleDeleteConversation() {
+        setIsDeleting(true);
+        router.delete(route('chat.destroy', inquiry.inquiry_id), {
+            onFinish: () => {
+                setIsDeleting(false);
+                setIsDeleteDialogOpen(false);
+            },
+        });
+    }
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Chat — ${inquiry.business}`} />
@@ -88,21 +142,35 @@ export default function ChatPage({ inquiry, messages }: Props) {
             <main className="bmanny-page flex h-[calc(100vh-64px)] flex-col">
 
                 {/* ── Header ── */}
-                <div className="bmanny-page-header mb-4 flex items-start gap-4">
-                    <Button variant="ghost" size="sm" asChild>
-                        <Link href={route('inquiries.index')}>
-                            <ArrowLeft className="mr-1 h-4 w-4" />
-                            Inquiries
-                        </Link>
-                    </Button>
+                <div className="bmanny-page-header mb-4 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <Button variant="ghost" size="sm" asChild>
+                            <Link href={route('inquiries.index')}>
+                                <ArrowLeft className="mr-1 h-4 w-4" />
+                                Inquiries
+                            </Link>
+                        </Button>
 
-                    <div className="flex-1">
-                        <h1 className="text-xl font-semibold tracking-tight">{inquiry.business}</h1>
-                        <p className="text-sm text-muted-foreground">
-                            {inquiry.contact} &nbsp;·&nbsp; Inquiry #{inquiry.inquiry_id} &nbsp;·&nbsp;
-                            <span className="capitalize">{inquiry.status}</span>
-                        </p>
+                        <div>
+                            <h1 className="text-xl font-semibold tracking-tight">{inquiry.business}</h1>
+                            <p className="text-sm text-muted-foreground">
+                                {inquiry.contact} &nbsp;·&nbsp; Inquiry #{inquiry.inquiry_id} &nbsp;·&nbsp;
+                                <span className="capitalize">{inquiry.status}</span>
+                            </p>
+                        </div>
                     </div>
+
+                    {messages.length > 0 && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
+                            onClick={() => setIsDeleteDialogOpen(true)}
+                        >
+                            <Trash2 className="mr-1.5 h-4 w-4" />
+                            Delete Conversation
+                        </Button>
+                    )}
                 </div>
 
                 {/* ── Message Thread ── */}
@@ -110,7 +178,7 @@ export default function ChatPage({ inquiry, messages }: Props) {
                     <CardContent className="flex flex-1 flex-col overflow-hidden p-0">
 
                         {/* Scrollable message list */}
-                        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+                        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
                             {messages.length === 0 ? (
                                 <div className="flex h-full items-center justify-center">
                                     <p className="text-sm text-muted-foreground">
@@ -131,13 +199,25 @@ export default function ChatPage({ inquiry, messages }: Props) {
 
                                         {/* Bubble */}
                                         <div
-                                            className={`max-w-[70%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm ${
+                                            className={`max-w-[75%] md:max-w-[60%] rounded-2xl p-3 text-sm leading-relaxed shadow-sm ${
                                                 msg.sent_by_me
                                                     ? 'rounded-tr-sm bg-primary text-primary-foreground'
                                                     : 'rounded-tl-sm bg-muted text-foreground'
                                             }`}
                                         >
-                                            {msg.body}
+                                            {msg.image_url && (
+                                                <div className="mb-2 overflow-hidden rounded-xl bg-black/5">
+                                                    <img
+                                                        src={msg.image_url}
+                                                        alt="Chat attachment"
+                                                        className="max-h-72 w-auto max-w-full rounded-xl object-cover cursor-pointer transition-transform hover:scale-[1.01]"
+                                                        onClick={() => setSelectedLightboxImage(msg.image_url)}
+                                                    />
+                                                </div>
+                                            )}
+                                            {msg.body && (
+                                                <div className="whitespace-pre-wrap">{msg.body}</div>
+                                            )}
                                         </div>
                                     </div>
                                 ))
@@ -145,6 +225,27 @@ export default function ChatPage({ inquiry, messages }: Props) {
                             {/* Invisible anchor to scroll to */}
                             <div ref={bottomRef} />
                         </div>
+
+                        {/* ── Image Preview Pill (if selected) ── */}
+                        {imagePreview && (
+                            <div className="border-t border-border bg-muted/40 px-4 py-2 flex items-center gap-3">
+                                <div className="relative inline-block">
+                                    <img
+                                        src={imagePreview}
+                                        alt="Preview"
+                                        className="h-16 w-16 rounded-lg object-cover border border-border"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={removeImage}
+                                        className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow hover:bg-destructive/90"
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </button>
+                                </div>
+                                <span className="text-xs text-muted-foreground">Image ready to send</span>
+                            </div>
+                        )}
 
                         {/* ── Compose Bar ── */}
                         <div className="border-t border-border bg-background px-4 py-3">
@@ -154,6 +255,24 @@ export default function ChatPage({ inquiry, messages }: Props) {
                                 </p>
                             ) : (
                                 <form onSubmit={handleSubmit} className="flex items-end gap-3">
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handleImageSelect}
+                                        className="hidden"
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        className="shrink-0 rounded-lg text-muted-foreground hover:text-foreground"
+                                        title="Attach image"
+                                        onClick={() => fileInputRef.current?.click()}
+                                    >
+                                        <ImageIcon className="h-4 w-4" />
+                                    </Button>
+
                                     <textarea
                                         ref={textareaRef}
                                         id="message_body"
@@ -164,9 +283,10 @@ export default function ChatPage({ inquiry, messages }: Props) {
                                         onKeyDown={handleKeyDown}
                                         className="flex-1 resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                                     />
+
                                     <Button
                                         type="submit"
-                                        disabled={processing || !data.message_body.trim()}
+                                        disabled={processing || (!data.message_body.trim() && !data.image)}
                                         className="shrink-0"
                                     >
                                         <Send className="mr-1.5 h-4 w-4" />
@@ -179,6 +299,51 @@ export default function ChatPage({ inquiry, messages }: Props) {
                     </CardContent>
                 </Card>
             </main>
+
+            {/* ── Lightbox Image Modal ── */}
+            <Dialog open={!!selectedLightboxImage} onOpenChange={(open) => !open && setSelectedLightboxImage(null)}>
+                <DialogContent className="max-w-3xl p-2 bg-background border-border">
+                    <DialogHeader className="sr-only">
+                        <DialogTitle>Image View</DialogTitle>
+                    </DialogHeader>
+                    {selectedLightboxImage && (
+                        <div className="flex items-center justify-center p-2">
+                            <img
+                                src={selectedLightboxImage}
+                                alt="Enlarged view"
+                                className="max-h-[80vh] w-auto max-w-full rounded-md object-contain"
+                            />
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* ── Delete Conversation Confirmation Dialog ── */}
+            <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Delete Conversation</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to delete this conversation with <strong>{inquiry.business}</strong>? All messages and attachments will be permanently removed.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <DialogClose asChild>
+                            <Button variant="outline" disabled={isDeleting}>
+                                Cancel
+                            </Button>
+                        </DialogClose>
+                        <Button
+                            variant="destructive"
+                            onClick={handleDeleteConversation}
+                            disabled={isDeleting}
+                        >
+                            {isDeleting ? 'Deleting...' : 'Delete Conversation'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }
+

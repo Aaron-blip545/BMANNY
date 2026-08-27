@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Message;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class ChatController extends Controller
 {
@@ -40,10 +41,19 @@ class ChatController extends Controller
                     ? $latest->receiver
                     : $latest->sender;
 
+                if (! $other) {
+                    return null;
+                }
+
                 $unread = $group
                     ->where('receiver_id', $userId)
                     ->where('is_read', false)
                     ->count();
+
+                $lastMessage = $latest->message_body;
+                if (empty($lastMessage) && $latest->image_path) {
+                    $lastMessage = '📷 Photo';
+                }
 
                 return [
                     // inquiry_id is no longer used as the key but kept for
@@ -51,11 +61,12 @@ class ChatController extends Controller
                     'inquiry_id'      => null,
                     'other_user_id'   => $other->user_id,
                     'other_user_name' => $other->full_name,
-                    'last_message'    => $latest->message_body,
+                    'last_message'    => $lastMessage,
                     'last_message_at' => $latest->created_at,
                     'unread_count'    => $unread,
                 ];
             })
+            ->filter()
             ->values();
 
         return response()->json($conversations);
@@ -88,26 +99,41 @@ class ChatController extends Controller
     {
         $validated = $request->validate([
             'receiver_id'  => 'required|integer|exists:users,user_id',
-            'message_body' => 'required|string',
+            'message_body' => 'nullable|string|max:5000',
+            'image'        => 'nullable|image|max:10240',
             'inquiry_id'   => 'nullable|integer|exists:inquiries,inquiry_id',
         ]);
 
+        if (empty($validated['message_body']) && !$request->hasFile('image')) {
+            return response()->json(['message' => 'Please provide a message or an image.'], 422);
+        }
+
         $sender = $request->user();
+        $imagePath = null;
+
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('chat-images', 'public');
+        }
 
         $message = Message::create([
             'sender_id'    => $sender->user_id,
             'receiver_id'  => $validated['receiver_id'],
-            'message_body' => $validated['message_body'],
+            'message_body' => $validated['message_body'] ?? null,
+            'image_path'   => $imagePath,
             'inquiry_id'   => $validated['inquiry_id'] ?? null,
             'is_read'      => false,
         ]);
+
+        $notificationBody = !empty($validated['message_body'])
+            ? $validated['message_body']
+            : '📷 Sent a photo';
 
         // Dispatch real-time notification to recipient
         NotificationService::send(
             (int) $validated['receiver_id'],
             'message',
             'New message from ' . $sender->full_name,
-            $validated['message_body'],
+            $notificationBody,
             [
                 'sender_id'   => $sender->user_id,
                 'sender_name' => $sender->full_name,
@@ -130,5 +156,30 @@ class ChatController extends Controller
             ->update(['is_read' => true]);
 
         return response()->json(['message' => 'Marked as read.']);
+    }
+
+    /**
+     * Delete an entire conversation with another user.
+     */
+    public function destroyConversation(Request $request, $other_user_id)
+    {
+        $userId = $request->user()->user_id;
+
+        $messages = Message::where(function ($q) use ($userId, $other_user_id) {
+                $q->where('sender_id', $userId)->where('receiver_id', $other_user_id);
+            })
+            ->orWhere(function ($q) use ($userId, $other_user_id) {
+                $q->where('sender_id', $other_user_id)->where('receiver_id', $userId);
+            })
+            ->get();
+
+        foreach ($messages as $msg) {
+            if ($msg->image_path && Storage::disk('public')->exists($msg->image_path)) {
+                Storage::disk('public')->delete($msg->image_path);
+            }
+            $msg->delete();
+        }
+
+        return response()->json(['message' => 'Conversation deleted successfully.']);
     }
 }

@@ -60,6 +60,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/messages', [ChatController::class, 'sendMessage']);
     Route::get('/messages/{other_user_id}', [ChatController::class, 'getConversation']);
     Route::post('/messages/{other_user_id}/read', [ChatController::class, 'markAsRead']);
+    Route::delete('/messages/{other_user_id}', [ChatController::class, 'destroyConversation']);
 
     // 6. Real-Time Notification Routes
     Route::get('/notifications', [NotificationController::class, 'index']);
