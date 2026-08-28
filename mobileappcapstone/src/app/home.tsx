@@ -5,7 +5,6 @@ import { useTheme } from '../contexts/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import {
   getNotifications,
-  getUnreadNotificationCount,
   markNotificationRead,
   markAllNotificationsRead,
 } from '../services/api';
@@ -88,20 +87,13 @@ export default function HomeScreen() {
     }
   }, []);
 
-  const loadUnreadCount = useCallback(async () => {
-    try {
-      const data = await getUnreadNotificationCount();
-      setUnreadCount(data.unread_count ?? 0);
-    } catch (err) {
-      // Silently ignore polling network hiccups
-    }
-  }, []);
-
   useEffect(() => {
     loadNotifications();
-    const poll = setInterval(loadUnreadCount, 8000);
+    // Keep the badge and notification list current without requiring a
+    // manual pull-to-refresh.
+    const poll = setInterval(loadNotifications, 8000);
     return () => clearInterval(poll);
-  }, [loadNotifications, loadUnreadCount]);
+  }, [loadNotifications]);
 
   const handleNotificationPress = async (item: NotificationItem) => {
     if (!item.is_read) {
@@ -127,7 +119,8 @@ export default function HomeScreen() {
         router.push('/messages');
       }
     } else if (item.type === 'order') {
-      router.push('/orders');
+      const status = typeof item.data?.status === 'string' ? item.data.status : 'pending';
+      router.replace(`/orders?source=notification&tab=${encodeURIComponent(status)}` as any);
     } else if (item.type === 'quotation') {
       router.push('/orders');
     } else if (item.type === 'inquiry') {
@@ -217,9 +210,6 @@ export default function HomeScreen() {
                 <Image key={index} source={image} style={styles.carouselImage} />
               ))}
             </ScrollView>
-            <TouchableOpacity style={styles.carouselInquireButton} onPress={() => router.push('/chat-detail')}>
-              <Text style={styles.carouselInquireButtonText}>Inquire</Text>
-            </TouchableOpacity>
             <View style={styles.carouselDots}>
               {carouselImages.map((_, index) => (
                 <View
@@ -340,6 +330,8 @@ export default function HomeScreen() {
                       return { icon: 'cube-outline', color: '#FF9800' };
                     case 'message':
                       return { icon: 'chatbubble-ellipses-outline', color: '#9C27B0' };
+                    case 'moderation':
+                      return { icon: 'shield-checkmark-outline', color: '#D4A72C' };
                     default:
                       return { icon: 'notifications-outline', color: '#607D8B' };
                   }

@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { getConversation, sendMessage, markConversationRead, deleteConversation, resolveImageUrl } from '../services/api';
+import { getConversation, sendMessage, markConversationRead, resolveImageUrl } from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -28,6 +28,9 @@ interface Message {
   message_body: string | null;
   image_url?: string | null;
   created_at: string;
+  is_flagged?: boolean;
+  moderation_reason?: string | null;
+  conversation_closed?: boolean;
 }
 
 export default function ChatDetailScreen() {
@@ -40,6 +43,7 @@ export default function ChatDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const isConversationClosed = messages.some((message) => message.conversation_closed);
 
   useEffect(() => {
     loadMessages();
@@ -63,6 +67,10 @@ export default function ChatDetailScreen() {
   }
 
   const handlePickImage = async () => {
+    if (isConversationClosed) {
+      Alert.alert('Conversation closed', 'An administrator closed this conversation. It is read-only until reopened.');
+      return;
+    }
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
@@ -79,6 +87,10 @@ export default function ChatDetailScreen() {
   };
 
   async function handleSend() {
+    if (isConversationClosed) {
+      Alert.alert('Conversation closed', 'An administrator closed this conversation. It is read-only until reopened.');
+      return;
+    }
     if (!text.trim() && !selectedImage) return;
     setSending(true);
     try {
@@ -98,30 +110,6 @@ export default function ChatDetailScreen() {
     } finally {
       setSending(false);
     }
-  }
-
-  function handleDeleteConversation() {
-    Alert.alert(
-      'Delete Conversation',
-      `Are you sure you want to delete this conversation with ${otherUserName || 'this user'}? All messages will be permanently deleted.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setLoading(true);
-              await deleteConversation(Number(otherUserId));
-              router.back();
-            } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to delete conversation.');
-              setLoading(false);
-            }
-          },
-        },
-      ]
-    );
   }
 
   // NOTE: whoever is viewing this screen is "me" - we don't know our own
@@ -145,12 +133,6 @@ export default function ChatDetailScreen() {
             {otherUserName}
           </Text>
         </View>
-        <TouchableOpacity
-          style={styles.deleteHeaderButton}
-          onPress={handleDeleteConversation}
-        >
-          <Text style={styles.deleteHeaderIcon}>🗑️</Text>
-        </TouchableOpacity>
       </View>
 
       {/* Messages */}
@@ -200,6 +182,15 @@ export default function ChatDetailScreen() {
                 </Text>
               ) : null}
 
+              {message.is_flagged && (
+                <View style={[styles.flaggedNotice, { backgroundColor: colors.card, borderColor: '#D4A72C' }]}>
+                  <Text style={styles.flaggedNoticeTitle}>Flagged by an administrator</Text>
+                  <Text style={[styles.flaggedNoticeText, { color: colors.textSecondary }]}>
+                    This message was marked inappropriate. Reason: {message.moderation_reason || 'Please keep conversations respectful and relevant.'}
+                  </Text>
+                </View>
+              )}
+
               <Text style={[styles.messageTime, { color: isMine(message) ? 'rgba(255,255,255,0.7)' : colors.textSecondary }]}>
                 {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </Text>
@@ -223,11 +214,16 @@ export default function ChatDetailScreen() {
 
       {/* Input bar */}
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        {isConversationClosed && (
+          <View style={[styles.closedNotice, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+            <Text style={[styles.closedNoticeText, { color: colors.textSecondary }]}>This conversation was closed by an administrator and is now read-only.</Text>
+          </View>
+        )}
         <View style={[styles.inputContainer, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
           <TouchableOpacity
             style={[styles.attachButton, { backgroundColor: colors.card, borderColor: colors.border }]}
             onPress={handlePickImage}
-            disabled={sending}
+            disabled={sending || isConversationClosed}
           >
             <Text style={styles.attachButtonText}>📷</Text>
           </TouchableOpacity>
@@ -241,6 +237,7 @@ export default function ChatDetailScreen() {
             onSubmitEditing={handleSend}
             returnKeyType="send"
             multiline
+            editable={!isConversationClosed}
           />
 
           <TouchableOpacity
@@ -248,11 +245,11 @@ export default function ChatDetailScreen() {
               styles.sendButton,
               {
                 backgroundColor: '#2196F3',
-                opacity: sending || (!text.trim() && !selectedImage) ? 0.6 : 1,
+                opacity: sending || isConversationClosed || (!text.trim() && !selectedImage) ? 0.6 : 1,
               },
             ]}
             onPress={handleSend}
-            disabled={sending || (!text.trim() && !selectedImage)}
+            disabled={sending || isConversationClosed || (!text.trim() && !selectedImage)}
           >
             {sending
               ? <ActivityIndicator color="#ffffff" size="small" />
@@ -331,14 +328,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     flex: 1,
   },
-  deleteHeaderButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-  },
-  deleteHeaderIcon: {
-    fontSize: 18,
-  },
   messagesScroll: {
     flex: 1,
   },
@@ -377,6 +366,22 @@ const styles = StyleSheet.create({
   messageTime: {
     fontSize: 11,
     textAlign: 'right',
+  },
+  flaggedNotice: {
+    marginTop: 8,
+    padding: 8,
+    borderWidth: 1,
+    borderRadius: 8,
+  },
+  flaggedNoticeTitle: {
+    color: '#B7791F',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  flaggedNoticeText: {
+    marginTop: 2,
+    fontSize: 12,
+    lineHeight: 17,
   },
   previewBar: {
     flexDirection: 'row',
@@ -419,6 +424,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderTopWidth: 1,
     alignItems: 'center',
+  },
+  closedNotice: {
+    borderTopWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  closedNoticeText: {
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '600',
   },
   attachButton: {
     width: 44,
@@ -477,4 +492,4 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-});
+});

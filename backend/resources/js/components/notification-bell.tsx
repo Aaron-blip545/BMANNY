@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { router } from '@inertiajs/react';
-import { Bell, CheckCheck, CircleHelp, FileText, MessageSquare, PackageCheck, Trash2, X } from 'lucide-react';
+import { router, usePage } from '@inertiajs/react';
+import { Bell, Boxes, CheckCheck, CircleHelp, FileText, MessageSquare, PackageCheck, ShieldAlert, Trash2, X } from 'lucide-react';
 import { useNotifications, AppNotificationItem } from '@/hooks/use-notifications';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
@@ -20,13 +20,34 @@ function formatTimeAgo(dateString: string) {
     return `${days}d ago`;
 }
 
-function getNotificationMeta(notification: AppNotificationItem) {
+type WebRole = 'admin' | 'sales_agent' | 'order_manager' | 'product_controller' | string;
+
+function dashboardUrl(role: WebRole) {
+    if (role === 'admin') return '/admin/dashboard';
+    if (role === 'sales_agent') return '/sales/dashboard';
+    if (role === 'order_manager') return '/order-manager/dashboard';
+    if (role === 'product_controller') return '/product-controller/dashboard';
+    return '/dashboard';
+}
+
+function getNotificationMeta(notification: AppNotificationItem, role: WebRole) {
+    const data = notification.data ?? {};
+    const canOpenInquiry = role === 'admin' || role === 'sales_agent';
+    const inquiryUrl = data.inquiry_id && canOpenInquiry
+        ? `/inquiries/${data.inquiry_id}/chat`
+        : canOpenInquiry ? '/inquiries' : dashboardUrl(role);
+    const conversationUrl = data.inquiry_id && canOpenInquiry
+        ? `/inquiries/${data.inquiry_id}/chat`
+        : data.sender_id && canOpenInquiry
+            ? `/conversations/with/${data.sender_id}`
+            : inquiryUrl;
+
     switch (notification.type) {
         case 'inquiry':
             return {
                 icon: CircleHelp,
                 color: 'text-blue-500 bg-blue-500/10 border-blue-500/20',
-                targetUrl: '/inquiries',
+                targetUrl: inquiryUrl,
             };
         case 'quotation':
             return {
@@ -38,27 +59,45 @@ function getNotificationMeta(notification: AppNotificationItem) {
             return {
                 icon: PackageCheck,
                 color: 'text-amber-500 bg-amber-500/10 border-amber-500/20',
-                targetUrl: '/orders',
+                targetUrl: role === 'admin' || role === 'order_manager'
+                    ? `/orders${data.order_id ? `?order_id=${data.order_id}` : ''}`
+                    : dashboardUrl(role),
             };
         case 'message':
             return {
                 icon: MessageSquare,
                 color: 'text-purple-500 bg-purple-500/10 border-purple-500/20',
-                targetUrl: notification.data?.inquiry_id
-                    ? `/inquiries/${notification.data.inquiry_id}/chat`
-                    : '/inquiries',
+                targetUrl: conversationUrl,
+            };
+        case 'moderation':
+            return {
+                icon: ShieldAlert,
+                color: 'text-amber-600 bg-amber-500/10 border-amber-500/20',
+                targetUrl: role === 'admin' && data.action === 'message_flagged'
+                    ? '/moderation/messages'
+                    : inquiryUrl,
+            };
+        case 'product':
+            return {
+                icon: Boxes,
+                color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20',
+                targetUrl: role === 'product_controller' && ['variants', 'packaging', 'moq', 'customization', 'notifications'].includes(data.module)
+                    ? `/product-controller/${data.module}`
+                    : '/products',
             };
         default:
             return {
                 icon: Bell,
                 color: 'text-neutral-500 bg-neutral-500/10 border-neutral-500/20',
-                targetUrl: '/dashboard',
+                targetUrl: dashboardUrl(role),
             };
     }
 }
 
 export function NotificationBell({ className }: { className?: string }) {
     const [open, setOpen] = useState(false);
+    const { auth } = usePage().props as { auth?: { user?: { role?: WebRole } } };
+    const role = auth?.user?.role ?? '';
     const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
 
     const handleItemClick = (item: AppNotificationItem) => {
@@ -67,7 +106,7 @@ export function NotificationBell({ className }: { className?: string }) {
         }
         setOpen(false);
 
-        const meta = getNotificationMeta(item);
+        const meta = getNotificationMeta(item, role);
         if (meta.targetUrl) {
             router.visit(meta.targetUrl);
         }
@@ -134,7 +173,7 @@ export function NotificationBell({ className }: { className?: string }) {
                         </div>
                     ) : (
                         notifications.map((item) => {
-                            const meta = getNotificationMeta(item);
+                            const meta = getNotificationMeta(item, role);
                             const IconComponent = meta.icon;
 
                             return (

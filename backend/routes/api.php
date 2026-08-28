@@ -19,7 +19,7 @@ Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 Route::get('/products', [ProductController::class, 'index']);
 
 // Protected Routes (Must be authenticated via Sanctum)
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'active.api'])->group(function () {
 
     Route::middleware('role:admin')->group(function () {
        Route::get('/admin/users', [UserController::class, 'index']);
@@ -60,7 +60,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/messages', [ChatController::class, 'sendMessage']);
     Route::get('/messages/{other_user_id}', [ChatController::class, 'getConversation']);
     Route::post('/messages/{other_user_id}/read', [ChatController::class, 'markAsRead']);
-    Route::delete('/messages/{other_user_id}', [ChatController::class, 'destroyConversation']);
 
     // 6. Real-Time Notification Routes
     Route::get('/notifications', [NotificationController::class, 'index']);

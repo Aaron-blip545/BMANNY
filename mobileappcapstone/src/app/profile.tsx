@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Image, Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
-import { logout } from '../services/api';
+import { getMe, logout } from '../services/api';
 
 const HomeIcon = ({ colors, isActive }: { colors: any; isActive?: boolean }) => (
   <Image source={require('@/assets/images/homepageicon/home.png')} style={styles.navIcon} tintColor={isActive ? '#2196F3' : colors.text} />
@@ -23,9 +23,43 @@ const ProfileIcon = ({ colors, isActive }: { colors: any; isActive?: boolean }) 
 
 export default function ProfileScreen() {
   const { colors } = useTheme();
-  const { profileImage, name } = useLocalSearchParams<{ profileImage: string; name: string }>();
+  const { profileImage } = useLocalSearchParams<{ profileImage: string }>();
   const [avatarImage, setAvatarImage] = useState<string | null>(profileImage || null);
-  const [userName, setUserName] = useState<string>(name || 'John Doe');
+  const [userName, setUserName] = useState('');
+  const [email, setEmail] = useState('');
+
+  useEffect(() => {
+    let isMounted = true;
+
+    getMe()
+      .then((user) => {
+        if (!isMounted) return;
+        setUserName(user?.full_name ?? 'BMANNY customer');
+        setEmail(user?.email ?? '');
+
+        const savedAvatar = user?.business_client?.profile_pic ?? user?.businessClient?.profile_pic;
+        if (!profileImage && savedAvatar) {
+          setAvatarImage(savedAvatar);
+        }
+      })
+      .catch(() => {
+        // Keep the profile usable if the connection is temporarily unavailable.
+        if (isMounted) {
+          setUserName('BMANNY customer');
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [profileImage]);
+
+  const initials = useMemo(() => {
+    const parts = userName.trim().split(/\s+/).filter(Boolean);
+    return parts.length
+      ? parts.slice(0, 2).map((part) => part[0]).join('').toUpperCase()
+      : 'B';
+  }, [userName]);
 
   const handleLogout = () => {
     Alert.alert(
@@ -57,12 +91,12 @@ export default function ProfileScreen() {
               <Image source={{ uri: avatarImage }} style={styles.avatar} />
             ) : (
               <View style={[styles.avatar, { backgroundColor: '#2196F3' }]}>
-                <Text style={styles.avatarText}>JD</Text>
+                <Text style={styles.avatarText}>{initials}</Text>
               </View>
             )}
           </View>
           <Text style={[styles.name, { color: colors.text }]}>{userName}</Text>
-          <Text style={[styles.email, { color: colors.textSecondary }]}>john.doe@example.com</Text>
+          <Text style={[styles.email, { color: colors.textSecondary }]}>{email}</Text>
           <TouchableOpacity style={[styles.editButton, { backgroundColor: '#2196F3' }]} onPress={() => {
             // @ts-ignore
             router.push('/edit-profile');

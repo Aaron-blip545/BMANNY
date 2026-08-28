@@ -59,15 +59,6 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                             <Label htmlFor="password" className="text-sm font-medium text-[#172033] dark:text-[#F8FAFC]">
                                 Password
                             </Label>
-                            {canResetPassword && (
-                                <TextLink
-                                    href={route('password.request')}
-                                    className="ml-auto text-sm text-[#D4A017] underline-offset-4 hover:text-[#F2B735] dark:text-[#F2B735] dark:hover:text-[#F8FAFC]"
-                                    tabIndex={5}
-                                >
-                                    Forgot password?
-                                </TextLink>
-                            )}
                         </div>
                         <div className="relative">
                             <Input

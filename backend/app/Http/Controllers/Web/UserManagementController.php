@@ -89,6 +89,11 @@ class UserManagementController extends Controller
         $user->is_active = !$user->is_active;
         $user->save();
 
+        if (! $user->is_active) {
+            // Immediately invalidate mobile sessions as well as blocking new logins.
+            $user->tokens()->delete();
+        }
+
         return redirect()->route('users.index')->with('success', 'Status updated.');
     }
 }

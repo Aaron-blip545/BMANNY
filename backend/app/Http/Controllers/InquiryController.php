@@ -95,7 +95,7 @@ class InquiryController extends Controller
         // Compute a per-client sequential number using a window function so
         // the customer always sees Inquiry #1, #2, #3 — not the global IDs
         // (which include every other customer's inquiries in the sequence).
-        $inquiries = Inquiry::with(['customizations', 'quotation'])
+        $inquiries = Inquiry::with(['customizations', 'quotation.order'])
             ->where('client_id', $client->client_id)
             ->orderBy('created_at')
             ->get()
@@ -121,6 +121,7 @@ class InquiryController extends Controller
                         'client_notes'   => $c->client_notes,
                     ])->values(),
                     'has_quotation'        => $inquiry->quotation !== null,
+                    'has_order'            => $inquiry->quotation?->order !== null,
                     'quotation_id'         => $inquiry->quotation?->quotation_id,
                     'quotation_amount'     => $inquiry->quotation?->total_amount,
                     'quotation_status'     => $inquiry->quotation?->status,

@@ -1,18 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-    Dialog,
-    DialogClose,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { ArrowLeft, Image as ImageIcon, Send, Trash2, X } from 'lucide-react';
+import { Archive, ArrowLeft, EyeOff, Image as ImageIcon, Lock, LockOpen, RotateCcw, Send, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 interface Message {
@@ -23,6 +15,7 @@ interface Message {
     sender_name: string;
     created_at: string;
     is_read: boolean;
+    is_flagged: boolean;
 }
 
 interface InquiryInfo {
@@ -31,12 +24,18 @@ interface InquiryInfo {
     business: string;
     contact: string;
     customer_id: number | null;
+    inquiry_count: number;
 }
 
 interface Props {
     inquiry: InquiryInfo;
     messages: Message[];
     agentId: number;
+    isArchived: boolean;
+    isArchiveHistory: boolean;
+    canModerate: boolean;
+    canReply: boolean;
+    isConversationClosed: boolean;
 }
 
 function formatTime(iso: string) {
@@ -48,9 +47,9 @@ function formatTime(iso: string) {
     });
 }
 
-export default function ChatPage({ inquiry, messages }: Props) {
+export default function ChatPage({ inquiry, messages, isArchived, isArchiveHistory, canModerate, canReply, isConversationClosed }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
-        { title: 'Inquiries', href: '/inquiries' },
+        { title: isArchiveHistory ? 'Archived chats' : 'Inquiries', href: isArchiveHistory ? '/archived-chats' : '/inquiries' },
         { title: `Chat — ${inquiry.business}`, href: `/inquiries/${inquiry.inquiry_id}/chat` },
     ];
 
@@ -64,8 +63,6 @@ export default function ChatPage({ inquiry, messages }: Props) {
 
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [selectedLightboxImage, setSelectedLightboxImage] = useState<string | null>(null);
-    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-    const [isDeleting, setIsDeleting] = useState(false);
 
     const bottomRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -79,7 +76,7 @@ export default function ChatPage({ inquiry, messages }: Props) {
     // Poll for new messages every 4 seconds
     useEffect(() => {
         const interval = setInterval(() => {
-            router.reload({ only: ['messages'] });
+            router.reload({ only: ['messages', 'canReply', 'isConversationClosed'] });
         }, 4000);
         return () => clearInterval(interval);
     }, []);
@@ -125,14 +122,23 @@ export default function ChatPage({ inquiry, messages }: Props) {
         }
     }
 
-    function handleDeleteConversation() {
-        setIsDeleting(true);
-        router.delete(route('chat.destroy', inquiry.inquiry_id), {
-            onFinish: () => {
-                setIsDeleting(false);
-                setIsDeleteDialogOpen(false);
-            },
-        });
+    function handleArchiveToggle() {
+        if (isArchived) {
+            router.delete(route('chat.restore', inquiry.inquiry_id));
+            return;
+        }
+
+        router.post(route('chat.archive', inquiry.inquiry_id));
+    }
+
+    function handleHideMessage(messageId: number) {
+        const reason = window.prompt('Why is this message inappropriate? The sender will receive this reason.');
+        if (!reason?.trim()) return;
+
+        router.post(route('chat.messages.hide', {
+            inquiry_id: inquiry.inquiry_id,
+            message_id: messageId,
+        }), { reason: reason.trim() });
     }
 
     return (
@@ -145,9 +151,9 @@ export default function ChatPage({ inquiry, messages }: Props) {
                 <div className="bmanny-page-header mb-4 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                         <Button variant="ghost" size="sm" asChild>
-                            <Link href={route('inquiries.index')}>
+                            <Link href={isArchiveHistory ? route('archived-chats.index') : route('inquiries.index')}>
                                 <ArrowLeft className="mr-1 h-4 w-4" />
-                                Inquiries
+                                {isArchiveHistory ? 'Archived chats' : 'Inquiries'}
                             </Link>
                         </Button>
 
@@ -157,18 +163,31 @@ export default function ChatPage({ inquiry, messages }: Props) {
                                 {inquiry.contact} &nbsp;·&nbsp; Inquiry #{inquiry.inquiry_id} &nbsp;·&nbsp;
                                 <span className="capitalize">{inquiry.status}</span>
                             </p>
+                            {canModerate && <p className="mt-1 text-xs font-medium text-muted-foreground">Customer-wide conversation · {inquiry.inquiry_count} {inquiry.inquiry_count === 1 ? 'inquiry' : 'inquiries'}</p>}
+                            {isArchived && <p className="mt-1 text-xs font-medium text-muted-foreground">Archived history · read-only conversation view</p>}
+                            {!isArchived && !canReply && <p className="mt-1 text-xs font-medium text-muted-foreground">Admin oversight · read-only conversation view</p>}
                         </div>
                     </div>
 
-                    {messages.length > 0 && (
+                    <Button variant="outline" size="sm" onClick={handleArchiveToggle}>
+                        {isArchived ? <RotateCcw className="mr-1.5 h-4 w-4" /> : <Archive className="mr-1.5 h-4 w-4" />}
+                        {isArchived ? 'Restore Conversation' : 'Archive Conversation'}
+                    </Button>
+                    {canModerate && (
                         <Button
-                            variant="outline"
+                            variant={isConversationClosed ? 'outline' : 'destructive'}
                             size="sm"
-                            className="text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
-                            onClick={() => setIsDeleteDialogOpen(true)}
+                            onClick={() => isConversationClosed
+                                ? router.delete(route('chat.reopen', inquiry.inquiry_id))
+                                : router.post(route('chat.close', inquiry.inquiry_id))}
                         >
-                            <Trash2 className="mr-1.5 h-4 w-4" />
-                            Delete Conversation
+                            {isConversationClosed ? <LockOpen className="mr-1.5 h-4 w-4" /> : <Lock className="mr-1.5 h-4 w-4" />}
+                            {isConversationClosed ? 'Reopen conversation' : 'Close conversation'}
+                        </Button>
+                    )}
+                    {canModerate && (
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href={route('moderation.messages.index')}>Flagged messages</Link>
                         </Button>
                     )}
                 </div>
@@ -198,27 +217,41 @@ export default function ChatPage({ inquiry, messages }: Props) {
                                         </span>
 
                                         {/* Bubble */}
-                                        <div
-                                            className={`max-w-[75%] md:max-w-[60%] rounded-2xl p-3 text-sm leading-relaxed shadow-sm ${
-                                                msg.sent_by_me
-                                                    ? 'rounded-tr-sm bg-primary text-primary-foreground'
-                                                    : 'rounded-tl-sm bg-muted text-foreground'
-                                            }`}
-                                        >
-                                            {msg.image_url && (
-                                                <div className="mb-2 overflow-hidden rounded-xl bg-black/5">
-                                                    <img
-                                                        src={msg.image_url}
-                                                        alt="Chat attachment"
-                                                        className="max-h-72 w-auto max-w-full rounded-xl object-cover cursor-pointer transition-transform hover:scale-[1.01]"
-                                                        onClick={() => setSelectedLightboxImage(msg.image_url)}
-                                                    />
-                                                </div>
-                                            )}
-                                            {msg.body && (
-                                                <div className="whitespace-pre-wrap">{msg.body}</div>
-                                            )}
-                                        </div>
+                                        {msg.is_flagged ? (
+                                            <div className="max-w-[75%] rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200">
+                                                This message was flagged by an administrator as inappropriate. Its content is hidden from staff.
+                                            </div>
+                                        ) : (
+                                            <div
+                                                className={`max-w-[75%] md:max-w-[60%] rounded-2xl p-3 text-sm leading-relaxed shadow-sm ${
+                                                    msg.sent_by_me
+                                                        ? 'rounded-tr-sm bg-primary text-primary-foreground'
+                                                        : 'rounded-tl-sm bg-muted text-foreground'
+                                                }`}
+                                            >
+                                                {msg.image_url && (
+                                                    <div className="mb-2 overflow-hidden rounded-xl bg-black/5">
+                                                        <img
+                                                            src={msg.image_url}
+                                                            alt="Chat attachment"
+                                                            className="max-h-72 w-auto max-w-full rounded-xl object-cover cursor-pointer transition-transform hover:scale-[1.01]"
+                                                            onClick={() => setSelectedLightboxImage(msg.image_url)}
+                                                        />
+                                                    </div>
+                                                )}
+                                                {msg.body && <div className="whitespace-pre-wrap">{msg.body}</div>}
+                                            </div>
+                                        )}
+                                        {canModerate && !msg.is_flagged && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleHideMessage(msg.message_id)}
+                                                className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive"
+                                            >
+                                                <EyeOff className="h-3 w-3" />
+                                                Flag inappropriate
+                                            </button>
+                                        )}
                                     </div>
                                 ))
                             )}
@@ -249,7 +282,9 @@ export default function ChatPage({ inquiry, messages }: Props) {
 
                         {/* ── Compose Bar ── */}
                         <div className="border-t border-border bg-background px-4 py-3">
-                            {inquiry.customer_id === null ? (
+                            {!canReply ? (
+                                <p className="text-center text-xs text-muted-foreground">{isConversationClosed ? 'This conversation was closed by an administrator. It is read-only until reopened.' : 'Sales agents reply to customers. Admin can supervise and hide inappropriate messages from staff views.'}</p>
+                            ) : inquiry.customer_id === null ? (
                                 <p className="text-center text-xs text-destructive">
                                     No customer account linked to this inquiry — cannot send messages.
                                 </p>
@@ -318,32 +353,6 @@ export default function ChatPage({ inquiry, messages }: Props) {
                 </DialogContent>
             </Dialog>
 
-            {/* ── Delete Conversation Confirmation Dialog ── */}
-            <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Delete Conversation</DialogTitle>
-                        <DialogDescription>
-                            Are you sure you want to delete this conversation with <strong>{inquiry.business}</strong>? All messages and attachments will be permanently removed.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter className="gap-2 sm:gap-0">
-                        <DialogClose asChild>
-                            <Button variant="outline" disabled={isDeleting}>
-                                Cancel
-                            </Button>
-                        </DialogClose>
-                        <Button
-                            variant="destructive"
-                            onClick={handleDeleteConversation}
-                            disabled={isDeleting}
-                        >
-                            {isDeleting ? 'Deleting...' : 'Delete Conversation'}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </AppLayout>
     );
 }
-

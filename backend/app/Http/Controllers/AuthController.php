@@ -73,6 +73,12 @@ class AuthController extends Controller
             ], 401);
         }
 
+        if (! $user->is_active) {
+            return response()->json([
+                'message' => 'Your account has been deactivated. Contact an administrator.',
+            ], 403);
+        }
+
         $token = $user->createToken('bmanny-auth-token')->plainTextToken;
 
         return response()->json([

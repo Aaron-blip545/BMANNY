@@ -9,6 +9,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 
 use App\Http\Middleware\CheckRole;
+use App\Http\Middleware\EnsureActiveApiUser;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -27,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'backend.auth' => EnsureBackendAuthenticated::class,
             'backend.role' => EnsureBackendRole::class,
             'role' => CheckRole::class,
+            'active.api' => EnsureActiveApiUser::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

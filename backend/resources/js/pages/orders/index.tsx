@@ -31,7 +31,7 @@ interface Props {
     orders: Order[];
 }
 
-const ORDER_STATUSES = ['pending', 'approved', 'in_production', 'packed', 'for_delivery', 'delivered', 'completed', 'cancelled'] as const;
+const ORDER_STATUSES = ['pending', 'approved', 'in_production', 'for_delivery', 'delivered', 'completed', 'cancelled'] as const;
 type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 // The dropdown is only for progressing an order through its normal
@@ -46,7 +46,6 @@ const STATUS_STYLES: Record<OrderStatus, string> = {
     pending: 'bg-amber-50 text-amber-800 dark:bg-amber-950/35 dark:text-amber-300',
     approved: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/35 dark:text-emerald-300',
     in_production: 'bg-indigo-50 text-indigo-800 dark:bg-indigo-950/35 dark:text-indigo-300',
-    packed: 'bg-indigo-50 text-indigo-800 dark:bg-indigo-950/35 dark:text-indigo-300',
     for_delivery: 'bg-sky-50 text-sky-800 dark:bg-sky-950/35 dark:text-sky-300',
     delivered: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/35 dark:text-emerald-300',
     completed: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/35 dark:text-emerald-300',
@@ -57,7 +56,6 @@ const STATUS_ACCENTS: Record<OrderStatus, string> = {
     pending: 'bg-amber-500',
     approved: 'bg-emerald-600',
     in_production: 'bg-indigo-600',
-    packed: 'bg-violet-600',
     for_delivery: 'bg-sky-600',
     delivered: 'bg-teal-600',
     completed: 'bg-green-700',
