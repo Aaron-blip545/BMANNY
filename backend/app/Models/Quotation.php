@@ -40,6 +40,11 @@ class Quotation extends Model
         return $this->belongsTo(Inquiry::class, 'inquiry_id', 'inquiry_id');
     }
 
+    public function order()
+    {
+        return $this->hasOne(Order::class, 'quotation_id', 'quotation_id');
+    }
+
     public function getPaymentProofUrlAttribute(): ?string
     {
         return $this->payment_proof_path

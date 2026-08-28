@@ -4,7 +4,7 @@ import { BmannyMetricCard } from '@/components/bmanny-metric-card';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/react';
-import { CircleCheck, CircleX, ClipboardList, Clock3, MessageSquare, Plus, Search } from 'lucide-react';
+import { Archive, CircleCheck, CircleX, ClipboardList, Clock3, MessageSquare, Plus, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Inquiries', href: '/inquiries' }];
@@ -91,12 +91,14 @@ export default function InquiriesPage({ inquiries }: Props) {
                             Customer rebranding &amp; packaging inquiries. Create a quotation to respond.
                         </p>
                     </div>
-                    <Button asChild>
-                        <Link href={route('quotations.create')}>
-                            <Plus className="mr-2 h-4 w-4" />
-                            New Quotation
-                        </Link>
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button variant="outline" asChild>
+                            <Link href={route('archived-chats.index')}><Archive className="mr-2 h-4 w-4" />Archived chats</Link>
+                        </Button>
+                        <Button asChild>
+                            <Link href={route('quotations.create')}><Plus className="mr-2 h-4 w-4" />New Quotation</Link>
+                        </Button>
+                    </div>
                 </header>
 
                 {/* Flash message */}

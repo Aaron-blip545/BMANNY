@@ -1,8 +1,8 @@
 import * as SecureStore from 'expo-secure-store';
 
-// CHANGE THIS to your own computer's IP address from ipconfig - this
-// will be different for every developer on the team, on every network.
-const API_BASE_URL = 'http://10.0.2.2:8000/api';
+// Uses a local .env.local value for a physical device or tunnel. The emulator
+// fallback remains available when no environment value is configured.
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://10.0.2.2:8000/api';
 
 const TOKEN_KEY = 'bmanny_auth_token';
 
@@ -179,10 +179,6 @@ export async function sendMessage(
 
 export async function markConversationRead(otherUserId: number) {
     return request(`/messages/${otherUserId}/read`, { method: 'POST' });
-}
-
-export async function deleteConversation(otherUserId: number) {
-    return request(`/messages/${otherUserId}`, { method: 'DELETE' });
 }
 
 /**

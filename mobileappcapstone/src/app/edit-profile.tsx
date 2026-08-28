@@ -1,17 +1,40 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, SafeAreaView, Image, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import * as ImagePicker from 'expo-image-picker';
+import { getMe } from '../services/api';
 
 export default function EditProfileScreen() {
   const { colors } = useTheme();
-  const [name, setName] = useState('John Doe');
-  const [email, setEmail] = useState('john.doe@example.com');
-  const [phone, setPhone] = useState('+1 234 567 8900');
-  const [address, setAddress] = useState('123 Main Street, City, Country');
-  const [bio, setBio] = useState('Coffee enthusiast and fitness lover');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [bio, setBio] = useState('');
   const [profileImage, setProfileImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    getMe()
+      .then((user) => {
+        if (!isMounted) return;
+        const businessClient = user?.business_client ?? user?.businessClient;
+        setName(user?.full_name ?? '');
+        setEmail(user?.email ?? '');
+        setPhone(user?.phone_number ?? '');
+        setAddress(businessClient?.business_address ?? '');
+        setProfileImage(businessClient?.profile_pic ?? null);
+      })
+      .catch(() => {
+        // Leave fields blank rather than showing another person's placeholder data.
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handlePickImage = async () => {
     try {

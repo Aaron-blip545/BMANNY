@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Models\Inquiry;
+use App\Models\ConversationArchive;
 use App\Models\Order;
 use App\Models\Quotation;
 use App\Services\NotificationService;
@@ -18,18 +19,46 @@ class SalesAgentController extends Controller
      * Show the inquiries list page.
      * Visible to: sales_agent, admin.
      */
-    public function inquiries(): Response
+    public function inquiries(Request $request): Response
     {
+        $archiveQuery = ConversationArchive::where('user_id', $request->user('web')->user_id);
+        $archivedCustomerIds = (clone $archiveQuery)
+            ->whereNotNull('customer_user_id')
+            ->pluck('customer_user_id');
+        $legacyArchivedInquiryIds = (clone $archiveQuery)
+            ->whereNull('customer_user_id')
+            ->pluck('inquiry_id');
+
         $inquiries = Inquiry::with([
             'client.user',       // business name + contact info
             'customizations',    // packaging specs
         ])
+        ->whereNotIn('inquiry_id', $legacyArchivedInquiryIds)
+        ->when($archivedCustomerIds->isNotEmpty(), fn ($query) => $query->whereHas(
+            'client',
+            fn ($clientQuery) => $clientQuery->whereNotIn('user_id', $archivedCustomerIds)
+        ))
         ->orderByDesc('created_at')
         ->get();
 
         return Inertia::render('sales/inquiries', [
             'inquiries' => $inquiries,
         ]);
+    }
+
+    public function archivedChats(Request $request): Response
+    {
+        $archives = ConversationArchive::with(['customer.businessClient', 'inquiry.client.user', 'inquiry.customizations'])
+            ->where('user_id', $request->user('web')->user_id)
+            ->latest('archived_at')
+            ->get();
+
+        $archives->each(function (ConversationArchive $archive) {
+            $clientId = $archive->inquiry?->client_id;
+            $archive->setAttribute('inquiry_count', $clientId ? Inquiry::where('client_id', $clientId)->count() : 0);
+        });
+
+        return Inertia::render('sales/archived-chats', ['archives' => $archives]);
     }
 
     /**

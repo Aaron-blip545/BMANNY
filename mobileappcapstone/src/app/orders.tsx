@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import { getMyOrders, getMyInquiries, cancelInquiry } from '../services/api';
 
@@ -47,6 +47,7 @@ interface Inquiry {
   status: string;
   created_at: string;
   has_quotation: boolean;
+  has_order: boolean;
   quotation_id: number | null;
   quotation_amount: string | null;
   quotation_status: string | null;
@@ -88,6 +89,10 @@ function getBrandTitle(
 
 export default function OrdersScreen() {
   const { colors } = useTheme();
+  const { source, tab } = useLocalSearchParams<{
+    source?: string;
+    tab?: string;
+  }>();
   const [view, setView] = useState<'inquiries' | 'orders'>('inquiries');
   const [orders, setOrders] = useState<Order[]>([]);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
@@ -102,8 +107,19 @@ export default function OrdersScreen() {
     { id: 'for_delivery', label: 'For Delivery' },
     { id: 'delivered', label: 'Delivered' },
     { id: 'completed', label: 'Completed' },
+    { id: 'cancelled', label: 'Cancelled' },
     { id: 'pending', label: 'Pending' },
   ];
+
+  useEffect(() => {
+    if (source === 'notification') {
+      setView('orders');
+    }
+
+    if (tab && ['approved', 'in_production', 'for_delivery', 'delivered', 'completed', 'cancelled', 'pending'].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [source, tab]);
 
   const loadAll = useCallback(async () => {
     try {
@@ -132,6 +148,12 @@ export default function OrdersScreen() {
     }, [loadAll])
   );
 
+  useEffect(() => {
+    // Keep order and inquiry statuses current while the screen is open.
+    const interval = setInterval(loadAll, 5000);
+    return () => clearInterval(interval);
+  }, [loadAll]);
+
   const getStatusStyle = (status: string) => {
     switch (status) {
       case 'pending': return styles.pending;
@@ -140,6 +162,7 @@ export default function OrdersScreen() {
       case 'for_delivery': return styles.for_delivery;
       case 'delivered': return styles.delivered;
       case 'completed': return styles.completed;
+      case 'cancelled': return styles.cancelled;
       default: return styles.pending;
     }
   };
@@ -190,6 +213,9 @@ export default function OrdersScreen() {
   };
 
   const filteredOrders = orders.filter(o => o.status === activeTab);
+  // Once a quotation has become an order, its lifecycle is tracked in the
+  // Orders view (including the Cancelled tab), not as an active inquiry.
+  const visibleInquiries = inquiries.filter(inquiry => !inquiry.has_order);
 
   if (loading) {
     return (
@@ -214,7 +240,7 @@ export default function OrdersScreen() {
           onPress={() => setView('inquiries')}
         >
           <Text style={[styles.switcherText, { color: view === 'inquiries' ? '#ffffffff' : colors.textSecondary }]}>
-            Inquiries{inquiries.length > 0 ? ` (${inquiries.length})` : ''}
+            Inquiries{visibleInquiries.length > 0 ? ` (${visibleInquiries.length})` : ''}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -235,7 +261,7 @@ export default function OrdersScreen() {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadAll(); }} tintColor="#2196F3" />}
         >
-          {inquiries.length === 0 ? (
+          {visibleInquiries.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyIcon}>📋</Text>
               <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No Inquiries Yet</Text>
@@ -244,7 +270,7 @@ export default function OrdersScreen() {
               </Text>
             </View>
           ) : (
-            inquiries.map((inq) => {
+            visibleInquiries.map((inq) => {
               const inqTitle = getBrandTitle(inq, `Inquiry #${inq.client_inquiry_number ?? inq.inquiry_id}`);
               return (
                 <View key={inq.inquiry_id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -567,6 +593,7 @@ const styles = StyleSheet.create({
   for_delivery: { backgroundColor: '#9C27B0' },
   delivered: { backgroundColor: '#00BCD4' },
   completed: { backgroundColor: '#4CAF50' },
+  cancelled: { backgroundColor: '#E53935' },
 
   /* ROWS */
   row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },

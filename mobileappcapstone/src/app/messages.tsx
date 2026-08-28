@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Image, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Image, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
-import { getConversations, deleteConversation } from '../services/api';
+import { getConversations } from '../services/api';
 
 interface Conversation {
   id: number;
@@ -89,28 +89,6 @@ export default function MessagesScreen() {
     });
   }
 
-  function handleDeleteConversation(conv: Conversation) {
-    Alert.alert(
-      'Delete Conversation',
-      `Are you sure you want to delete the conversation with ${conv.name}? All messages will be permanently deleted.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteConversation(conv.other_user_id);
-              setConversations((prev) => prev.filter((item) => item.id !== conv.id));
-            } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to delete conversation.');
-            }
-          },
-        },
-      ]
-    );
-  }
-
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
@@ -143,7 +121,6 @@ export default function MessagesScreen() {
               key={conversation.id}
               style={[styles.conversationItem, { backgroundColor: colors.card, borderColor: colors.border }]}
               onPress={() => openConversation(conversation)}
-              onLongPress={() => handleDeleteConversation(conversation)}
             >
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>{conversation.avatar}</Text>
@@ -163,16 +140,6 @@ export default function MessagesScreen() {
                         <Text style={styles.unreadCount}>{conversation.unread}</Text>
                       </View>
                     )}
-                    <TouchableOpacity
-                      style={styles.deleteRowBtn}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        handleDeleteConversation(conversation);
-                      }}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
-                      <Text style={styles.deleteRowIcon}>🗑️</Text>
-                    </TouchableOpacity>
                   </View>
                 </View>
               </View>
@@ -289,14 +256,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-  },
-  deleteRowBtn: {
-    padding: 4,
-    borderRadius: 6,
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
-  },
-  deleteRowIcon: {
-    fontSize: 14,
   },
 
   /* NAVIGATION BAR */

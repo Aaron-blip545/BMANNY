@@ -41,4 +41,14 @@ class Message extends Model
     {
         return $this->belongsTo(User::class, 'receiver_id', 'user_id');
     }
+
+    public function moderation()
+    {
+        return $this->hasOne(MessageModeration::class, 'message_id', 'message_id');
+    }
+
+    public function inquiry()
+    {
+        return $this->belongsTo(Inquiry::class, 'inquiry_id', 'inquiry_id');
+    }
 }

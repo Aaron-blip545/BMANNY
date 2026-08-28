@@ -66,9 +66,12 @@ Route::middleware(['backend.auth'])->group(function () {
         Route::post('quotations/{id}/reject-payment', [SalesAgentController::class, 'rejectPayment'])->name('quotations.reject-payment');
 
         // Chat: one thread per inquiry
+        Route::get('conversations/with/{user_id}', [ChatController::class, 'openConversationWith'])->name('chat.with-user');
         Route::get('inquiries/{inquiry_id}/chat', [ChatController::class, 'show'])->name('chat.show');
         Route::post('inquiries/{inquiry_id}/chat', [ChatController::class, 'send'])->name('chat.send');
-        Route::delete('inquiries/{inquiry_id}/chat', [ChatController::class, 'destroy'])->name('chat.destroy');
+        Route::post('inquiries/{inquiry_id}/chat/archive', [ChatController::class, 'archive'])->name('chat.archive');
+        Route::delete('inquiries/{inquiry_id}/chat/archive', [ChatController::class, 'restore'])->name('chat.restore');
+        Route::get('archived-chats', [SalesAgentController::class, 'archivedChats'])->name('archived-chats.index');
     });
 
     // Order Manager + Admin: Orders list and status updates
@@ -81,6 +84,11 @@ Route::middleware(['backend.auth'])->group(function () {
     // Admin-only. backend.role checks the SPECIFIC role, not just "logged
     // in" - a sales agent hitting these URLs gets a 403, not the page.
     Route::middleware(['backend.role:admin'])->group(function () {
+        Route::post('inquiries/{inquiry_id}/chat/close', [ChatController::class, 'closeConversation'])->name('chat.close');
+        Route::delete('inquiries/{inquiry_id}/chat/close', [ChatController::class, 'reopenConversation'])->name('chat.reopen');
+        Route::post('inquiries/{inquiry_id}/chat/messages/{message_id}/hide', [ChatController::class, 'hideMessage'])->name('chat.messages.hide');
+        Route::get('moderation/messages', [ChatController::class, 'hiddenMessages'])->name('moderation.messages.index');
+        Route::delete('moderation/messages/{message_id}', [ChatController::class, 'restoreMessage'])->name('moderation.messages.restore');
         Route::get('users', [UserManagementController::class, 'index'])->name('users.index');
         Route::get('users/create', [UserManagementController::class, 'create'])->name('users.create');
         Route::post('users', [UserManagementController::class, 'store'])->name('users.store');

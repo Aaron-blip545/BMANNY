@@ -3,9 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Message;
+use App\Models\ConversationClosure;
+use App\Models\User;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 class ChatController extends Controller
 {
@@ -78,6 +79,7 @@ class ChatController extends Controller
     public function getConversation(Request $request, $other_user_id)
     {
         $userId = $request->user()->user_id;
+        $closure = $this->closureForParticipants($userId, (int) $other_user_id);
 
         $messages = Message::where(function ($q) use ($userId, $other_user_id) {
                 $q->where('sender_id', $userId)->where('receiver_id', $other_user_id);
@@ -85,9 +87,16 @@ class ChatController extends Controller
             ->orWhere(function ($q) use ($userId, $other_user_id) {
                 $q->where('sender_id', $other_user_id)->where('receiver_id', $userId);
             })
-            ->with(['sender', 'receiver'])
+            ->with(['sender', 'receiver', 'moderation'])
             ->orderBy('created_at')
-            ->get();
+            ->get()
+            ->each(function (Message $message) use ($closure): void {
+                // Customers keep their own history, but the app can show an
+                // administrator's moderation notice alongside a flagged message.
+                $message->setAttribute('is_flagged', $message->moderation !== null);
+                $message->setAttribute('moderation_reason', $message->moderation?->reason);
+                $message->setAttribute('conversation_closed', $closure !== null);
+            });
 
         return response()->json($messages);
     }
@@ -109,6 +118,13 @@ class ChatController extends Controller
         }
 
         $sender = $request->user();
+
+        if ($this->closureForParticipants($sender->user_id, (int) $validated['receiver_id'])) {
+            return response()->json([
+                'message' => 'This conversation was closed by an administrator and is read-only.',
+            ], 423);
+        }
+
         $imagePath = null;
 
         if ($request->hasFile('image')) {
@@ -145,6 +161,18 @@ class ChatController extends Controller
         return response()->json($message->load(['sender', 'receiver']), 201);
     }
 
+    /** A closure is customer-wide, so it applies to every customer/staff thread. */
+    private function closureForParticipants(int $firstUserId, int $secondUserId): ?ConversationClosure
+    {
+        $customerUserId = User::whereIn('user_id', [$firstUserId, $secondUserId])
+            ->where('role', 'customer')
+            ->value('user_id');
+
+        return $customerUserId
+            ? ConversationClosure::where('customer_user_id', $customerUserId)->first()
+            : null;
+    }
+
     /**
      * Mark all messages from one specific person as read - called when the
      * customer/agent actually opens that conversation.
@@ -158,28 +186,4 @@ class ChatController extends Controller
         return response()->json(['message' => 'Marked as read.']);
     }
 
-    /**
-     * Delete an entire conversation with another user.
-     */
-    public function destroyConversation(Request $request, $other_user_id)
-    {
-        $userId = $request->user()->user_id;
-
-        $messages = Message::where(function ($q) use ($userId, $other_user_id) {
-                $q->where('sender_id', $userId)->where('receiver_id', $other_user_id);
-            })
-            ->orWhere(function ($q) use ($userId, $other_user_id) {
-                $q->where('sender_id', $other_user_id)->where('receiver_id', $userId);
-            })
-            ->get();
-
-        foreach ($messages as $msg) {
-            if ($msg->image_path && Storage::disk('public')->exists($msg->image_path)) {
-                Storage::disk('public')->delete($msg->image_path);
-            }
-            $msg->delete();
-        }
-
-        return response()->json(['message' => 'Conversation deleted successfully.']);
-    }
 }
