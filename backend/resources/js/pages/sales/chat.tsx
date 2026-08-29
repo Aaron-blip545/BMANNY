@@ -13,6 +13,7 @@ interface Message {
     image_url: string | null;
     sent_by_me: boolean;
     sender_name: string;
+    sender_profile_pic_url: string | null;
     created_at: string;
     is_read: boolean;
     is_flagged: boolean;
@@ -217,6 +218,18 @@ export default function ChatPage({ inquiry, messages, isArchived, isArchiveHisto
                                         </span>
 
                                         {/* Bubble */}
+                                        <div className={`flex max-w-[75%] items-end gap-2 md:max-w-[60%] ${msg.sent_by_me ? 'flex-row-reverse' : ''}`}>
+                                            {msg.sender_profile_pic_url ? (
+                                                <img
+                                                    src={msg.sender_profile_pic_url}
+                                                    alt={`${msg.sender_name}'s profile`}
+                                                    className="h-8 w-8 shrink-0 rounded-full border border-border object-cover"
+                                                />
+                                            ) : (
+                                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-[11px] font-semibold text-muted-foreground">
+                                                    {msg.sender_name.slice(0, 2).toUpperCase()}
+                                                </div>
+                                            )}
                                         {msg.is_flagged ? (
                                             <div className="max-w-[75%] rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200">
                                                 This message was flagged by an administrator as inappropriate. Its content is hidden from staff.
@@ -242,6 +255,7 @@ export default function ChatPage({ inquiry, messages, isArchived, isArchiveHisto
                                                 {msg.body && <div className="whitespace-pre-wrap">{msg.body}</div>}
                                             </div>
                                         )}
+                                        </div>
                                         {canModerate && !msg.is_flagged && (
                                             <button
                                                 type="button"

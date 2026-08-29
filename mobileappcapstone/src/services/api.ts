@@ -189,6 +189,61 @@ export async function getMe() {
     return request('/user');
 }
 
+export async function updateMyProfile(data: {
+    full_name: string;
+    phone_number: string | null;
+    business_address: string | null;
+}) {
+    return request('/user/profile', {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+    });
+}
+
+/** Upload a customer profile image without changing the rest of their profile. */
+export async function uploadMyProfilePicture(imageUri: string) {
+    const token = await getToken();
+    const form = new FormData();
+    const filename = imageUri.split('/').pop() || 'profile-picture.jpg';
+    const extension = filename.split('.').pop()?.toLowerCase();
+    const type = extension === 'png'
+        ? 'image/png'
+        : extension === 'webp'
+            ? 'image/webp'
+            : 'image/jpeg';
+
+    form.append('profile_picture', { uri: imageUri, name: filename, type } as any);
+
+    return new Promise<any>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `${API_BASE_URL}/user/profile/picture`);
+        xhr.setRequestHeader('Accept', 'application/json');
+        if (token) {
+            xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        }
+
+        xhr.onload = () => {
+            let data: any = {};
+            try {
+                data = JSON.parse(xhr.responseText);
+            } catch { }
+
+            if (xhr.status >= 200 && xhr.status < 300) {
+                resolve(data);
+                return;
+            }
+
+            const message = data.errors
+                ? Object.values(data.errors).flat().join('\n')
+                : data.message || 'Could not upload the profile picture.';
+            reject(new Error(message));
+        };
+
+        xhr.onerror = () => reject(new Error('Network request failed.'));
+        xhr.send(form as any);
+    });
+}
+
 /**
  * Submit a new rebranding / private-label inquiry to the backend.
  * clientId comes from the user's businessClient profile.

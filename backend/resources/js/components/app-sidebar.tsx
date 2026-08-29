@@ -4,7 +4,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, Sid
 import { type NavItem } from '@/types';
 import { roleDashboardHref } from '@/lib/role-dashboard';
 import { Link, usePage } from '@inertiajs/react';
-import { Bell, Box, CircleHelp, FileText, House, ListTree, PackageCheck, PackageMinus, Settings, SlidersHorizontal, Users as UsersIcon } from 'lucide-react';
+import { BarChart3, Bell, Box, CircleHelp, FileText, House, ListTree, PackageCheck, PackageMinus, Settings, SlidersHorizontal, Users as UsersIcon } from 'lucide-react';
 import AppLogo from './app-logo';
 
 export function AppSidebar() {
@@ -42,7 +42,11 @@ export function AppSidebar() {
 
         // Admin-only: user management
         ...(isAdmin
-            ? [{ title: 'Manage Users', url: '/users', icon: UsersIcon }]
+            ? [
+                { title: 'Analytics', url: '/admin/analytics', icon: BarChart3 },
+                { title: 'Reports', url: '/admin/reports', icon: FileText },
+                { title: 'Manage Users', url: '/users', icon: UsersIcon },
+            ]
             : []),
     ];
 

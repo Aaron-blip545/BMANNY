@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Image, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
-import { getConversations } from '../services/api';
+import { getConversations, resolveImageUrl } from '../services/api';
 
 interface Conversation {
   id: number;
@@ -10,6 +10,7 @@ interface Conversation {
   other_user_name: string;
   inquiry_id?: number;
   avatar: string;
+  avatarImage: string | null;
   name: string;
   lastMessage: string;
   time: string;
@@ -51,6 +52,7 @@ export default function MessagesScreen() {
         other_user_name: c.other_user_name,
         inquiry_id:      c.inquiry_id ?? undefined,
         avatar:          (c.other_user_name ?? '?').substring(0, 2).toUpperCase(),
+        avatarImage:     resolveImageUrl(c.other_user_profile_pic_url),
         name:            c.other_user_name,
         lastMessage:     c.last_message || '📷 Photo',
         time:            c.last_message_at
@@ -83,6 +85,7 @@ export default function MessagesScreen() {
       params: {
         otherUserId:   conv.other_user_id,
         otherUserName: conv.other_user_name,
+        otherUserProfilePicture: conv.avatarImage ?? '',
         // Don't pass inquiryId — conversations are now per-person, not
         // per-inquiry. The user can reference any inquiry in the chat.
       },
@@ -122,9 +125,13 @@ export default function MessagesScreen() {
               style={[styles.conversationItem, { backgroundColor: colors.card, borderColor: colors.border }]}
               onPress={() => openConversation(conversation)}
             >
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{conversation.avatar}</Text>
-              </View>
+              {conversation.avatarImage ? (
+                <Image source={{ uri: conversation.avatarImage }} style={styles.avatar} />
+              ) : (
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>{conversation.avatar}</Text>
+                </View>
+              )}
               <View style={styles.conversationContent}>
                 <View style={styles.conversationHeader}>
                   <Text style={[styles.name, { color: colors.text }]}>{conversation.name}</Text>

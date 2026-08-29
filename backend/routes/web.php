@@ -41,6 +41,13 @@ Route::middleware(['backend.auth'])->group(function () {
 
     Route::middleware(['backend.role:admin'])->get('admin/dashboard', [AdminDashboardController::class, 'index'])
         ->name('admin.dashboard');
+    Route::middleware(['backend.role:admin'])->get('admin/analytics', [AdminDashboardController::class, 'analytics'])
+        ->name('admin.analytics');
+    Route::middleware(['backend.role:admin'])->get('admin/reports', [AdminDashboardController::class, 'reports'])
+        ->name('admin.reports');
+    Route::middleware(['backend.role:admin'])->get('admin/reports/{report}/export', [AdminDashboardController::class, 'exportReport'])
+        ->whereIn('report', ['inquiries', 'quotations', 'orders', 'users'])
+        ->name('admin.reports.export');
 
     Route::middleware(['backend.role:sales_agent'])->get('sales/dashboard', [SalesDashboardController::class, 'index'])
         ->name('sales.dashboard');

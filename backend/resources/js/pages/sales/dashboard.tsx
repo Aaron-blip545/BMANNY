@@ -1,14 +1,17 @@
 import { RoleDashboard } from '@/components/role-dashboard';
+import { DashboardAnalytics, type ActivityPeriods } from '@/components/dashboard-analytics';
 import { CircleHelp, PackageMinus } from 'lucide-react';
 
 interface Props {
     stats?: { inquiries: number; pendingReview: number; quotations: number; businessClients: number };
     recentInquiries?: Array<{ inquiry_id: number; status: string; created_at: string; client: { business_name: string } | null }>;
+    analytics?: { periods: ActivityPeriods };
 }
 
 export default function SalesDashboard({
     stats = { inquiries: 0, pendingReview: 0, quotations: 0, businessClients: 0 },
     recentInquiries = [],
+    analytics,
 }: Props) {
     return (
         <RoleDashboard
@@ -31,6 +34,11 @@ export default function SalesDashboard({
                 { title: 'Inquiries', href: '/inquiries', icon: CircleHelp },
                 { title: 'Inventory', href: '/products', icon: PackageMinus },
             ]}
+            analytics={analytics && <DashboardAnalytics
+                title="Sales overview"
+                description="Team-wide activity."
+                periods={analytics.periods}
+            />}
         />
     );
 }

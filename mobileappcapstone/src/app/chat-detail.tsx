@@ -31,11 +31,12 @@ interface Message {
   is_flagged?: boolean;
   moderation_reason?: string | null;
   conversation_closed?: boolean;
+  sender_profile_pic_url?: string | null;
 }
 
 export default function ChatDetailScreen() {
   const { colors } = useTheme();
-  const { otherUserId, otherUserName, inquiryId } = useLocalSearchParams();
+  const { otherUserId, otherUserName, otherUserProfilePicture, inquiryId } = useLocalSearchParams();
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -126,9 +127,13 @@ export default function ChatDetailScreen() {
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <View style={[styles.headerAvatar, { backgroundColor: '#2196F3' }]}>
-            <Text style={styles.headerAvatarText}>{otherUserName?.toString().substring(0, 2).toUpperCase()}</Text>
-          </View>
+          {otherUserProfilePicture ? (
+            <Image source={{ uri: otherUserProfilePicture.toString() }} style={styles.headerAvatar} />
+          ) : (
+            <View style={[styles.headerAvatar, { backgroundColor: '#2196F3' }]}>
+              <Text style={styles.headerAvatarText}>{otherUserName?.toString().substring(0, 2).toUpperCase()}</Text>
+            </View>
+          )}
           <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
             {otherUserName}
           </Text>
@@ -155,13 +160,17 @@ export default function ChatDetailScreen() {
           {messages.map((message) => (
             <View
               key={message.message_id}
-              style={[
+              style={[styles.messageRow, isMine(message) ? styles.messageRowMine : styles.messageRowOther]}
+            >
+              {!isMine(message) && message.sender_profile_pic_url ? (
+                <Image source={{ uri: resolveImageUrl(message.sender_profile_pic_url)! }} style={styles.messageAvatar} />
+              ) : null}
+              <View style={[
                 styles.messageBubble,
                 isMine(message)
                   ? [styles.userMessage, { backgroundColor: '#2196F3' }]
                   : [styles.otherMessage, { backgroundColor: colors.card }],
-              ]}
-            >
+              ]}>
               {message.image_url && (
                 <TouchableOpacity
                   activeOpacity={0.9}
@@ -194,6 +203,10 @@ export default function ChatDetailScreen() {
               <Text style={[styles.messageTime, { color: isMine(message) ? 'rgba(255,255,255,0.7)' : colors.textSecondary }]}>
                 {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </Text>
+              </View>
+              {isMine(message) && message.sender_profile_pic_url ? (
+                <Image source={{ uri: resolveImageUrl(message.sender_profile_pic_url)! }} style={styles.messageAvatar} />
+              ) : null}
             </View>
           ))}
         </ScrollView>
@@ -334,6 +347,23 @@ const styles = StyleSheet.create({
   messagesContent: {
     padding: 16,
     paddingBottom: 20,
+  },
+  messageRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  messageRowMine: {
+    justifyContent: 'flex-end',
+  },
+  messageRowOther: {
+    justifyContent: 'flex-start',
+  },
+  messageAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    marginBottom: 12,
   },
   messageBubble: {
     maxWidth: '82%',

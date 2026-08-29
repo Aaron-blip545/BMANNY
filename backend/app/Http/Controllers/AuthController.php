@@ -9,6 +9,60 @@ use App\Models\User;
 
 class AuthController extends Controller
 {
+    /**
+     * Update the authenticated mobile customer's account and business profile.
+     * Email and role remain controlled by the account-management workflow.
+     */
+    public function updateProfile(Request $request)
+    {
+        $validated = $request->validate([
+            'full_name' => ['required', 'string', 'max:100'],
+            'phone_number' => ['nullable', 'string', 'max:20'],
+            'business_address' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $user = $request->user();
+        $user->update([
+            'full_name' => $validated['full_name'],
+            'phone_number' => $validated['phone_number'] ?? null,
+        ]);
+
+        $user->businessClient()->update([
+            'contact_person' => $validated['full_name'],
+            'business_address' => $validated['business_address'] ?? null,
+        ]);
+
+        return response()->json([
+            'message' => 'Profile updated successfully.',
+            'user' => $user->fresh()->load('businessClient'),
+        ]);
+    }
+
+    /** Store a customer's profile picture for use across the app. */
+    public function updateProfilePicture(Request $request)
+    {
+        $request->validate([
+            'profile_picture' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ]);
+
+        $client = $request->user()->businessClient;
+
+        if (! $client) {
+            return response()->json(['message' => 'A business profile is required before adding a profile picture.'], 422);
+        }
+
+        // Keep previous images intact rather than deleting user data during
+        // an update. The database always points to the currently selected one.
+        $path = $request->file('profile_picture')->store('profile-pictures', 'public');
+        $client->update(['profile_pic' => $path]);
+
+        return response()->json([
+            'message' => 'Profile picture updated successfully.',
+            'profile_pic_url' => $client->fresh()->profile_pic_url,
+            'user' => $request->user()->fresh()->load('businessClient'),
+        ]);
+    }
+
     // Registration
     public function register(Request $request)
     {

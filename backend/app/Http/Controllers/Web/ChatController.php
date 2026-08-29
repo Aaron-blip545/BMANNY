@@ -99,7 +99,7 @@ class ChatController extends Controller
         }
 
         $messages = $messageQuery
-            ->with(['sender', 'receiver', 'moderation'])
+            ->with(['sender.businessClient', 'receiver.businessClient', 'moderation'])
             ->orderBy('created_at')
             ->get()
             ->map(fn ($m) => [
@@ -108,6 +108,7 @@ class ChatController extends Controller
                 'image_url'    => $m->image_url,
                 'sent_by_me'   => ! $isAdmin && $m->sender_id === $agent->user_id,
                 'sender_name'  => $m->sender?->full_name ?? 'Unknown',
+                'sender_profile_pic_url' => $m->sender?->businessClient?->profile_pic_url,
                 'created_at'   => $m->created_at->toIso8601String(),
                 'is_read'      => $m->is_read,
                 'is_flagged'   => $m->moderation !== null,

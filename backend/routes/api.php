@@ -30,6 +30,8 @@ Route::middleware(['auth:sanctum', 'active.api'])->group(function () {
 
     // 1. Business Client Routes
     Route::middleware('role:customer,admin')->group(function () {
+        Route::patch('/user/profile', [AuthController::class, 'updateProfile'])->middleware('role:customer');
+        Route::post('/user/profile/picture', [AuthController::class, 'updateProfilePicture'])->middleware('role:customer');
         Route::post('/inquiries', [InquiryController::class, 'store']);
         Route::get('/inquiries/my-inquiries', [InquiryController::class, 'myInquiries']);
         Route::post('/inquiries/{inquiry_id}/cancel', [InquiryController::class, 'cancel']);

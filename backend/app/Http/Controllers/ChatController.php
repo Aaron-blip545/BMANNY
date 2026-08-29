@@ -21,7 +21,7 @@ class ChatController extends Controller
 
         $messages = Message::where('sender_id', $userId)
             ->orWhere('receiver_id', $userId)
-            ->with(['sender', 'receiver'])
+            ->with(['sender.businessClient', 'receiver.businessClient'])
             ->orderByDesc('created_at')
             ->get();
 
@@ -62,6 +62,7 @@ class ChatController extends Controller
                     'inquiry_id'      => null,
                     'other_user_id'   => $other->user_id,
                     'other_user_name' => $other->full_name,
+                    'other_user_profile_pic_url' => $other->businessClient?->profile_pic_url,
                     'last_message'    => $lastMessage,
                     'last_message_at' => $latest->created_at,
                     'unread_count'    => $unread,
@@ -87,7 +88,7 @@ class ChatController extends Controller
             ->orWhere(function ($q) use ($userId, $other_user_id) {
                 $q->where('sender_id', $other_user_id)->where('receiver_id', $userId);
             })
-            ->with(['sender', 'receiver', 'moderation'])
+            ->with(['sender.businessClient', 'receiver.businessClient', 'moderation'])
             ->orderBy('created_at')
             ->get()
             ->each(function (Message $message) use ($closure): void {
@@ -96,6 +97,7 @@ class ChatController extends Controller
                 $message->setAttribute('is_flagged', $message->moderation !== null);
                 $message->setAttribute('moderation_reason', $message->moderation?->reason);
                 $message->setAttribute('conversation_closed', $closure !== null);
+                $message->setAttribute('sender_profile_pic_url', $message->sender?->businessClient?->profile_pic_url);
             });
 
         return response()->json($messages);
@@ -158,7 +160,7 @@ class ChatController extends Controller
             ]
         );
 
-        return response()->json($message->load(['sender', 'receiver']), 201);
+        return response()->json($message->load(['sender.businessClient', 'receiver.businessClient']), 201);
     }
 
     /** A closure is customer-wide, so it applies to every customer/staff thread. */
