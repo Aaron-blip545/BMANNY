@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Ima
 import { router } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import { getConversations, resolveImageUrl } from '../services/api';
+import { subscribeToRealtime } from '../services/realtime';
 
 interface Conversation {
   id: number;
@@ -69,14 +70,17 @@ export default function MessagesScreen() {
     }
   }, []);
 
-  // Reloads every time this screen comes into focus - so unread counts
-  // stay fresh after you read a conversation and come back.
-  // Also polls every 5 seconds so messages from the sales agent (web)
-  // appear without needing a manual pull-to-refresh.
+  // Re-fetch only when a message notification arrives for this account.
   useEffect(() => {
     loadConversations();
-    const interval = setInterval(loadConversations, 5000);
-    return () => clearInterval(interval);
+    return subscribeToRealtime((event) => {
+      if (
+        event.type === 'chat.message.created'
+        || (event.type === 'notification.created' && event.payload.type === 'message')
+      ) {
+        loadConversations();
+      }
+    });
   }, [loadConversations]);
 
   function openConversation(conv: Conversation) {

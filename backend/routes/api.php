@@ -10,16 +10,32 @@ use App\Http\Controllers\ChatController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\UserController;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Broadcast;
 
 // Public Routes
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
-Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
-Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:auth');
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:auth');
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:auth');
+Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:auth');
 Route::get('/products', [ProductController::class, 'index']);
 
 // Protected Routes (Must be authenticated via Sanctum)
 Route::middleware(['auth:sanctum', 'active.api'])->group(function () {
+
+    // The mobile app authenticates private Reverb channels with its Sanctum
+    // bearer token. This exposes no secret; the channel policy still limits
+    // each account to its own user.{id} channel.
+    Route::post('/broadcasting/auth', function (Request $request) {
+        return Broadcast::auth($request);
+    });
+
+    Route::get('/realtime/config', function (Request $request) {
+        return response()->json([
+            'app_key' => config('broadcasting.connections.reverb.key'),
+            'port' => (int) config('broadcasting.connections.reverb.options.port'),
+            'scheme' => config('broadcasting.connections.reverb.options.scheme'),
+        ]);
+    });
 
     Route::middleware('role:admin')->group(function () {
        Route::get('/admin/users', [UserController::class, 'index']);
@@ -31,14 +47,14 @@ Route::middleware(['auth:sanctum', 'active.api'])->group(function () {
     // 1. Business Client Routes
     Route::middleware('role:customer,admin')->group(function () {
         Route::patch('/user/profile', [AuthController::class, 'updateProfile'])->middleware('role:customer');
-        Route::post('/user/profile/picture', [AuthController::class, 'updateProfilePicture'])->middleware('role:customer');
-        Route::post('/inquiries', [InquiryController::class, 'store']);
+        Route::post('/user/profile/picture', [AuthController::class, 'updateProfilePicture'])->middleware(['role:customer', 'throttle:upload']);
+        Route::post('/inquiries', [InquiryController::class, 'store'])->middleware('throttle:write');
         Route::get('/inquiries/my-inquiries', [InquiryController::class, 'myInquiries']);
         Route::post('/inquiries/{inquiry_id}/cancel', [InquiryController::class, 'cancel']);
-        Route::post('/inquiries/{inquiry_id}/upload-design', [FileUploadController::class, 'uploadDesign']);
+        Route::post('/inquiries/{inquiry_id}/upload-design', [FileUploadController::class, 'uploadDesign'])->middleware('throttle:upload');
         Route::get('/quotations/my-quotes', [QuotationController::class, 'myQuotes']);
-        Route::post('/quotations/{quotation_id}/pay', [QuotationController::class, 'submitPayment']);
-        Route::post('/orders/{order_id}/upload-receipt', [FileUploadController::class, 'uploadReceipt']);
+        Route::post('/quotations/{quotation_id}/pay', [QuotationController::class, 'submitPayment'])->middleware('throttle:write');
+        Route::post('/orders/{order_id}/upload-receipt', [FileUploadController::class, 'uploadReceipt'])->middleware('throttle:upload');
         Route::get('/orders/my-orders', [OrderController::class, 'myOrders']);
     });
 
@@ -59,7 +75,7 @@ Route::middleware(['auth:sanctum', 'active.api'])->group(function () {
 
     // 5. Shared Routes (All Authenticated Users)
     Route::get('/conversations', [ChatController::class, 'conversations']);
-    Route::post('/messages', [ChatController::class, 'sendMessage']);
+    Route::post('/messages', [ChatController::class, 'sendMessage'])->middleware('throttle:chat');
     Route::get('/messages/{other_user_id}', [ChatController::class, 'getConversation']);
     Route::post('/messages/{other_user_id}/read', [ChatController::class, 'markAsRead']);
 

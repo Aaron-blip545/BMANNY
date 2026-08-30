@@ -217,6 +217,8 @@ class ChatController extends Controller
             'is_read'      => false,
         ]);
 
+        broadcast(new \App\Events\MessageSent($message))->toOthers();
+
         $notificationBody = !empty($validated['message_body'])
             ? $validated['message_body']
             : '📷 Sent a photo';
@@ -234,6 +236,12 @@ class ChatController extends Controller
                 'message_id'  => $message->message_id,
             ]
         );
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => $message->load(['sender.businessClient', 'receiver.businessClient']),
+            ], 201);
+        }
 
         return redirect()->route('chat.show', $inquiryId);
     }

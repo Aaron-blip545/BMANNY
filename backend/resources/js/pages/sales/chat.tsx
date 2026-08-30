@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/react';
+import { echo } from '@laravel/echo-react';
 import { Archive, ArrowLeft, EyeOff, Image as ImageIcon, Lock, LockOpen, RotateCcw, Send, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -48,13 +49,13 @@ function formatTime(iso: string) {
     });
 }
 
-export default function ChatPage({ inquiry, messages, isArchived, isArchiveHistory, canModerate, canReply, isConversationClosed }: Props) {
+export default function ChatPage({ inquiry, messages, agentId, isArchived, isArchiveHistory, canModerate, canReply, isConversationClosed }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: isArchiveHistory ? 'Archived chats' : 'Inquiries', href: isArchiveHistory ? '/archived-chats' : '/inquiries' },
         { title: `Chat — ${inquiry.business}`, href: `/inquiries/${inquiry.inquiry_id}/chat` },
     ];
 
-    const { data, setData, post, processing, reset } = useForm<{
+    const { data, setData, reset } = useForm<{
         message_body: string;
         image: File | null;
     }>({
@@ -64,23 +65,36 @@ export default function ChatPage({ inquiry, messages, isArchived, isArchiveHisto
 
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [selectedLightboxImage, setSelectedLightboxImage] = useState<string | null>(null);
+    const [isSending, setIsSending] = useState(false);
+    const [displayMessages, setDisplayMessages] = useState<Message[]>(messages);
 
     const bottomRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Scroll to the latest message whenever messages change.
+    // Keep local state in sync after a realtime / Inertia refresh.
     useEffect(() => {
-        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+        setDisplayMessages(messages);
     }, [messages]);
 
-    // Poll for new messages every 4 seconds
+    // Scroll to the latest message whenever the visible thread changes.
     useEffect(() => {
-        const interval = setInterval(() => {
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [displayMessages]);
+
+    // Refresh only when Reverb reports a new message for this signed-in agent.
+    useEffect(() => {
+        const channel = echo().private(`user.${agentId}`);
+        const reloadConversation = () => {
             router.reload({ only: ['messages', 'canReply', 'isConversationClosed'] });
-        }, 4000);
-        return () => clearInterval(interval);
-    }, []);
+        };
+        channel.listen('.chat.message.created', reloadConversation);
+
+        return () => {
+            channel.stopListening('.chat.message.created', reloadConversation);
+            echo().leave(`private-user.${agentId}`);
+        };
+    }, [agentId]);
 
     function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
@@ -101,24 +115,64 @@ export default function ChatPage({ inquiry, messages, isArchived, isArchiveHisto
         }
     }
 
-    function handleSubmit(e: React.FormEvent) {
+    async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        if (!data.message_body.trim() && !data.image) return;
+        if (isSending || (!data.message_body.trim() && !data.image)) return;
 
-        post(route('chat.send', inquiry.inquiry_id), {
-            forceFormData: true,
-            onSuccess: () => {
-                reset('message_body', 'image');
-                removeImage();
-                textareaRef.current?.focus();
-            },
-        });
+        setIsSending(true);
+
+        try {
+            const formData = new FormData();
+            formData.append('message_body', data.message_body.trim());
+            if (data.image) formData.append('image', data.image);
+
+            const token = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content;
+            const response = await fetch(route('chat.send', inquiry.inquiry_id), {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    ...(token ? { 'X-CSRF-TOKEN': token } : {}),
+                },
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({}));
+                throw new Error(error.message || 'Unable to send this message.');
+            }
+
+            const result = await response.json();
+            const saved = result.message;
+            setDisplayMessages((current) => [
+                ...current,
+                {
+                    message_id: saved.message_id,
+                    body: saved.message_body,
+                    image_url: saved.image_url,
+                    sent_by_me: true,
+                    sender_name: saved.sender?.full_name ?? 'You',
+                    sender_profile_pic_url: saved.sender?.business_client?.profile_pic_url ?? null,
+                    created_at: saved.created_at,
+                    is_read: saved.is_read,
+                    is_flagged: false,
+                },
+            ]);
+            reset('message_body', 'image');
+            removeImage();
+            textareaRef.current?.focus();
+        } catch (error: any) {
+            window.alert(error.message || 'Unable to send this message.');
+        } finally {
+            setIsSending(false);
+        }
     }
 
     function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-        // Ctrl+Enter or Cmd+Enter to send
-        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        // Enter sends; Shift+Enter keeps the normal multiline behaviour.
+        if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
+            if (isSending) return;
             handleSubmit(e as any);
         }
     }
@@ -199,14 +253,14 @@ export default function ChatPage({ inquiry, messages, isArchived, isArchiveHisto
 
                         {/* Scrollable message list */}
                         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-                            {messages.length === 0 ? (
+                            {displayMessages.length === 0 ? (
                                 <div className="flex h-full items-center justify-center">
                                     <p className="text-sm text-muted-foreground">
                                         No messages yet. Start the conversation below.
                                     </p>
                                 </div>
                             ) : (
-                                messages.map((msg) => (
+                                displayMessages.map((msg) => (
                                     <div
                                         key={msg.message_id}
                                         className={`flex flex-col ${msg.sent_by_me ? 'items-end' : 'items-start'}`}
@@ -326,7 +380,7 @@ export default function ChatPage({ inquiry, messages, isArchived, isArchiveHisto
                                         ref={textareaRef}
                                         id="message_body"
                                         rows={2}
-                                        placeholder="Type a message… (Ctrl+Enter to send)"
+                                        placeholder="Type a message… (Enter to send, Shift+Enter for a new line)"
                                         value={data.message_body}
                                         onChange={(e) => setData('message_body', e.target.value)}
                                         onKeyDown={handleKeyDown}
@@ -335,7 +389,7 @@ export default function ChatPage({ inquiry, messages, isArchived, isArchiveHisto
 
                                     <Button
                                         type="submit"
-                                        disabled={processing || (!data.message_body.trim() && !data.image)}
+                                        disabled={isSending || (!data.message_body.trim() && !data.image)}
                                         className="shrink-0"
                                     >
                                         <Send className="mr-1.5 h-4 w-4" />

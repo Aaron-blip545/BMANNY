@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\MessageSent;
 use App\Models\Message;
 use App\Models\ConversationClosure;
 use App\Models\User;
@@ -141,6 +142,8 @@ class ChatController extends Controller
             'inquiry_id'   => $validated['inquiry_id'] ?? null,
             'is_read'      => false,
         ]);
+
+        broadcast(new MessageSent($message))->toOthers();
 
         $notificationBody = !empty($validated['message_body'])
             ? $validated['message_body']

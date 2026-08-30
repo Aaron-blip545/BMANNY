@@ -10,6 +10,14 @@ async function getToken(): Promise<string | null> {
     return SecureStore.getItemAsync(TOKEN_KEY);
 }
 
+export async function getAuthToken(): Promise<string | null> {
+    return getToken();
+}
+
+export function getApiBaseUrl(): string {
+    return API_BASE_URL;
+}
+
 async function setToken(token: string): Promise<void> {
     await SecureStore.setItemAsync(TOKEN_KEY, token);
 }
@@ -61,6 +69,8 @@ export async function login(email: string, password: string) {
 }
 
 export async function logout() {
+    const { disconnectRealtime } = await import('./realtime');
+    disconnectRealtime();
     await clearToken();
 }
 
@@ -187,6 +197,11 @@ export async function markConversationRead(otherUserId: number) {
  */
 export async function getMe() {
     return request('/user');
+}
+
+/** Public Reverb connection information for the signed-in mobile app. */
+export async function getRealtimeConfig() {
+    return request('/realtime/config');
 }
 
 export async function updateMyProfile(data: {

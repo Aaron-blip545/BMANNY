@@ -18,6 +18,7 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { getConversation, sendMessage, markConversationRead, resolveImageUrl } from '../services/api';
+import { subscribeToRealtime } from '../services/realtime';
 import { useTheme } from '../contexts/ThemeContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -50,10 +51,11 @@ export default function ChatDetailScreen() {
     loadMessages();
     markConversationRead(Number(otherUserId)).catch(() => { });
 
-    // Poll every 4 seconds so replies from the sales agent (web) appear
-    // automatically while the customer has this conversation open.
-    const interval = setInterval(loadMessages, 4000);
-    return () => clearInterval(interval);
+    return subscribeToRealtime((event) => {
+      if (event.type === 'chat.message.created' && event.payload.sender_id === Number(otherUserId)) {
+        loadMessages();
+      }
+    });
   }, [otherUserId]);
 
   async function loadMessages() {

@@ -1,4 +1,6 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { usePage } from '@inertiajs/react';
+import { useEcho } from '@laravel/echo-react';
 
 export interface AppNotificationItem {
     notification_id: number;
@@ -16,7 +18,7 @@ export function useNotifications() {
     const [notifications, setNotifications] = useState<AppNotificationItem[]>([]);
     const [unreadCount, setUnreadCount] = useState<number>(0);
     const [loading, setLoading] = useState<boolean>(true);
-    const prevUnreadRef = useRef<number>(0);
+    const userId = (usePage().props as { auth?: { user?: { user_id?: number } } }).auth?.user?.user_id;
 
     const fetchNotifications = useCallback(async () => {
         try {
@@ -31,7 +33,6 @@ export function useNotifications() {
                 const data = await response.json();
                 setNotifications(data.notifications || []);
                 setUnreadCount(data.unread_count || 0);
-                prevUnreadRef.current = data.unread_count || 0;
             }
         } catch (err) {
             console.error('Failed to fetch notifications:', err);
@@ -40,30 +41,12 @@ export function useNotifications() {
         }
     }, []);
 
-    const fetchUnreadCount = useCallback(async () => {
-        try {
-            const response = await fetch('/notifications/unread-count', {
-                headers: {
-                    Accept: 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                const newCount = data.unread_count ?? 0;
-                
-                // If unread count increased, re-fetch full list
-                if (newCount > prevUnreadRef.current) {
-                    fetchNotifications();
-                }
-                setUnreadCount(newCount);
-                prevUnreadRef.current = newCount;
-            }
-        } catch (err) {
-            // Silently ignore network hiccup during background polling
-        }
-    }, [fetchNotifications]);
+    useEcho(
+        userId ? `user.${userId}` : 'user.0',
+        '.notification.created',
+        () => fetchNotifications(),
+        [userId, fetchNotifications],
+    );
 
     const markAsRead = async (notificationId: number) => {
         try {
@@ -138,10 +121,7 @@ export function useNotifications() {
     useEffect(() => {
         fetchNotifications();
 
-        // Background polling every 8 seconds for real-time responsiveness
-        const interval = setInterval(fetchUnreadCount, 8000);
-        return () => clearInterval(interval);
-    }, [fetchNotifications, fetchUnreadCount]);
+    }, [fetchNotifications]);
 
     return {
         notifications,
