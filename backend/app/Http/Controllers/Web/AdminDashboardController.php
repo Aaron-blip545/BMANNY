@@ -58,7 +58,10 @@ class AdminDashboardController extends Controller
         $users = User::whereBetween('created_at', [$from, $to]);
 
         return Inertia::render('admin/reports', [
-            'filters' => ['from' => $from->toDateString(), 'to' => $to->toDateString()],
+            'filters' => [
+                'from' => $from->format('Y-m-d H:i'),
+                'to' => $to->format('Y-m-d H:i'),
+            ],
             'summary' => [
                 'inquiries' => $inquiries->count(),
                 'quotations' => $quotations->count(),
@@ -72,7 +75,7 @@ class AdminDashboardController extends Controller
     public function exportReport(Request $request, string $report): StreamedResponse
     {
         [$from, $to] = $this->reportRange($request);
-        $filename = "bmanny-{$report}-{$from->toDateString()}-to-{$to->toDateString()}.csv";
+        $filename = "bmanny-{$report}-{$from->format('Y-m-d_Hi')}-to-{$to->format('Y-m-d_Hi')}.csv";
 
         return response()->streamDownload(function () use ($report, $from, $to) {
             $output = fopen('php://output', 'w');
@@ -97,8 +100,13 @@ class AdminDashboardController extends Controller
             'to' => ['nullable', 'date', 'after_or_equal:from'],
         ]);
 
-        $from = isset($validated['from']) ? Carbon::parse($validated['from'])->startOfDay() : now()->startOfMonth();
-        $to = isset($validated['to']) ? Carbon::parse($validated['to'])->endOfDay() : now()->endOfDay();
+        $from = isset($validated['from'])
+            ? (str_contains($validated['from'], ':') ? Carbon::parse($validated['from']) : Carbon::parse($validated['from'])->startOfDay())
+            : now()->startOfMonth()->startOfDay();
+
+        $to = isset($validated['to'])
+            ? (str_contains($validated['to'], ':') ? Carbon::parse($validated['to']) : Carbon::parse($validated['to'])->endOfDay())
+            : now()->endOfDay();
 
         return [$from, $to];
     }
