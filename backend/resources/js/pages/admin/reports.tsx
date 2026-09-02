@@ -3,12 +3,12 @@ import { DateTimePicker } from '@/components/ui/date-time-picker';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
-import { CalendarRange, Download, FileText, RefreshCw, Users } from 'lucide-react';
-import { useState } from 'react';
+import { CalendarRange, Download, FileText, RefreshCw, Upload } from 'lucide-react';
+import { useRef, useState } from 'react';
 
 interface Props {
     filters: { from: string; to: string };
-    summary: { inquiries: number; quotations: number; orders: number; newUsers: number; orderValue: number };
+    summary: { inquiries: number; quotations: number; orders: number; orderValue: number };
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -28,6 +28,11 @@ function formatPreset(date: Date, timeStr: string = '00:00'): string {
 export default function AdminReports({ filters, summary }: Props) {
     const [from, setFrom] = useState(filters.from);
     const [to, setTo] = useState(filters.to);
+    const [importType, setImportType] = useState<'inquiries' | 'quotations' | 'orders'>('inquiries');
+    const [importFile, setImportFile] = useState<File | null>(null);
+    const [importError, setImportError] = useState<string | null>(null);
+    const [isImporting, setIsImporting] = useState(false);
+    const fileInput = useRef<HTMLInputElement>(null);
 
     // Export the same range currently used by the server-rendered totals.
     const query = new URLSearchParams(filters).toString();
@@ -36,8 +41,27 @@ export default function AdminReports({ filters, summary }: Props) {
         { key: 'inquiries', title: 'Inquiries', value: summary.inquiries, icon: FileText },
         { key: 'quotations', title: 'Quotations', value: summary.quotations, icon: FileText },
         { key: 'orders', title: 'Orders', value: summary.orders, icon: FileText },
-        { key: 'users', title: 'Users', value: summary.newUsers, icon: Users },
     ];
+
+    const importCsv = () => {
+        if (!importFile) {
+            setImportError('Choose a CSV file first.');
+            return;
+        }
+
+        setImportError(null);
+        setIsImporting(true);
+        router.post('/admin/reports/import', { type: importType, file: importFile }, {
+            forceFormData: true,
+            preserveScroll: true,
+            onError: (errors) => setImportError(String(errors.file ?? 'The CSV could not be imported.')),
+            onSuccess: () => {
+                setImportFile(null);
+                if (fileInput.current) fileInput.current.value = '';
+            },
+            onFinish: () => setIsImporting(false),
+        });
+    };
 
     const applyRange = (newFrom = from, newTo = to) => {
         router.get(
@@ -207,6 +231,61 @@ export default function AdminReports({ filters, summary }: Props) {
                             </Card>
                         ))}
                     </section>
+
+                    <Card className="rounded-xl border-border bg-card shadow-sm">
+                        <CardContent className="p-5 sm:p-6">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                    <h2 className="font-semibold text-card-foreground">Import historical data</h2>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        Admin only. Import validated CSV records into the system so they appear in reports and analytics.
+                                    </p>
+                                </div>
+                                <a
+                                    href={`/admin/reports/import/${importType}/template`}
+                                    className="inline-flex h-9 items-center gap-2 rounded-md border border-border bg-card px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                                >
+                                    <Download className="size-4" />
+                                    Download template
+                                </a>
+                            </div>
+
+                            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end">
+                                <label className="grid gap-1.5 text-sm font-medium text-foreground sm:w-48">
+                                    Data type
+                                    <select
+                                        value={importType}
+                                        onChange={(event) => setImportType(event.target.value as typeof importType)}
+                                        className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                                    >
+                                        <option value="inquiries">Inquiries</option>
+                                        <option value="quotations">Quotations</option>
+                                        <option value="orders">Orders</option>
+                                    </select>
+                                </label>
+                                <label className="grid flex-1 gap-1.5 text-sm font-medium text-foreground">
+                                    CSV file
+                                    <input
+                                        ref={fileInput}
+                                        type="file"
+                                        accept=".csv,text/csv"
+                                        onChange={(event) => setImportFile(event.target.files?.[0] ?? null)}
+                                        className="block h-10 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm file:mr-3 file:border-0 file:bg-transparent file:text-sm file:font-medium"
+                                    />
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={importCsv}
+                                    disabled={isImporting}
+                                    className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    <Upload className="size-4" />
+                                    {isImporting ? 'Importing…' : 'Import CSV'}
+                                </button>
+                            </div>
+                            {importError && <p className="mt-3 text-sm text-destructive">{importError}</p>}
+                        </CardContent>
+                    </Card>
                 </div>
             </main>
         </AppLayout>

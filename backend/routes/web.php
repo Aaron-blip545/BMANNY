@@ -46,8 +46,14 @@ Route::middleware(['backend.auth'])->group(function () {
     Route::middleware(['backend.role:admin'])->get('admin/reports', [AdminDashboardController::class, 'reports'])
         ->name('admin.reports');
     Route::middleware(['backend.role:admin'])->get('admin/reports/{report}/export', [AdminDashboardController::class, 'exportReport'])
-        ->whereIn('report', ['inquiries', 'quotations', 'orders', 'users'])
+        ->whereIn('report', ['inquiries', 'quotations', 'orders'])
         ->name('admin.reports.export');
+    Route::middleware(['backend.role:admin'])->get('admin/reports/import/{type}/template', [AdminDashboardController::class, 'importTemplate'])
+        ->whereIn('type', ['inquiries', 'quotations', 'orders'])
+        ->name('admin.reports.import-template');
+    Route::middleware(['backend.role:admin'])->post('admin/reports/import', [AdminDashboardController::class, 'importReport'])
+        ->middleware('throttle:upload')
+        ->name('admin.reports.import');
 
     Route::middleware(['backend.role:sales_agent'])->get('sales/dashboard', [SalesDashboardController::class, 'index'])
         ->name('sales.dashboard');
