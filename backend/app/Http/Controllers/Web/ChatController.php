@@ -99,7 +99,7 @@ class ChatController extends Controller
         }
 
         $messages = $messageQuery
-            ->with(['sender', 'receiver', 'moderation'])
+            ->with(['sender.businessClient', 'receiver.businessClient', 'moderation'])
             ->orderBy('created_at')
             ->get()
             ->map(fn ($m) => [
@@ -108,6 +108,7 @@ class ChatController extends Controller
                 'image_url'    => $m->image_url,
                 'sent_by_me'   => ! $isAdmin && $m->sender_id === $agent->user_id,
                 'sender_name'  => $m->sender?->full_name ?? 'Unknown',
+                'sender_profile_pic_url' => $m->sender?->businessClient?->profile_pic_url,
                 'created_at'   => $m->created_at->toIso8601String(),
                 'is_read'      => $m->is_read,
                 'is_flagged'   => $m->moderation !== null,
@@ -216,6 +217,8 @@ class ChatController extends Controller
             'is_read'      => false,
         ]);
 
+        broadcast(new \App\Events\MessageSent($message))->toOthers();
+
         $notificationBody = !empty($validated['message_body'])
             ? $validated['message_body']
             : '📷 Sent a photo';
@@ -233,6 +236,12 @@ class ChatController extends Controller
                 'message_id'  => $message->message_id,
             ]
         );
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => $message->load(['sender.businessClient', 'receiver.businessClient']),
+            ], 201);
+        }
 
         return redirect()->route('chat.show', $inquiryId);
     }

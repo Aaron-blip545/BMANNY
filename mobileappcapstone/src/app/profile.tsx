@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Ima
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
-import { getMe, logout } from '../services/api';
+import { getMe, logout, resolveImageUrl } from '../services/api';
 
 const HomeIcon = ({ colors, isActive }: { colors: any; isActive?: boolean }) => (
   <Image source={require('@/assets/images/homepageicon/home.png')} style={styles.navIcon} tintColor={isActive ? '#2196F3' : colors.text} />
@@ -37,9 +37,10 @@ export default function ProfileScreen() {
         setUserName(user?.full_name ?? 'BMANNY customer');
         setEmail(user?.email ?? '');
 
-        const savedAvatar = user?.business_client?.profile_pic ?? user?.businessClient?.profile_pic;
+        const businessClient = user?.business_client ?? user?.businessClient;
+        const savedAvatar = businessClient?.profile_pic_url ?? businessClient?.profile_pic;
         if (!profileImage && savedAvatar) {
-          setAvatarImage(savedAvatar);
+          setAvatarImage(resolveImageUrl(savedAvatar));
         }
       })
       .catch(() => {

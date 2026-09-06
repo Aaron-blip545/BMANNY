@@ -14,6 +14,7 @@ import {
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import { getMyOrders, getMyInquiries, cancelInquiry } from '../services/api';
+import { subscribeToRealtime } from '../services/realtime';
 
 const HomeIcon = ({ colors, isActive }: { colors: any; isActive?: boolean }) => (
   <Image source={require('@/assets/images/homepageicon/home.png')} style={styles.navIcon} tintColor={isActive ? '#2196F3' : colors.text} />
@@ -149,9 +150,13 @@ export default function OrdersScreen() {
   );
 
   useEffect(() => {
-    // Keep order and inquiry statuses current while the screen is open.
-    const interval = setInterval(loadAll, 5000);
-    return () => clearInterval(interval);
+    // Order, quotation, and inquiry notifications mean the server has
+    // changed data that this screen presents, so refresh it immediately.
+    return subscribeToRealtime((event) => {
+      if (event.type === 'notification.created' && ['order', 'quotation', 'inquiry'].includes(event.payload.type)) {
+        loadAll();
+      }
+    });
   }, [loadAll]);
 
   const getStatusStyle = (status: string) => {

@@ -41,6 +41,19 @@ Route::middleware(['backend.auth'])->group(function () {
 
     Route::middleware(['backend.role:admin'])->get('admin/dashboard', [AdminDashboardController::class, 'index'])
         ->name('admin.dashboard');
+    Route::middleware(['backend.role:admin'])->get('admin/analytics', [AdminDashboardController::class, 'analytics'])
+        ->name('admin.analytics');
+    Route::middleware(['backend.role:admin'])->get('admin/reports', [AdminDashboardController::class, 'reports'])
+        ->name('admin.reports');
+    Route::middleware(['backend.role:admin'])->get('admin/reports/{report}/export', [AdminDashboardController::class, 'exportReport'])
+        ->whereIn('report', ['inquiries', 'quotations', 'orders'])
+        ->name('admin.reports.export');
+    Route::middleware(['backend.role:admin'])->get('admin/reports/import/{type}/template', [AdminDashboardController::class, 'importTemplate'])
+        ->whereIn('type', ['inquiries', 'quotations', 'orders'])
+        ->name('admin.reports.import-template');
+    Route::middleware(['backend.role:admin'])->post('admin/reports/import', [AdminDashboardController::class, 'importReport'])
+        ->middleware('throttle:upload')
+        ->name('admin.reports.import');
 
     Route::middleware(['backend.role:sales_agent'])->get('sales/dashboard', [SalesDashboardController::class, 'index'])
         ->name('sales.dashboard');
@@ -68,7 +81,7 @@ Route::middleware(['backend.auth'])->group(function () {
         // Chat: one thread per inquiry
         Route::get('conversations/with/{user_id}', [ChatController::class, 'openConversationWith'])->name('chat.with-user');
         Route::get('inquiries/{inquiry_id}/chat', [ChatController::class, 'show'])->name('chat.show');
-        Route::post('inquiries/{inquiry_id}/chat', [ChatController::class, 'send'])->name('chat.send');
+        Route::post('inquiries/{inquiry_id}/chat', [ChatController::class, 'send'])->middleware('throttle:chat')->name('chat.send');
         Route::post('inquiries/{inquiry_id}/chat/archive', [ChatController::class, 'archive'])->name('chat.archive');
         Route::delete('inquiries/{inquiry_id}/chat/archive', [ChatController::class, 'restore'])->name('chat.restore');
         Route::get('archived-chats', [SalesAgentController::class, 'archivedChats'])->name('archived-chats.index');
@@ -77,8 +90,8 @@ Route::middleware(['backend.auth'])->group(function () {
     // Order Manager + Admin: Orders list and status updates
     Route::middleware(['backend.role:order_manager,admin'])->group(function () {
         Route::get('orders', [OrderManagerController::class, 'index'])->name('orders.index');
-        Route::patch('orders/{id}/status', [OrderManagerController::class, 'updateStatus'])->name('orders.update-status');
-        Route::patch('orders/{id}/tracking', [OrderManagerController::class, 'updateTracking'])->name('orders.update-tracking');
+        Route::patch('orders/{id}/status', [OrderManagerController::class, 'updateStatus'])->middleware('throttle:write')->name('orders.update-status');
+        Route::patch('orders/{id}/tracking', [OrderManagerController::class, 'updateTracking'])->middleware('throttle:write')->name('orders.update-tracking');
     });
 
     // Admin-only. backend.role checks the SPECIFIC role, not just "logged

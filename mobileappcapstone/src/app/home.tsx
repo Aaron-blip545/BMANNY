@@ -8,6 +8,7 @@ import {
   markNotificationRead,
   markAllNotificationsRead,
 } from '../services/api';
+import { subscribeToRealtime } from '../services/realtime';
 
 const HomeIcon = ({ colors, isActive }: { colors: any; isActive?: boolean }) => (
   <Image source={require('@/assets/images/homepageicon/home.png')} style={styles.navIcon} tintColor={isActive ? '#2196F3' : colors.text} />
@@ -89,10 +90,12 @@ export default function HomeScreen() {
 
   useEffect(() => {
     loadNotifications();
-    // Keep the badge and notification list current without requiring a
-    // manual pull-to-refresh.
-    const poll = setInterval(loadNotifications, 8000);
-    return () => clearInterval(poll);
+
+    return subscribeToRealtime((event) => {
+      if (event.type === 'notification.created') {
+        loadNotifications();
+      }
+    });
   }, [loadNotifications]);
 
   const handleNotificationPress = async (item: NotificationItem) => {

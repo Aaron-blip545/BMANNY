@@ -4,6 +4,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
 import { ArrowUpRight, Boxes, CircleHelp, PackageCheck, Users, type LucideIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 interface QuickAccessItem { title: string; href: string; icon: LucideIcon; }
 interface SummaryItem { label: string; value: number; description: string; }
@@ -17,9 +18,10 @@ interface RoleDashboardProps {
     activityItems?: ActivityItem[];
     quickAccessItems: QuickAccessItem[];
     dashboardHref: string;
+    analytics?: ReactNode;
 }
 
-export function RoleDashboard({ title, description, summaryItems, activityTitle, activityItems = [], quickAccessItems, dashboardHref }: RoleDashboardProps) {
+export function RoleDashboard({ title, description, summaryItems, activityTitle, activityItems = [], quickAccessItems, dashboardHref, analytics }: RoleDashboardProps) {
     const breadcrumbs: BreadcrumbItem[] = [{ title: 'Dashboard', href: dashboardHref }];
     const metricFor = (label: string) => {
         const normalized = label.toLowerCase();
@@ -88,6 +90,7 @@ export function RoleDashboard({ title, description, summaryItems, activityTitle,
                             </CardContent>
                         </Card>
                     </section>
+                    {analytics}
                 </div>
             </main>
         </AppLayout>

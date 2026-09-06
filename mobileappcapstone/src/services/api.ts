@@ -10,6 +10,14 @@ async function getToken(): Promise<string | null> {
     return SecureStore.getItemAsync(TOKEN_KEY);
 }
 
+export async function getAuthToken(): Promise<string | null> {
+    return getToken();
+}
+
+export function getApiBaseUrl(): string {
+    return API_BASE_URL;
+}
+
 async function setToken(token: string): Promise<void> {
     await SecureStore.setItemAsync(TOKEN_KEY, token);
 }
@@ -61,6 +69,8 @@ export async function login(email: string, password: string) {
 }
 
 export async function logout() {
+    const { disconnectRealtime } = await import('./realtime');
+    disconnectRealtime();
     await clearToken();
 }
 
@@ -187,6 +197,66 @@ export async function markConversationRead(otherUserId: number) {
  */
 export async function getMe() {
     return request('/user');
+}
+
+/** Public Reverb connection information for the signed-in mobile app. */
+export async function getRealtimeConfig() {
+    return request('/realtime/config');
+}
+
+export async function updateMyProfile(data: {
+    full_name: string;
+    phone_number: string | null;
+    business_address: string | null;
+}) {
+    return request('/user/profile', {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+    });
+}
+
+/** Upload a customer profile image without changing the rest of their profile. */
+export async function uploadMyProfilePicture(imageUri: string) {
+    const token = await getToken();
+    const form = new FormData();
+    const filename = imageUri.split('/').pop() || 'profile-picture.jpg';
+    const extension = filename.split('.').pop()?.toLowerCase();
+    const type = extension === 'png'
+        ? 'image/png'
+        : extension === 'webp'
+            ? 'image/webp'
+            : 'image/jpeg';
+
+    form.append('profile_picture', { uri: imageUri, name: filename, type } as any);
+
+    return new Promise<any>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `${API_BASE_URL}/user/profile/picture`);
+        xhr.setRequestHeader('Accept', 'application/json');
+        if (token) {
+            xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        }
+
+        xhr.onload = () => {
+            let data: any = {};
+            try {
+                data = JSON.parse(xhr.responseText);
+            } catch { }
+
+            if (xhr.status >= 200 && xhr.status < 300) {
+                resolve(data);
+                return;
+            }
+
+            const message = data.errors
+                ? Object.values(data.errors).flat().join('\n')
+                : data.message || 'Could not upload the profile picture.';
+            reject(new Error(message));
+        };
+
+        xhr.onerror = () => reject(new Error('Network request failed.'));
+        xhr.send(form as any);
+    });
 }
 
 /**

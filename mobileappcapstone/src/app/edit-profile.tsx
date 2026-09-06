@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, SafeAreaView, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, SafeAreaView, Alert, Image, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
-import { useTheme } from '../contexts/ThemeContext';
 import * as ImagePicker from 'expo-image-picker';
-import { getMe } from '../services/api';
+import { useTheme } from '../contexts/ThemeContext';
+import { getMe, resolveImageUrl, updateMyProfile, uploadMyProfilePicture } from '../services/api';
 
 export default function EditProfileScreen() {
   const { colors } = useTheme();
@@ -11,8 +11,9 @@ export default function EditProfileScreen() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
-  const [bio, setBio] = useState('');
-  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [uploadingPicture, setUploadingPicture] = useState(false);
+  const [profilePicture, setProfilePicture] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -25,7 +26,7 @@ export default function EditProfileScreen() {
         setEmail(user?.email ?? '');
         setPhone(user?.phone_number ?? '');
         setAddress(businessClient?.business_address ?? '');
-        setProfileImage(businessClient?.profile_pic ?? null);
+        setProfilePicture(resolveImageUrl(businessClient?.profile_pic_url ?? businessClient?.profile_pic));
       })
       .catch(() => {
         // Leave fields blank rather than showing another person's placeholder data.
@@ -36,20 +37,47 @@ export default function EditProfileScreen() {
     };
   }, []);
 
-  const handlePickImage = async () => {
+  const handlePickProfilePicture = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 1,
+        quality: 0.8,
       });
 
-      if (!result.canceled && result.assets && result.assets[0]) {
-        setProfileImage(result.assets[0].uri);
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to pick image');
+      if (result.canceled || !result.assets?.[0]) return;
+
+      setUploadingPicture(true);
+      const response = await uploadMyProfilePicture(result.assets[0].uri);
+      setProfilePicture(resolveImageUrl(response.profile_pic_url));
+      Alert.alert('Profile picture updated', 'Your new picture is now visible in your chats.');
+    } catch (error: any) {
+      Alert.alert('Could not update profile picture', error?.message ?? 'Please try again.');
+    } finally {
+      setUploadingPicture(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!name.trim()) {
+      Alert.alert('Full name required', 'Enter your full name before saving.');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      await updateMyProfile({
+        full_name: name.trim(),
+        phone_number: phone.trim() || null,
+        business_address: address.trim() || null,
+      });
+      Alert.alert('Profile saved', 'Your profile details have been updated.');
+      router.replace('/profile');
+    } catch (error: any) {
+      Alert.alert('Could not save profile', error?.message ?? 'Please try again.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -63,22 +91,23 @@ export default function EditProfileScreen() {
           <Text style={[styles.title, { color: colors.text }]}>Edit Profile</Text>
         </View>
 
-        <View style={styles.profilePhotoSection}>
-          <TouchableOpacity onPress={handlePickImage}>
-            {profileImage ? (
-              <Image source={{ uri: profileImage }} style={styles.profileImage} />
+        <View style={styles.form}>
+          <View style={styles.pictureSection}>
+            {profilePicture ? (
+              <Image source={{ uri: profilePicture }} style={styles.profilePicture} />
             ) : (
-              <View style={[styles.profilePlaceholder, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>Add Photo</Text>
+              <View style={[styles.profilePicture, { backgroundColor: '#2196F3' }]}>
+                <Text style={styles.profilePictureFallback}>{name.trim().slice(0, 2).toUpperCase() || 'B'}</Text>
               </View>
             )}
-            <View style={[styles.cameraIcon, { backgroundColor: '#2196F3' }]}>
-              <Image source={require('@/assets/images/settingsicons/camera.png')} style={styles.cameraIconImage} tintColor={colors.text} />
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.form}>
+            <TouchableOpacity
+              style={[styles.pictureButton, { opacity: uploadingPicture ? 0.65 : 1 }]}
+              onPress={handlePickProfilePicture}
+              disabled={uploadingPicture}
+            >
+              {uploadingPicture ? <ActivityIndicator color="#2196F3" /> : <Text style={styles.pictureButtonText}>Change photo</Text>}
+            </TouchableOpacity>
+          </View>
           <View style={styles.fieldContainer}>
             <Text style={[styles.label, { color: colors.text }]}>Full Name</Text>
             <TextInput
@@ -120,32 +149,12 @@ export default function EditProfileScreen() {
             />
           </View>
 
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.label, { color: colors.text }]}>Bio</Text>
-            <TextInput
-              style={[styles.input, styles.textArea, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
-              value={bio}
-              onChangeText={setBio}
-              placeholder="Tell us about yourself"
-              placeholderTextColor="#666"
-              multiline
-              numberOfLines={4}
-            />
-          </View>
-
           <TouchableOpacity 
-            style={[styles.saveButton, { backgroundColor: '#2196F3' }]}
-            onPress={() => {
-              router.push({
-                pathname: '/profile',
-                params: { 
-                  profileImage: profileImage || '',
-                  name: name
-                }
-              });
-            }}
+            style={[styles.saveButton, { backgroundColor: '#2196F3', opacity: saving ? 0.65 : 1 }]}
+            onPress={handleSave}
+            disabled={saving}
           >
-            <Text style={styles.saveButtonText}>Save Changes</Text>
+            <Text style={styles.saveButtonText}>{saving ? 'Saving...' : 'Save Changes'}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -181,47 +190,34 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
   },
-  profilePhotoSection: {
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  profileImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-  },
-  profilePlaceholder: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-  },
-  placeholderText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  cameraIcon: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cameraIconText: {
-    fontSize: 16,
-  },
-  cameraIconImage: {
-    width: 20,
-    height: 20,
-    resizeMode: 'contain',
-  },
   form: {
     marginBottom: 20,
+  },
+  pictureSection: {
+    alignItems: 'center',
+    marginBottom: 28,
+  },
+  profilePicture: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profilePictureFallback: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 28,
+  },
+  pictureButton: {
+    marginTop: 10,
+    minHeight: 40,
+    justifyContent: 'center',
+  },
+  pictureButtonText: {
+    color: '#2196F3',
+    fontWeight: '700',
+    fontSize: 15,
   },
   fieldContainer: {
     marginBottom: 20,
@@ -244,10 +240,6 @@ const styles = StyleSheet.create({
   },
   readOnlyText: {
     fontSize: 16,
-  },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
   },
   saveButton: {
     backgroundColor: '#2196F3',
