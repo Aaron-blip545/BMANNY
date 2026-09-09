@@ -36,6 +36,7 @@ class SalesDashboardController extends Controller
             'analytics' => [
                 'periods' => $analytics->periods(),
             ],
+            'topBuyers' => $analytics->topBuyers(),
         ]);
     }
 

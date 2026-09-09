@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Inquiry;
 use App\Models\InquiryCustomization;
+use App\Models\Order;
 use App\Services\NotificationService;
 use Illuminate\Support\Facades\DB;
 
@@ -168,5 +169,105 @@ class InquiryController extends Controller
             'message' => 'Inquiry cancelled.',
             'inquiry' => $inquiry->fresh(),
         ]);
+    }
+
+    /**
+     * Quick-reorder: clone an existing order's customizations into a fresh
+     * pending Inquiry so the customer doesn't have to re-fill the inquiry
+     * form from scratch.
+     *
+     * The original order must belong to the authenticated client, and it
+     * must be in a terminal status (completed or delivered) before we
+     * allow a reorder.
+     */
+    public function reorder(Request $request, $order_id)
+    {
+        $client = $request->user()->businessClient;
+
+        if (! $client) {
+            return response()->json(['message' => 'No business client profile found.'], 422);
+        }
+
+        // Load order with customization chain
+        $order = Order::with([
+            'quotation.inquiry.customizations',
+        ])->findOrFail($order_id);
+
+        // Ensure this order belongs to the authenticated client
+        if ((int) $order->client_id !== (int) $client->client_id) {
+            return response()->json(['message' => 'This order does not belong to you.'], 403);
+        }
+
+        // Only allow reorder from completed/delivered orders
+        if (! in_array($order->status, ['completed', 'delivered'], true)) {
+            return response()->json([
+                'message' => 'You can only reorder from completed or delivered orders.',
+            ], 422);
+        }
+
+        $originalCustomizations = $order->quotation?->inquiry?->customizations;
+
+        if (! $originalCustomizations || $originalCustomizations->isEmpty()) {
+            return response()->json([
+                'message' => 'No customization details found on the original order to clone.',
+            ], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            // Create new inquiry
+            $newInquiry = Inquiry::create([
+                'client_id' => $client->client_id,
+                'status'    => 'pending',
+            ]);
+
+            // Clone each customization from the original inquiry
+            foreach ($originalCustomizations as $cust) {
+                // Append a reorder note to client_notes for audit tracing
+                $existingNotes = $cust->client_notes ?? '';
+                $reorderTag    = "[Reorder from Order #{$order->order_id}]";
+                $newNotes      = $existingNotes
+                    ? "{$existingNotes} | {$reorderTag}"
+                    : $reorderTag;
+
+                InquiryCustomization::create([
+                    'inquiry_id'         => $newInquiry->inquiry_id,
+                    'customization_type' => $cust->customization_type ?? 'Custom Rebrand & Packaging',
+                    'packaging_type'     => $cust->packaging_type,
+                    'packaging_finish'   => $cust->packaging_finish,
+                    'serving_size'       => $cust->serving_size,
+                    'formulation_notes'  => $cust->formulation_notes,
+                    'client_notes'       => $newNotes,
+                ]);
+            }
+
+            DB::commit();
+
+            // Notify sales agents and admin
+            $clientName = $client->business_name ?? $request->user()->full_name;
+            NotificationService::sendToRoles(
+                ['sales_agent', 'admin'],
+                'inquiry',
+                'Reorder Inquiry Received',
+                "{$clientName} submitted a reorder based on Order #{$order->order_id}",
+                [
+                    'inquiry_id'       => $newInquiry->inquiry_id,
+                    'client_id'        => $client->client_id,
+                    'original_order_id'=> $order->order_id,
+                ]
+            );
+
+            return response()->json([
+                'message' => 'Reorder inquiry submitted successfully. Our team will be in touch shortly.',
+                'inquiry' => $newInquiry->load('customizations'),
+            ], 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'error'   => 'Failed to submit reorder.',
+                'details' => $e->getMessage(),
+            ], 500);
+        }
     }
 }

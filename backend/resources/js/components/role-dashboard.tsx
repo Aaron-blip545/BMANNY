@@ -19,9 +19,11 @@ interface RoleDashboardProps {
     quickAccessItems: QuickAccessItem[];
     dashboardHref: string;
     analytics?: ReactNode;
+    /** Extra content rendered below the analytics block (e.g. a leaderboard card). */
+    extraContent?: ReactNode;
 }
 
-export function RoleDashboard({ title, description, summaryItems, activityTitle, activityItems = [], quickAccessItems, dashboardHref, analytics }: RoleDashboardProps) {
+export function RoleDashboard({ title, description, summaryItems, activityTitle, activityItems = [], quickAccessItems, dashboardHref, analytics, extraContent }: RoleDashboardProps) {
     const breadcrumbs: BreadcrumbItem[] = [{ title: 'Dashboard', href: dashboardHref }];
     const metricFor = (label: string) => {
         const normalized = label.toLowerCase();
@@ -91,6 +93,7 @@ export function RoleDashboard({ title, description, summaryItems, activityTitle,
                         </Card>
                     </section>
                     {analytics}
+                    {extraContent}
                 </div>
             </main>
         </AppLayout>

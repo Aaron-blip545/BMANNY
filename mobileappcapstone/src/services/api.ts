@@ -293,6 +293,15 @@ export async function getMyInquiries() {
 }
 
 /**
+ * Submit a quick-reorder by cloning the customizations from a previous
+ * completed/delivered order into a new pending inquiry. The sales team
+ * will be notified automatically.
+ */
+export async function reorderFromOrder(orderId: number) {
+    return request(`/orders/${orderId}/reorder`, { method: 'POST' });
+}
+
+/**
  * Cancel an inquiry that hasn't been quoted yet. The backend rejects this
  * once a quotation exists for the inquiry.
  */

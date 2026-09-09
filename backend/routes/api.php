@@ -56,6 +56,8 @@ Route::middleware(['auth:sanctum', 'active.api'])->group(function () {
         Route::post('/quotations/{quotation_id}/pay', [QuotationController::class, 'submitPayment'])->middleware('throttle:write');
         Route::post('/orders/{order_id}/upload-receipt', [FileUploadController::class, 'uploadReceipt'])->middleware('throttle:upload');
         Route::get('/orders/my-orders', [OrderController::class, 'myOrders']);
+        // Quick-reorder: clone a completed/delivered order's specs into a new inquiry
+        Route::post('/orders/{order_id}/reorder', [InquiryController::class, 'reorder'])->middleware('throttle:write');
     });
 
     // 2. Sales Agent & Admin Routes
