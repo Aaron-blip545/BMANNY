@@ -1,4 +1,4 @@
-import PusherModule from 'pusher-js/react-native';
+import PusherModule from 'pusher-js/worker';
 import { getApiBaseUrl, getAuthToken, getMe, getRealtimeConfig } from './api';
 
 export type RealtimeEvent =

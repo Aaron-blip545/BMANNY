@@ -57,7 +57,7 @@ export default function InquiriesPage({ inquiries }: Props) {
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>('all');
 
-    const pending   = inquiries.filter((i) => i.status === 'pending').length;
+    const pending = inquiries.filter((i) => i.status === 'pending').length;
     const responded = inquiries.filter((i) => i.status === 'responded').length;
 
     const filteredInquiries = useMemo(() => {
@@ -111,10 +111,10 @@ export default function InquiriesPage({ inquiries }: Props) {
                 {/* Stats row */}
                 <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
                     {[
-                        { label: 'Total',     value: inquiries.length },
-                        { label: 'Pending',   value: pending },
+                        { label: 'Total', value: inquiries.length },
+                        { label: 'Pending', value: pending },
                         { label: 'Responded', value: responded },
-                        { label: 'Closed',    value: inquiries.filter((i) => i.status === 'closed').length },
+                        { label: 'Closed', value: inquiries.filter((i) => i.status === 'closed').length },
                     ].map((s) => (
                         <BmannyMetricCard key={s.label} label={s.label} value={s.value} description={s.label === 'Pending' ? 'Awaiting review' : s.label === 'Responded' ? 'Quotation sent' : s.label === 'Closed' ? 'Completed or declined' : 'All customer inquiries'} icon={s.label === 'Pending' ? Clock3 : s.label === 'Responded' ? CircleCheck : s.label === 'Closed' ? CircleX : ClipboardList} accent={s.label === 'Pending' ? 'gold' : s.label === 'Responded' ? 'green' : s.label === 'Closed' ? 'navy' : 'blue'} />
                     ))}

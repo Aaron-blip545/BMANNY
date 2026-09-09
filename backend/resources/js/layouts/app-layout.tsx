@@ -26,7 +26,7 @@ function RealtimePageSync() {
             // refresh instead of issuing a request for every event.
             if (reloadTimer.current) return;
             reloadTimer.current = window.setTimeout(() => {
-                router.reload({ preserveScroll: true, preserveState: true });
+                router.reload();
                 reloadTimer.current = null;
             }, 500);
         },

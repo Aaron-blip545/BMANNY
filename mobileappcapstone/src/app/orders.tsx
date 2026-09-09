@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
-import { getMyOrders, getMyInquiries, cancelInquiry } from '../services/api';
+import { getMyOrders, getMyInquiries, cancelInquiry, reorderFromOrder } from '../services/api';
 import { subscribeToRealtime } from '../services/realtime';
 
 const HomeIcon = ({ colors, isActive }: { colors: any; isActive?: boolean }) => (
@@ -100,6 +100,7 @@ export default function OrdersScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('approved');
+  const [reorderingId, setReorderingId] = useState<number | null>(null);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
 
   const statusTabs = [
@@ -190,6 +191,44 @@ export default function OrdersScreen() {
   const inquiryStatusLabel = (inq: Inquiry) => {
     if (inq.cancelled_at) return 'Cancelled';
     return inq.status.charAt(0).toUpperCase() + inq.status.slice(1);
+  };
+
+  const handleReorder = (order: Order, title: string) => {
+    const specs: string[] = [];
+    if (order.customizations?.[0]?.packaging_type) specs.push(`Packaging: ${order.customizations[0].packaging_type}`);
+    if (order.customizations?.[0]?.serving_size) specs.push(`Size: ${order.customizations[0].serving_size}`);
+
+    const notes = order.customizations?.[0]?.client_notes ?? '';
+    const brandMatch = notes.match(/Brand:\s*([^|]+)/i);
+    const flavorMatch = notes.match(/Flavor:\s*([^|]+)/i);
+    if (brandMatch) specs.push(`Brand: ${brandMatch[1].trim()}`);
+    if (flavorMatch) specs.push(`Flavor: ${flavorMatch[1].trim()}`);
+
+    const specsText = specs.length > 0 ? `\n\n${specs.join('\n')}` : '';
+
+    Alert.alert(
+      '🔁 Reorder Same?',
+      `Submit a new inquiry with the same specs as "${title}"?${specsText}\n\nOur sales team will review and send you a fresh quotation.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm Reorder',
+          onPress: async () => {
+            setReorderingId(order.order_id);
+            try {
+              await reorderFromOrder(order.order_id);
+              await loadAll();
+              setView('inquiries');
+              Alert.alert('Reorder Submitted! 🎉', 'A new inquiry has been created. We\'ll send you a quotation soon.');
+            } catch (err: any) {
+              Alert.alert('Reorder Failed', err.message || 'Something went wrong. Please try again.');
+            } finally {
+              setReorderingId(null);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const handleCancelInquiry = (inquiryId: number, title: string) => {
@@ -459,6 +498,19 @@ export default function OrdersScreen() {
                       <Text style={styles.viewBtnText}>View Details</Text>
                     </TouchableOpacity>
 
+                    {/* Reorder Same — available on completed or delivered orders */}
+                    {(order.status === 'completed' || order.status === 'delivered') && (
+                      <TouchableOpacity
+                        style={[styles.reorderBtn, reorderingId === order.order_id && styles.reorderBtnDisabled]}
+                        disabled={reorderingId === order.order_id}
+                        onPress={() => handleReorder(order, orderTitle)}
+                      >
+                        <Text style={styles.reorderBtnText}>
+                          {reorderingId === order.order_id ? 'Submitting…' : '🔁 Reorder Same'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+
                     <Text style={[styles.cardDate, { color: colors.textSecondary }]}>
                       {new Date(order.created_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
                     </Text>
@@ -624,6 +676,21 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   cancelInquiryBtnText: { color: '#E53935', fontSize: 14, fontWeight: '700' },
+
+  /* REORDER BUTTON */
+  reorderBtn: {
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#4CAF50',
+    paddingVertical: 9,
+    alignItems: 'center',
+    marginTop: 6,
+    backgroundColor: 'transparent',
+  },
+  reorderBtnDisabled: {
+    opacity: 0.5,
+  },
+  reorderBtnText: { color: '#4CAF50', fontSize: 14, fontWeight: '700' },
 
   /* NAV */
   navBar: { flexDirection: 'row', borderTopWidth: 1, paddingBottom: 20 },
