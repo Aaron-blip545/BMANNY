@@ -2,7 +2,20 @@ import { Card, CardContent } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
-import { ArrowUpRight, Boxes, CircleHelp, ClipboardList, PackageCheck, Users, type LucideIcon } from 'lucide-react';
+import {
+    ArrowUpRight,
+    Boxes,
+    ChevronDown,
+    ChevronUp,
+    CircleHelp,
+    ClipboardList,
+    Minus,
+    PackageCheck,
+    Plus,
+    Users,
+    type LucideIcon,
+} from 'lucide-react';
+import { useState } from 'react';
 
 interface Props {
     stats?: { users: number; inquiries: number; orders: number; products: number };
@@ -39,6 +52,8 @@ export default function AdminDashboard({
     stats = { users: 0, inquiries: 0, orders: 0, products: 0 },
     recentInquiries = [],
 }: Props) {
+    const [isActivityMinimized, setIsActivityMinimized] = useState(false);
+
     const metrics: Metric[] = [
         { label: 'Users', value: stats.users, description: 'Registered accounts', icon: Users, accent: 'bg-[#1547c0]', surface: 'bg-[#f7faff] dark:bg-card', iconColor: 'text-[#1547c0] dark:text-blue-300' },
         { label: 'Inquiries', value: stats.inquiries, description: 'Customer submissions', icon: CircleHelp, accent: 'bg-[#d6a72c]', surface: 'bg-[#fffaf0] dark:bg-card', iconColor: 'text-[#b67c08] dark:text-amber-300' },
@@ -98,26 +113,64 @@ export default function AdminDashboard({
                         ) : (
                             <Card className="overflow-hidden rounded-xl border-[#203a65] bg-card shadow-[0_8px_22px_rgba(7,29,73,0.08)] dark:border-border">
                                 <CardContent className="p-0">
-                                    <div className="flex items-start justify-between gap-4 border-b border-[#203a65] bg-[#071d49] px-5 py-4 text-white dark:bg-[#0d213f]">
+                                    <div
+                                        className="flex items-center justify-between gap-4 border-b border-[#203a65] bg-[#071d49] px-5 py-4 text-white dark:bg-[#0d213f] cursor-pointer select-none transition-colors hover:bg-[#0a255c] dark:hover:bg-[#11294d]"
+                                        onClick={() => setIsActivityMinimized(!isActivityMinimized)}
+                                    >
                                         <div>
-                                            <h2 className="text-base font-semibold text-white">Recent Activity</h2>
-                                            <p className="mt-1 text-sm text-blue-100/75">Latest customer inquiry activity.</p>
-                                        </div>
-                                        <span className="mt-2 h-0.5 w-8 rounded-full bg-[#d6a72c]" aria-hidden="true" />
-                                    </div>
-                                    <div className="divide-y divide-border">
-                                        {recentInquiries.map((inquiry) => (
-                                            <div key={inquiry.inquiry_id} className="flex items-start gap-3 px-5 py-4">
-                                                <span className="mt-2 size-2 shrink-0 rounded-full bg-[#1547c0]" aria-hidden="true" />
-                                                <div className="min-w-0 flex-1">
-                                                    <p className="text-sm font-medium text-card-foreground">Inquiry #{inquiry.inquiry_id} from {inquiry.client?.business_name ?? 'a customer'}</p>
-                                                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                                                        <span className={`bmanny-status ${statusClass(inquiry.status)}`}>{inquiry.status}</span>
-                                                        <span>{new Date(inquiry.created_at).toLocaleString('en-PH')}</span>
-                                                    </div>
-                                                </div>
+                                            <div className="flex items-center gap-2">
+                                                <h2 className="text-base font-semibold text-white">Recent Activity</h2>
+                                                {isActivityMinimized && (
+                                                    <span className="rounded-full bg-white/15 px-2 py-0.5 text-xs text-blue-100 font-medium">
+                                                        {recentInquiries.length} items
+                                                    </span>
+                                                )}
                                             </div>
-                                        ))}
+                                            <p className="mt-0.5 text-sm text-blue-100/75">
+                                                {isActivityMinimized
+                                                    ? 'Click to expand customer inquiry activity.'
+                                                    : 'Latest customer inquiry activity.'}
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setIsActivityMinimized(!isActivityMinimized);
+                                            }}
+                                            className="flex h-8 items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-3 text-xs font-medium text-white transition hover:bg-white/25 hover:border-white/40 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#d6a72c]"
+                                            aria-label={isActivityMinimized ? 'Expand recent activity' : 'Minimize recent activity'}
+                                            title={isActivityMinimized ? 'Expand' : 'Minimize'}
+                                        >
+                                            <span>{isActivityMinimized ? 'Expand' : 'Minimize'}</span>
+                                            {isActivityMinimized ? (
+                                                <Plus className="size-3.5" />
+                                            ) : (
+                                                <Minus className="size-3.5" />
+                                            )}
+                                        </button>
+                                    </div>
+                                    <div
+                                        className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${
+                                            isActivityMinimized ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'
+                                        }`}
+                                    >
+                                        <div className="overflow-hidden">
+                                            <div className="divide-y divide-border">
+                                                {recentInquiries.map((inquiry) => (
+                                                    <div key={inquiry.inquiry_id} className="flex items-start gap-3 px-5 py-4 hover:bg-muted/30 transition-colors">
+                                                        <span className="mt-2 size-2 shrink-0 rounded-full bg-[#1547c0]" aria-hidden="true" />
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="text-sm font-medium text-card-foreground">Inquiry #{inquiry.inquiry_id} from {inquiry.client?.business_name ?? 'a customer'}</p>
+                                                            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                                                <span className={`bmanny-status ${statusClass(inquiry.status)}`}>{inquiry.status}</span>
+                                                                <span>{new Date(inquiry.created_at).toLocaleString('en-PH')}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
                                     </div>
                                 </CardContent>
                             </Card>

@@ -1,3 +1,4 @@
+import { confirmModal } from '@/lib/sweetalert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { BmannyMetricCard } from '@/components/bmanny-metric-card';
@@ -86,13 +87,15 @@ export default function QuotationsPage({ quotations }: Props) {
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
-    function handleAccept(quotation: Quotation) {
+    async function handleAccept(quotation: Quotation) {
         const client = quotation.inquiry?.client;
-        const confirmed = window.confirm(
-            `Accept quotation #${quotation.quotation_id} for ${client?.business_name ?? 'this client'} ` +
-            `(${formatCurrency(quotation.total_amount)})?\n\n` +
-            `This will create a new Order and forward it to the Order Manager.`,
-        );
+        const confirmed = await confirmModal({
+            title: `Accept Quotation #${quotation.quotation_id}?`,
+            text: `Accept quotation for ${client?.business_name ?? 'this client'} (${formatCurrency(quotation.total_amount)})? This will create a new Order and forward it to the Order Manager.`,
+            confirmButtonText: 'Accept Quotation',
+            cancelButtonText: 'Cancel',
+            icon: 'question',
+        });
         if (!confirmed) return;
 
         router.post(
@@ -102,11 +105,15 @@ export default function QuotationsPage({ quotations }: Props) {
         );
     }
 
-    function handleRejectPayment(quotation: Quotation) {
-        const confirmed = window.confirm(
-            `Reject the payment submitted for quotation #${quotation.quotation_id}? ` +
-            `The client will be asked to resubmit proof of payment.`,
-        );
+    async function handleRejectPayment(quotation: Quotation) {
+        const confirmed = await confirmModal({
+            title: `Reject Payment #${quotation.quotation_id}?`,
+            text: `Reject the payment submitted for quotation #${quotation.quotation_id}? The client will be asked to resubmit proof of payment.`,
+            confirmButtonText: 'Reject Payment',
+            cancelButtonText: 'Cancel',
+            isDestructive: true,
+            icon: 'warning',
+        });
         if (!confirmed) return;
 
         router.post(
