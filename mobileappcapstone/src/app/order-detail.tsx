@@ -1,7 +1,8 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Image } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Image, Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
+import { reorderFromOrder } from '../services/api';
 
 const HomeIcon = ({ colors }: { colors: any }) => (
   <Image source={require('@/assets/images/homepageicon/home.png')} style={styles.navIcon} tintColor={colors.text} />
@@ -20,6 +21,9 @@ const ProfileIcon = ({ colors }: { colors: any }) => (
 );
 
 interface Order {
+  order_id?: number;
+  status?: string;
+  customizations?: { packaging_type?: string; serving_size?: string | null; client_notes?: string | null }[];
   productType?: string;
   flavor?: string;
   size?: string;
@@ -30,15 +34,17 @@ interface Order {
   quantity?: string;
   paymentMethod?: string;
   imageData?: string;
-  status?: string;
-  orderDate?: string;
   proofImage?: string;
   paymentDate?: string;
+  orderDate?: string;
+  total_amount?: string;
+  internal_tracking_number?: string | null;
 }
 
 export default function OrderDetailScreen() {
   const { colors } = useTheme();
   const { orderData } = useLocalSearchParams<{ orderData: string }>();
+  const [reordering, setReordering] = useState(false);
   
   let order: Order = {};
   try {
@@ -193,6 +199,58 @@ export default function OrderDetailScreen() {
             <Image source={{ uri: order.proofImage }} style={styles.proofImage} resizeMode="cover" />
           </View>
         )}
+
+        {/* 🔁 Reorder Same — only for completed/delivered orders */}
+        {(order.status === 'completed' || order.status === 'delivered') && order.order_id && (
+          <View style={[styles.section, { backgroundColor: colors.card, borderColor: '#4CAF50' }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Reorder</Text>
+            <Text style={[styles.reorderDesc, { color: colors.textSecondary }]}>
+              Want the same product again? Submit a new inquiry with identical specs — our sales team will send you a fresh quotation.
+            </Text>
+            <TouchableOpacity
+              style={[styles.reorderBtn, reordering && styles.reorderBtnDisabled]}
+              disabled={reordering}
+              onPress={() => {
+                const specs: string[] = [];
+                if (order.packaging) specs.push(`Packaging: ${order.packaging}`);
+                if (order.size) specs.push(`Size: ${order.size}`);
+                if (order.brandName) specs.push(`Brand: ${order.brandName}`);
+                if (order.flavor) specs.push(`Flavor: ${order.flavor}`);
+                const specsText = specs.length > 0 ? `\n\n${specs.join('\n')}` : '';
+
+                Alert.alert(
+                  '🔁 Reorder Same?',
+                  `Submit a new inquiry with the same specs as "${order.brandName || 'this order'}"?${specsText}\n\nOur sales team will review and send you a fresh quotation.`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Confirm Reorder',
+                      onPress: async () => {
+                        setReordering(true);
+                        try {
+                          await reorderFromOrder(order.order_id!);
+                          Alert.alert(
+                            'Reorder Submitted! 🎉',
+                            "A new inquiry has been created. We'll send you a quotation soon.",
+                            [{ text: 'View Inquiries', onPress: () => router.push('/orders') }]
+                          );
+                        } catch (err: any) {
+                          Alert.alert('Reorder Failed', err.message || 'Something went wrong. Please try again.');
+                        } finally {
+                          setReordering(false);
+                        }
+                      },
+                    },
+                  ]
+                );
+              }}
+            >
+              <Text style={styles.reorderBtnText}>
+                {reordering ? 'Submitting…' : '🔁 Reorder Same'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
 
       <View style={[styles.navigationBar, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
@@ -303,6 +361,27 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 200,
     borderRadius: 12,
+  },
+
+  /* REORDER */
+  reorderDesc: {
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 14,
+  },
+  reorderBtn: {
+    backgroundColor: '#4CAF50',
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  reorderBtnDisabled: {
+    opacity: 0.5,
+  },
+  reorderBtnText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '700',
   },
 
   /* NAVIGATION BAR */

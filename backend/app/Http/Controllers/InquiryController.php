@@ -137,32 +137,55 @@ class InquiryController extends Controller
     }
 
     /**
-     * Let a customer cancel their own inquiry - but only while it hasn't
-     * been quoted yet. Once a quotation exists, the sales agent has
-     * already done work on it, so cancellation has to go through them
-     * instead (e.g. via chat) rather than silently disappearing here.
+     * Let a customer cancel their own inquiry.
+     *
+     * Eligible states:
+     *  - No quotation yet (pending/reviewed status)
+     *  - Quotation sent but payment NOT yet submitted
+     *
+     * Blocked once:
+     *  - Payment has been submitted (awaiting confirmation)
+     *  - An order already exists for this inquiry
      */
     public function cancel(Request $request, $inquiry_id)
     {
+        $request->validate([
+            'cancellation_reason' => 'required|string|min:5|max:1000',
+        ]);
+
         $client = $request->user()->businessClient;
 
         if (! $client) {
             return response()->json(['message' => 'No business client profile found.'], 422);
         }
 
-        $inquiry = Inquiry::with('quotation')->findOrFail($inquiry_id);
+        $inquiry = Inquiry::with('quotation.order')->findOrFail($inquiry_id);
 
         if ((int) $inquiry->client_id !== (int) $client->client_id) {
             return response()->json(['message' => 'This inquiry does not belong to you.'], 403);
         }
 
-        if ($inquiry->quotation !== null || ! in_array($inquiry->status, ['pending', 'reviewed'], true)) {
-            return response()->json(['message' => 'This inquiry has already been quoted and can no longer be cancelled here.'], 422);
+        $quotation = $inquiry->quotation;
+
+        // Block if an order already exists
+        if ($quotation && $quotation->order !== null) {
+            return response()->json(['message' => 'An order has already been created from this inquiry and can no longer be cancelled here.'], 422);
+        }
+
+        // Block if payment proof has been submitted (awaiting sales agent confirmation)
+        if ($quotation && $quotation->payment_submitted_at !== null) {
+            return response()->json(['message' => 'Payment has already been submitted. Please contact our sales team to cancel.'], 422);
+        }
+
+        // Allow: no quotation yet (pending/reviewed) OR quotation sent but unpaid
+        if ($quotation === null && ! in_array($inquiry->status, ['pending', 'reviewed'], true)) {
+            return response()->json(['message' => 'This inquiry cannot be cancelled in its current state.'], 422);
         }
 
         $inquiry->update([
-            'status' => 'closed',
-            'cancelled_at' => now(),
+            'status'               => 'closed',
+            'cancelled_at'         => now(),
+            'cancellation_reason'  => $request->cancellation_reason,
         ]);
 
         return response()->json([

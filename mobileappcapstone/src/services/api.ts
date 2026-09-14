@@ -302,11 +302,16 @@ export async function reorderFromOrder(orderId: number) {
 }
 
 /**
- * Cancel an inquiry that hasn't been quoted yet. The backend rejects this
- * once a quotation exists for the inquiry.
+ * Cancel an inquiry that hasn't been paid for yet. Requires a reason.
+ * The backend now accepts cancellation when:
+ *  - No quotation exists yet (pending/reviewed)
+ *  - A quotation was sent but payment has NOT been submitted
  */
-export async function cancelInquiry(inquiryId: number) {
-    return request(`/inquiries/${inquiryId}/cancel`, { method: 'POST' });
+export async function cancelInquiry(inquiryId: number, reason: string) {
+    return request(`/inquiries/${inquiryId}/cancel`, {
+        method: 'POST',
+        body: JSON.stringify({ cancellation_reason: reason }),
+    });
 }
 
 /**

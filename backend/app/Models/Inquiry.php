@@ -19,11 +19,13 @@ class Inquiry extends Model
         'message',
         'status',
         'cancelled_at',
+        'cancellation_reason',
     ];
 
     protected $casts = [
         'cancelled_at' => 'datetime',
     ];
+
 
     // An Inquiry can have multiple customization requests (e.g., front logo, back print)
     public function customizations()

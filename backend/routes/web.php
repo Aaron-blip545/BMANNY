@@ -4,8 +4,11 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\Web\AdminDashboardController;
 use App\Http\Controllers\Web\ChatController;
 use App\Http\Controllers\Web\OrderManagerController;
+use App\Http\Controllers\Web\CustomizationController;
+use App\Http\Controllers\Web\MoqController;
+use App\Http\Controllers\Web\PackagingController;
 use App\Http\Controllers\Web\ProductControllerDashboardController;
-use App\Http\Controllers\Web\ProductControllerModuleController;
+use App\Http\Controllers\Web\ProductVariantsController;
 use App\Http\Controllers\Web\ProductPageController;
 use App\Http\Controllers\Web\SalesAgentController;
 use App\Http\Controllers\Web\SalesDashboardController;
@@ -64,9 +67,54 @@ Route::middleware(['backend.auth'])->group(function () {
     Route::middleware(['backend.role:product_controller'])->group(function () {
         Route::get('product-controller/dashboard', [ProductControllerDashboardController::class, 'index'])
             ->name('product-controller.dashboard');
-        Route::get('product-controller/{module}', [ProductControllerModuleController::class, 'show'])
-            ->whereIn('module', ['variants', 'packaging', 'moq', 'customization', 'notifications'])
-            ->name('product-controller.module');
+
+        // Variants & Product Types
+        Route::get('product-controller/variants', [ProductVariantsController::class, 'index'])
+            ->name('product-controller.variants.index');
+        Route::post('product-controller/variants/types', [ProductVariantsController::class, 'storeType'])
+            ->name('product-controller.variants.types.store');
+        Route::put('product-controller/variants/types/{id}', [ProductVariantsController::class, 'updateType'])
+            ->name('product-controller.variants.types.update');
+        Route::delete('product-controller/variants/types/{id}', [ProductVariantsController::class, 'destroyType'])
+            ->name('product-controller.variants.types.destroy');
+        Route::post('product-controller/variants', [ProductVariantsController::class, 'store'])
+            ->name('product-controller.variants.store');
+        Route::put('product-controller/variants/{id}', [ProductVariantsController::class, 'update'])
+            ->name('product-controller.variants.update');
+        Route::delete('product-controller/variants/{id}', [ProductVariantsController::class, 'destroy'])
+            ->name('product-controller.variants.destroy');
+        Route::patch('product-controller/variants/{id}/restore', [ProductVariantsController::class, 'restore'])
+            ->name('product-controller.variants.restore');
+
+        // Packaging
+        Route::get('product-controller/packaging', [PackagingController::class, 'index'])
+            ->name('product-controller.packaging.index');
+        Route::post('product-controller/packaging', [PackagingController::class, 'store'])
+            ->name('product-controller.packaging.store');
+        Route::put('product-controller/packaging/{id}', [PackagingController::class, 'update'])
+            ->name('product-controller.packaging.update');
+        Route::delete('product-controller/packaging/{id}', [PackagingController::class, 'destroy'])
+            ->name('product-controller.packaging.destroy');
+
+        // MOQ
+        Route::get('product-controller/moq', [MoqController::class, 'index'])
+            ->name('product-controller.moq.index');
+        Route::post('product-controller/moq', [MoqController::class, 'store'])
+            ->name('product-controller.moq.store');
+        Route::put('product-controller/moq/{id}', [MoqController::class, 'update'])
+            ->name('product-controller.moq.update');
+        Route::delete('product-controller/moq/{id}', [MoqController::class, 'destroy'])
+            ->name('product-controller.moq.destroy');
+
+        // Customization
+        Route::get('product-controller/customization', [CustomizationController::class, 'index'])
+            ->name('product-controller.customization.index');
+        Route::post('product-controller/customization', [CustomizationController::class, 'store'])
+            ->name('product-controller.customization.store');
+        Route::put('product-controller/customization/{id}', [CustomizationController::class, 'update'])
+            ->name('product-controller.customization.update');
+        Route::delete('product-controller/customization/{id}', [CustomizationController::class, 'destroy'])
+            ->name('product-controller.customization.destroy');
     });
 
     // Sales Agent + Admin: Inquiries list, Quotation workflow, and Chat

@@ -10,10 +10,14 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
-import { getMyOrders, getMyInquiries, cancelInquiry, reorderFromOrder } from '../services/api';
+import { getMyOrders, getMyInquiries, cancelInquiry } from '../services/api';
 import { subscribeToRealtime } from '../services/realtime';
 
 const HomeIcon = ({ colors, isActive }: { colors: any; isActive?: boolean }) => (
@@ -94,14 +98,21 @@ export default function OrdersScreen() {
     source?: string;
     tab?: string;
   }>();
-  const [view, setView] = useState<'inquiries' | 'orders'>('inquiries');
+  const [view, setView] = useState<'inquiries' | 'history' | 'orders'>('inquiries');
   const [orders, setOrders] = useState<Order[]>([]);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('approved');
-  const [reorderingId, setReorderingId] = useState<number | null>(null);
-  const [cancellingId, setCancellingId] = useState<number | null>(null);
+
+  // Cancel-with-reason modal state
+  const [cancelModal, setCancelModal] = useState<{
+    visible: boolean;
+    inquiryId: number | null;
+    title: string;
+    reason: string;
+    submitting: boolean;
+  }>({ visible: false, inquiryId: null, title: '', reason: '', submitting: false });
 
   const statusTabs = [
     { id: 'approved', label: 'Approved' },
@@ -193,73 +204,43 @@ export default function OrdersScreen() {
     return inq.status.charAt(0).toUpperCase() + inq.status.slice(1);
   };
 
-  const handleReorder = (order: Order, title: string) => {
-    const specs: string[] = [];
-    if (order.customizations?.[0]?.packaging_type) specs.push(`Packaging: ${order.customizations[0].packaging_type}`);
-    if (order.customizations?.[0]?.serving_size) specs.push(`Size: ${order.customizations[0].serving_size}`);
-
-    const notes = order.customizations?.[0]?.client_notes ?? '';
-    const brandMatch = notes.match(/Brand:\s*([^|]+)/i);
-    const flavorMatch = notes.match(/Flavor:\s*([^|]+)/i);
-    if (brandMatch) specs.push(`Brand: ${brandMatch[1].trim()}`);
-    if (flavorMatch) specs.push(`Flavor: ${flavorMatch[1].trim()}`);
-
-    const specsText = specs.length > 0 ? `\n\n${specs.join('\n')}` : '';
-
-    Alert.alert(
-      '🔁 Reorder Same?',
-      `Submit a new inquiry with the same specs as "${title}"?${specsText}\n\nOur sales team will review and send you a fresh quotation.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm Reorder',
-          onPress: async () => {
-            setReorderingId(order.order_id);
-            try {
-              await reorderFromOrder(order.order_id);
-              await loadAll();
-              setView('inquiries');
-              Alert.alert('Reorder Submitted! 🎉', 'A new inquiry has been created. We\'ll send you a quotation soon.');
-            } catch (err: any) {
-              Alert.alert('Reorder Failed', err.message || 'Something went wrong. Please try again.');
-            } finally {
-              setReorderingId(null);
-            }
-          },
-        },
-      ],
-    );
+  /** Whether an inquiry is currently eligible for cancellation */
+  const canCancelInquiry = (inq: Inquiry): boolean => {
+    if (inq.cancelled_at) return false;         // already cancelled
+    if (inq.has_order) return false;            // order exists
+    if (inq.payment_submitted_at) return false; // payment submitted
+    // Allow: no quotation yet OR quotation sent but unpaid
+    return true;
   };
 
-  const handleCancelInquiry = (inquiryId: number, title: string) => {
-    Alert.alert(
-      'Cancel Inquiry?',
-      `Are you sure you want to cancel "${title}"? This cannot be undone.`,
-      [
-        { text: 'Keep Inquiry', style: 'cancel' },
-        {
-          text: 'Cancel Inquiry',
-          style: 'destructive',
-          onPress: async () => {
-            setCancellingId(inquiryId);
-            try {
-              await cancelInquiry(inquiryId);
-              await loadAll();
-            } catch (err: any) {
-              Alert.alert('Unable to Cancel', err.message || 'Something went wrong. Please try again.');
-            } finally {
-              setCancellingId(null);
-            }
-          },
-        },
-      ],
-    );
+  const openCancelModal = (inq: Inquiry, title: string) => {
+    setCancelModal({ visible: true, inquiryId: inq.inquiry_id, title, reason: '', submitting: false });
+  };
+
+  const closeCancelModal = () => {
+    if (cancelModal.submitting) return;
+    setCancelModal(prev => ({ ...prev, visible: false, reason: '' }));
+  };
+
+  const submitCancel = async () => {
+    const { inquiryId, reason } = cancelModal;
+    if (!inquiryId || reason.trim().length < 5) return;
+    setCancelModal(prev => ({ ...prev, submitting: true }));
+    try {
+      await cancelInquiry(inquiryId, reason.trim());
+      await loadAll();
+      setCancelModal({ visible: false, inquiryId: null, title: '', reason: '', submitting: false });
+    } catch (err: any) {
+      setCancelModal(prev => ({ ...prev, submitting: false }));
+      Alert.alert('Unable to Cancel', err.message || 'Something went wrong. Please try again.');
+    }
   };
 
   const filteredOrders = orders.filter(o => o.status === activeTab);
-  // Once a quotation has become an order, its lifecycle is tracked in the
-  // Orders view (including the Cancelled tab), not as an active inquiry.
-  const visibleInquiries = inquiries.filter(inquiry => !inquiry.has_order);
+  // Active inquiries: not yet converted to an order, not cancelled
+  const activeInquiries = inquiries.filter(inq => !inq.has_order && !inq.cancelled_at);
+  // All inquiries for history tab (already sorted newest-first by backend)
+  const allInquiries = inquiries;
 
   if (loading) {
     return (
@@ -274,17 +255,27 @@ export default function OrdersScreen() {
 
       {/* HEADER */}
       <View style={styles.header}>
-        <Text style={styles.title}>{view === 'inquiries' ? 'My Inquiries' : 'My Orders'}</Text>
+        <Text style={styles.title}>
+          {view === 'inquiries' ? 'My Inquiries' : view === 'history' ? 'Inquiry History' : 'My Orders'}
+        </Text>
       </View>
 
-      {/* INQUIRIES / ORDERS SWITCHER */}
+      {/* SWITCHER: Inquiries | History | Orders */}
       <View style={[styles.switcherRow, { borderColor: colors.border }]}>
         <TouchableOpacity
           style={[styles.switcherBtn, view === 'inquiries' && styles.switcherActive]}
           onPress={() => setView('inquiries')}
         >
-          <Text style={[styles.switcherText, { color: view === 'inquiries' ? '#ffffffff' : colors.textSecondary }]}>
-            Inquiries{visibleInquiries.length > 0 ? ` (${visibleInquiries.length})` : ''}
+          <Text style={[styles.switcherText, { color: view === 'inquiries' ? '#ffffff' : colors.textSecondary }]}>
+            Inquiries{activeInquiries.length > 0 ? ` (${activeInquiries.length})` : ''}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.switcherBtn, view === 'history' && styles.switcherActive]}
+          onPress={() => setView('history')}
+        >
+          <Text style={[styles.switcherText, { color: view === 'history' ? '#ffffff' : colors.textSecondary }]}>
+            History
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -297,7 +288,7 @@ export default function OrdersScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ── INQUIRIES VIEW ── */}
+      {/* ── ACTIVE INQUIRIES VIEW ── */}
       {view === 'inquiries' && (
         <ScrollView
           style={styles.scroll}
@@ -305,16 +296,16 @@ export default function OrdersScreen() {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadAll(); }} tintColor="#2196F3" />}
         >
-          {visibleInquiries.length === 0 ? (
+          {activeInquiries.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyIcon}>📋</Text>
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No Inquiries Yet</Text>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No Active Inquiries</Text>
               <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
                 Submit a rebranding inquiry from the Home screen to get started.
               </Text>
             </View>
           ) : (
-            visibleInquiries.map((inq) => {
+            activeInquiries.map((inq) => {
               const inqTitle = getBrandTitle(inq, `Inquiry #${inq.client_inquiry_number ?? inq.inquiry_id}`);
               return (
                 <View key={inq.inquiry_id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -372,21 +363,121 @@ export default function OrdersScreen() {
                     </View>
                   ) : null}
 
-                  {!inq.has_quotation && !inq.cancelled_at && (inq.status === 'pending' || inq.status === 'reviewed') && (
+                  {canCancelInquiry(inq) && (
                     <TouchableOpacity
                       style={[styles.cancelInquiryBtn, { borderColor: '#E53935' }]}
-                      disabled={cancellingId === inq.inquiry_id}
-                      onPress={() => handleCancelInquiry(inq.inquiry_id, inqTitle)}
+                      onPress={() => openCancelModal(inq, inqTitle)}
                     >
-                      <Text style={styles.cancelInquiryBtnText}>
-                        {cancellingId === inq.inquiry_id ? 'Cancelling…' : 'Cancel Inquiry'}
-                      </Text>
+                      <Text style={styles.cancelInquiryBtnText}>Cancel Inquiry</Text>
                     </TouchableOpacity>
                   )}
 
                   <Text style={[styles.cardDate, { color: colors.textSecondary }]}>
                     Submitted {new Date(inq.created_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
                   </Text>
+                </View>
+              );
+            })
+          )}
+        </ScrollView>
+      )}
+
+      {/* ── HISTORY VIEW (all inquiries including converted ones = receipts) ── */}
+      {view === 'history' && (
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadAll(); }} tintColor="#2196F3" />}
+        >
+          {allInquiries.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyIcon}>🗂️</Text>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No History Yet</Text>
+              <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+                All your past inquiries and receipts will appear here.
+              </Text>
+            </View>
+          ) : (
+            allInquiries.map((inq) => {
+              const inqTitle = getBrandTitle(inq, `Inquiry #${inq.client_inquiry_number ?? inq.inquiry_id}`);
+              const isCancelled = !!inq.cancelled_at;
+              const convertedToOrder = inq.has_order;
+              return (
+                <View
+                  key={inq.inquiry_id}
+                  style={[
+                    styles.card,
+                    { backgroundColor: colors.card, borderColor: colors.border },
+                    isCancelled && styles.cardCancelled,
+                  ]}
+                >
+                  <View style={styles.receiptHeader}>
+                    <View style={styles.receiptHeaderLeft}>
+                      <Text style={[styles.cardTitle, { color: isCancelled ? colors.textSecondary : colors.text }]}>
+                        {inqTitle}
+                      </Text>
+                      {inq.customizations?.[0]?.packaging_type ? (
+                        <Text style={[styles.receiptSubtitle, { color: colors.textSecondary }]}>
+                          {inq.customizations[0].packaging_type}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                      <View style={[styles.badge, { backgroundColor: inquiryStatusColor(inq) }]}>
+                        <Text style={styles.badgeText}>{inquiryStatusLabel(inq)}</Text>
+                      </View>
+                      {convertedToOrder && (
+                        <View style={[styles.badge, { backgroundColor: '#4CAF50' }]}>
+                          <Text style={styles.badgeText}>✓ Order Created</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+
+                  <View style={[styles.receiptDivider, { borderColor: colors.border }]} />
+
+                  <View style={styles.cardBody}>
+                    <View style={styles.row}>
+                      <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Inquiry #</Text>
+                      <Text style={[styles.rowValue, { color: colors.text }]}>
+                        {inq.client_inquiry_number ?? inq.inquiry_id}
+                      </Text>
+                    </View>
+                    {inq.has_quotation && inq.quotation_amount ? (
+                      <View style={styles.row}>
+                        <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Quoted Amount:</Text>
+                        <Text style={[styles.rowValue, { color: '#4CAF50', fontWeight: '800' }]}>
+                          ₱{parseFloat(inq.quotation_amount).toLocaleString()}
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={styles.row}>
+                        <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Quotation:</Text>
+                        <Text style={[styles.rowValue, { color: colors.textSecondary }]}>No quote received</Text>
+                      </View>
+                    )}
+                    {inq.customizations?.[0]?.serving_size ? (
+                      <View style={styles.row}>
+                        <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Specs:</Text>
+                        <Text style={[styles.rowValue, { color: colors.text }]}>{inq.customizations[0].serving_size}</Text>
+                      </View>
+                    ) : null}
+                    <View style={styles.row}>
+                      <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Submitted:</Text>
+                      <Text style={[styles.rowValue, { color: colors.text }]}>
+                        {new Date(inq.created_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
+                      </Text>
+                    </View>
+                    {isCancelled && inq.cancelled_at ? (
+                      <View style={styles.row}>
+                        <Text style={[styles.rowLabel, { color: '#E53935' }]}>Cancelled:</Text>
+                        <Text style={[styles.rowValue, { color: '#E53935' }]}>
+                          {new Date(inq.cancelled_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
                 </View>
               );
             })
@@ -498,18 +589,7 @@ export default function OrdersScreen() {
                       <Text style={styles.viewBtnText}>View Details</Text>
                     </TouchableOpacity>
 
-                    {/* Reorder Same — available on completed or delivered orders */}
-                    {(order.status === 'completed' || order.status === 'delivered') && (
-                      <TouchableOpacity
-                        style={[styles.reorderBtn, reorderingId === order.order_id && styles.reorderBtnDisabled]}
-                        disabled={reorderingId === order.order_id}
-                        onPress={() => handleReorder(order, orderTitle)}
-                      >
-                        <Text style={styles.reorderBtnText}>
-                          {reorderingId === order.order_id ? 'Submitting…' : '🔁 Reorder Same'}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
+                    {/* Reorder button is inside the order detail screen */}
 
                     <Text style={[styles.cardDate, { color: colors.textSecondary }]}>
                       {new Date(order.created_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
@@ -542,6 +622,80 @@ export default function OrdersScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* ── CANCEL INQUIRY MODAL (with reason) ── */}
+      <Modal
+        visible={cancelModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeCancelModal}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
+            <View style={[styles.modalHandle, { backgroundColor: colors.border }]} />
+
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Cancel Inquiry</Text>
+            <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+              "{cancelModal.title}"
+            </Text>
+
+            <Text style={[styles.modalLabel, { color: colors.text }]}>
+              Reason for cancellation <Text style={{ color: '#E53935' }}>*</Text>
+            </Text>
+            <TextInput
+              style={[
+                styles.modalInput,
+                {
+                  backgroundColor: colors.background,
+                  borderColor:
+                    cancelModal.reason.trim().length > 0 && cancelModal.reason.trim().length < 5
+                      ? '#E53935'
+                      : colors.border,
+                  color: colors.text,
+                },
+              ]}
+              placeholder="e.g. Changed my mind, found another supplier…"
+              placeholderTextColor={colors.textSecondary}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+              value={cancelModal.reason}
+              onChangeText={(text) => setCancelModal(prev => ({ ...prev, reason: text }))}
+              editable={!cancelModal.submitting}
+              maxLength={1000}
+            />
+            {cancelModal.reason.trim().length > 0 && cancelModal.reason.trim().length < 5 && (
+              <Text style={styles.modalInputHint}>Please provide at least 5 characters.</Text>
+            )}
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnOutline, { borderColor: colors.border }]}
+                onPress={closeCancelModal}
+                disabled={cancelModal.submitting}
+              >
+                <Text style={[styles.modalBtnText, { color: colors.text }]}>Keep Inquiry</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modalBtn,
+                  styles.modalBtnDanger,
+                  (cancelModal.reason.trim().length < 5 || cancelModal.submitting) && styles.modalBtnDisabled,
+                ]}
+                onPress={submitCancel}
+                disabled={cancelModal.reason.trim().length < 5 || cancelModal.submitting}
+              >
+                <Text style={styles.modalBtnDangerText}>
+                  {cancelModal.submitting ? 'Cancelling…' : 'Confirm Cancel'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -570,7 +724,6 @@ const styles = StyleSheet.create({
     color: '#2196F3',
     flex: 1,
     textAlign: 'center',
-    marginRight: 60,
   },
 
   /* SWITCHER */
@@ -631,6 +784,25 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+  cardCancelled: {
+    opacity: 0.7,
+  },
+
+  /* RECEIPT STYLE (history tab) */
+  receiptHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+    gap: 8,
+  },
+  receiptHeaderLeft: { flex: 1 },
+  receiptSubtitle: { fontSize: 12, marginTop: 2 },
+  receiptDivider: {
+    borderTopWidth: 1,
+    borderStyle: 'dashed',
+    marginBottom: 10,
+  },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -677,24 +849,88 @@ const styles = StyleSheet.create({
   },
   cancelInquiryBtnText: { color: '#E53935', fontSize: 14, fontWeight: '700' },
 
-  /* REORDER BUTTON */
-  reorderBtn: {
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: '#4CAF50',
-    paddingVertical: 9,
-    alignItems: 'center',
-    marginTop: 6,
-    backgroundColor: 'transparent',
-  },
-  reorderBtnDisabled: {
-    opacity: 0.5,
-  },
-  reorderBtnText: { color: '#4CAF50', fontSize: 14, fontWeight: '700' },
-
   /* NAV */
+
   navBar: { flexDirection: 'row', borderTopWidth: 1, paddingBottom: 20 },
   navItem: { flex: 1, paddingVertical: 15, alignItems: 'center' },
   navText: { fontSize: 12, fontWeight: '600', marginTop: 4 },
   navIcon: { width: 24, height: 24, resizeMode: 'contain' },
+
+  /* CANCEL MODAL */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 36,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    marginBottom: 20,
+    fontStyle: 'italic',
+  },
+  modalLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  modalInput: {
+    borderWidth: 1.5,
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 14,
+    minHeight: 100,
+    lineHeight: 20,
+  },
+  modalInputHint: {
+    color: '#E53935',
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 4,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  modalBtn: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  modalBtnOutline: {
+    borderWidth: 1.5,
+  },
+  modalBtnDanger: {
+    backgroundColor: '#E53935',
+  },
+  modalBtnDisabled: {
+    opacity: 0.4,
+  },
+  modalBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  modalBtnDangerText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
 });
