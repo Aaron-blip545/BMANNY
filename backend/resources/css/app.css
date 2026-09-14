@@ -352,4 +352,310 @@
     .scrollbar-none::-webkit-scrollbar {
         display: none;
     }
+
+    /* SweetAlert2 Modern Styling with Full Dark Mode Support */
+    div:where(.swal2-container).bmanny-swal-container,
+    div.swal2-container.bmanny-swal-container {
+        backdrop-filter: blur(8px);
+        background-color: rgba(15, 23, 42, 0.55);
+        z-index: 10000;
+    }
+
+    .dark div:where(.swal2-container).bmanny-swal-container,
+    .dark div.swal2-container.bmanny-swal-container,
+    html.dark div.swal2-container.bmanny-swal-container {
+        background-color: rgba(3, 7, 18, 0.75);
+    }
+
+    div:where(.swal2-container) .bmanny-swal-popup,
+    div.swal2-container .bmanny-swal-popup,
+    .swal2-popup.bmanny-swal-popup {
+        border-radius: 1.25rem !important;
+        padding: 1.75rem 1.75rem 1.5rem !important;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+        border: 1px solid var(--border) !important;
+        background: var(--card) !important;
+        background-color: var(--card) !important;
+        color: var(--card-foreground) !important;
+        max-width: 32rem;
+        width: 92%;
+        font-family: inherit;
+    }
+
+    div:where(.swal2-container) .bmanny-swal-html,
+    div.swal2-container .bmanny-swal-html {
+        margin: 0 !important;
+        padding: 0 !important;
+        color: inherit !important;
+        font-size: inherit !important;
+    }
+
+    .bmanny-modal-wrapper {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .bmanny-modal-icon-badge {
+        width: 3.5rem;
+        height: 3.5rem;
+        border-radius: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1.15rem;
+        border: 1px solid var(--border);
+        background-color: var(--background);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+    }
+
+    .bmanny-badge-success {
+        border-color: rgba(16, 185, 129, 0.25);
+        background-color: rgba(16, 185, 129, 0.08);
+    }
+
+    .dark .bmanny-badge-success,
+    html.dark .bmanny-badge-success {
+        border-color: rgba(16, 185, 129, 0.35);
+        background-color: rgba(16, 185, 129, 0.15);
+    }
+
+    .bmanny-badge-warning {
+        border-color: rgba(245, 158, 11, 0.25);
+        background-color: rgba(245, 158, 11, 0.08);
+    }
+
+    .dark .bmanny-badge-warning,
+    html.dark .bmanny-badge-warning {
+        border-color: rgba(245, 158, 11, 0.35);
+        background-color: rgba(245, 158, 11, 0.15);
+    }
+
+    .bmanny-badge-destructive {
+        border-color: rgba(239, 68, 68, 0.25);
+        background-color: rgba(239, 68, 68, 0.08);
+    }
+
+    .dark .bmanny-badge-destructive,
+    html.dark .bmanny-badge-destructive {
+        border-color: rgba(239, 68, 68, 0.35);
+        background-color: rgba(239, 68, 68, 0.15);
+    }
+
+    .bmanny-badge-info {
+        border-color: rgba(59, 130, 246, 0.25);
+        background-color: rgba(59, 130, 246, 0.08);
+    }
+
+    .dark .bmanny-badge-info,
+    html.dark .bmanny-badge-info {
+        border-color: rgba(59, 130, 246, 0.35);
+        background-color: rgba(59, 130, 246, 0.15);
+    }
+
+    .bmanny-modal-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--foreground) !important;
+        text-align: center;
+        letter-spacing: -0.02em;
+        margin: 0 0 0.35rem;
+        line-height: 1.35;
+    }
+
+    .bmanny-modal-desc {
+        font-size: 0.875rem;
+        color: var(--muted-foreground) !important;
+        text-align: center;
+        line-height: 1.45;
+        margin: 0 0 1.15rem;
+    }
+
+    .bmanny-modal-quote-box {
+        background-color: var(--muted);
+        border: 1px solid var(--border);
+        border-radius: 0.875rem;
+        padding: 0.75rem 1rem;
+        margin-bottom: 1.15rem;
+        text-align: left;
+    }
+
+    .bmanny-modal-quote-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted-foreground);
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        margin-bottom: 0.35rem;
+    }
+
+    .bmanny-modal-quote-text {
+        font-size: 0.875rem;
+        color: var(--foreground);
+        font-style: italic;
+        max-height: 110px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        line-height: 1.45;
+    }
+
+    .bmanny-modal-quote-img-wrap {
+        margin-top: 0.35rem;
+        margin-bottom: 0.35rem;
+    }
+
+    .bmanny-modal-quote-img {
+        max-height: 80px;
+        border-radius: 0.5rem;
+        object-fit: cover;
+        border: 1px solid var(--border);
+    }
+
+    .bmanny-modal-input-group {
+        text-align: left;
+        margin-bottom: 0.25rem;
+    }
+
+    .bmanny-modal-input-label {
+        display: block;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: var(--foreground) !important;
+        margin-bottom: 0.375rem;
+    }
+
+    .bmanny-modal-textarea {
+        width: 100%;
+        border-radius: 0.75rem;
+        border: 1px solid var(--border) !important;
+        background-color: var(--background) !important;
+        color: var(--foreground) !important;
+        font-size: 0.875rem;
+        padding: 0.625rem 0.875rem;
+        font-family: inherit;
+        resize: vertical;
+        min-height: 85px;
+        box-sizing: border-box;
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .bmanny-modal-textarea::placeholder {
+        color: var(--muted-foreground);
+        opacity: 0.75;
+    }
+
+    .bmanny-modal-textarea:focus {
+        outline: none;
+        border-color: var(--ring) !important;
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 25%, transparent) !important;
+    }
+
+    .bmanny-modal-validation-error {
+        font-size: 0.8125rem;
+        color: #e11d48;
+        margin-top: 0.375rem;
+        font-weight: 500;
+    }
+
+    .dark .bmanny-modal-validation-error,
+    html.dark .bmanny-modal-validation-error {
+        color: #fb7185;
+    }
+
+    div:where(.swal2-container) .bmanny-swal-actions,
+    div.swal2-container .bmanny-swal-actions {
+        margin-top: 1.25rem !important;
+        gap: 0.75rem !important;
+        width: 100% !important;
+        display: flex !important;
+        justify-content: stretch !important;
+    }
+
+    div:where(.swal2-container) .bmanny-swal-confirm,
+    div.swal2-container .bmanny-swal-confirm {
+        flex: 1.25;
+        height: 2.75rem;
+        border-radius: 0.75rem;
+        border: none;
+        background-color: #4f46e5;
+        color: #ffffff;
+        font-size: 0.875rem;
+        font-weight: 600;
+        transition: all 0.15s ease;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 8px rgba(79, 70, 229, 0.35);
+    }
+
+    .dark div:where(.swal2-container) .bmanny-swal-confirm,
+    .dark div.swal2-container .bmanny-swal-confirm,
+    html.dark div.swal2-container .bmanny-swal-confirm {
+        background-color: #6366f1;
+        box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+    }
+
+    div:where(.swal2-container) .bmanny-swal-confirm:hover,
+    div.swal2-container .bmanny-swal-confirm:hover {
+        background-color: #4338ca;
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.45);
+    }
+
+    .dark div:where(.swal2-container) .bmanny-swal-confirm:hover,
+    .dark div.swal2-container .bmanny-swal-confirm:hover,
+    html.dark div.swal2-container .bmanny-swal-confirm:hover {
+        background-color: #4f46e5;
+        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.45);
+    }
+
+    div:where(.swal2-container) .bmanny-swal-confirm-destructive,
+    div.swal2-container .bmanny-swal-confirm-destructive {
+        flex: 1.25;
+        height: 2.75rem;
+        border-radius: 0.75rem;
+        border: none;
+        background-color: #e11d48;
+        color: #ffffff;
+        font-size: 0.875rem;
+        font-weight: 600;
+        transition: all 0.15s ease;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 8px rgba(225, 29, 72, 0.35);
+    }
+
+    div:where(.swal2-container) .bmanny-swal-confirm-destructive:hover,
+    div.swal2-container .bmanny-swal-confirm-destructive:hover {
+        background-color: #be123c;
+        box-shadow: 0 4px 12px rgba(225, 29, 72, 0.45);
+    }
+
+    div:where(.swal2-container) .bmanny-swal-cancel,
+    div.swal2-container .bmanny-swal-cancel {
+        flex: 1;
+        height: 2.75rem;
+        border-radius: 0.75rem;
+        border: 1px solid var(--border);
+        background-color: var(--secondary);
+        color: var(--foreground);
+        font-size: 0.875rem;
+        font-weight: 600;
+        transition: all 0.15s ease;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    div:where(.swal2-container) .bmanny-swal-cancel:hover,
+    div.swal2-container .bmanny-swal-cancel:hover {
+        background-color: var(--muted);
+        border-color: var(--input);
+    }
 }

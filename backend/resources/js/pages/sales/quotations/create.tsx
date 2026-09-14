@@ -1,13 +1,33 @@
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { format } from 'date-fns';
-import { ArrowLeft, Building2, CalendarIcon, ClipboardList, Mail, MapPin, User } from 'lucide-react';
+import {
+    ArrowLeft,
+    Building2,
+    CalendarIcon,
+    ClipboardList,
+    Eye,
+    FileText,
+    Mail,
+    MapPin,
+    Package,
+    Sparkles,
+    User,
+} from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -61,6 +81,7 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId }:
     });
 
     const [validUntilOpen, setValidUntilOpen] = useState(false);
+    const [viewCustomizationsOpen, setViewCustomizationsOpen] = useState(false);
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -278,43 +299,57 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId }:
                                                 </div>
 
                                                 <div className="space-y-3 border-t border-border/60 pt-3">
-                                                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                                                        Requested Customizations
-                                                    </p>
+                                                    <div className="flex items-center justify-between">
+                                                        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                                                            Requested Customizations
+                                                        </p>
+                                                        {(selected.customizations ?? []).length > 0 && (
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="h-6 px-2.5 text-xs font-medium gap-1 text-primary border-primary/30 hover:bg-primary hover:text-white transition-all cursor-pointer shadow-2xs rounded-md"
+                                                                onClick={() => setViewCustomizationsOpen(true)}
+                                                            >
+                                                                <Eye className="h-3.5 w-3.5" />
+                                                                View
+                                                            </Button>
+                                                        )}
+                                                    </div>
                                                     {(selected.customizations ?? []).length === 0 ? (
                                                         <p className="text-xs text-muted-foreground">No customization details provided.</p>
                                                     ) : (
-                                                        (selected.customizations ?? []).map((c) => (
+                                                        (selected.customizations ?? []).map((c, idx) => (
                                                             <div
-                                                                key={c.customization_id}
+                                                                key={c.customization_id || idx}
                                                                 className="space-y-1 rounded-md border border-border/60 bg-muted/40 p-3"
                                                             >
                                                                 {c.packaging_type && (
-                                                                    <p className="font-medium">{c.packaging_type}</p>
+                                                                    <p className="font-medium text-foreground text-sm">{c.packaging_type}</p>
                                                                 )}
                                                                 <dl className="space-y-1 text-xs text-muted-foreground">
                                                                     {c.packaging_finish && (
                                                                         <div className="flex gap-1">
-                                                                            <dt className="shrink-0 font-medium">Finish:</dt>
+                                                                            <dt className="shrink-0 font-medium text-foreground/80">Finish:</dt>
                                                                             <dd>{c.packaging_finish}</dd>
                                                                         </div>
                                                                     )}
                                                                     {c.serving_size && (
                                                                         <div className="flex gap-1">
-                                                                            <dt className="shrink-0 font-medium">Serving Size:</dt>
+                                                                            <dt className="shrink-0 font-medium text-foreground/80">Serving Size:</dt>
                                                                             <dd>{c.serving_size}</dd>
                                                                         </div>
                                                                     )}
                                                                     {c.formulation_notes && (
                                                                         <div className="flex gap-1">
-                                                                            <dt className="shrink-0 font-medium">Formulation:</dt>
-                                                                            <dd>{c.formulation_notes}</dd>
+                                                                            <dt className="shrink-0 font-medium text-foreground/80">Formulation:</dt>
+                                                                            <dd className="line-clamp-2">{c.formulation_notes}</dd>
                                                                         </div>
                                                                     )}
                                                                     {c.client_notes && (
                                                                         <div className="flex gap-1">
-                                                                            <dt className="shrink-0 font-medium">Client Notes:</dt>
-                                                                            <dd>{c.client_notes}</dd>
+                                                                            <dt className="shrink-0 font-medium text-foreground/80">Client Notes:</dt>
+                                                                            <dd className="line-clamp-2">{c.client_notes}</dd>
                                                                         </div>
                                                                     )}
                                                                 </dl>
@@ -331,6 +366,118 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId }:
                     </div>
                 </div>
             </main>
+
+            {/* ── Requested Customizations Full View Modal ── */}
+            <Dialog open={viewCustomizationsOpen} onOpenChange={setViewCustomizationsOpen}>
+                <DialogContent className="max-w-2xl border-border bg-card text-card-foreground shadow-2xl p-6">
+                    <DialogHeader className="space-y-1 border-b border-border/70 pb-4 text-left">
+                        <div className="flex items-center gap-2.5">
+                            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
+                                <Package className="h-5 w-5" />
+                            </span>
+                            <div>
+                                <DialogTitle className="text-lg font-bold text-foreground">
+                                    Requested Customization Details
+                                </DialogTitle>
+                                <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                                    Inquiry #{selected?.inquiry_id} &bull; {selected?.client?.business_name ?? 'Client'}
+                                    {selected?.created_at ? ` &bull; Submitted ${formatDate(selected.created_at)}` : ''}
+                                </DialogDescription>
+                            </div>
+                        </div>
+                    </DialogHeader>
+
+                    <div className="max-h-[68vh] overflow-y-auto space-y-4 py-2 pr-1">
+                        {(selected?.customizations ?? []).length === 0 ? (
+                            <div className="py-8 text-center text-muted-foreground">
+                                <Package className="mx-auto h-8 w-8 opacity-40 mb-2" />
+                                <p className="text-sm">No customization specs found for this inquiry.</p>
+                            </div>
+                        ) : (
+                            (selected?.customizations ?? []).map((c, idx) => (
+                                <div
+                                    key={c.customization_id || idx}
+                                    className="rounded-xl border border-border/80 bg-background/80 p-5 space-y-4 shadow-2xs"
+                                >
+                                    {/* Packaging Header & ID */}
+                                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
+                                        <div className="flex items-center gap-2">
+                                            <span className="inline-flex items-center rounded-md bg-primary/10 px-2.5 py-1 text-sm font-semibold text-primary">
+                                                <Package className="mr-1.5 h-3.5 w-3.5" />
+                                                {c.packaging_type || 'Custom Packaging'}
+                                            </span>
+                                            {c.customization_type && (
+                                                <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                                                    {c.customization_type}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <span className="font-mono text-xs text-muted-foreground bg-muted/60 px-2 py-0.5 rounded">
+                                            Item #{idx + 1}
+                                        </span>
+                                    </div>
+
+                                    {/* Quick Spec Badges Grid */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
+                                            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground mb-1">
+                                                Packaging Finish
+                                            </p>
+                                            <p className="text-sm font-semibold text-foreground">
+                                                {c.packaging_finish || '—'}
+                                            </p>
+                                        </div>
+                                        <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
+                                            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground mb-1">
+                                                Serving Size & Quantity
+                                            </p>
+                                            <p className="text-sm font-semibold text-foreground">
+                                                {c.serving_size || '—'}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Formulation Notes */}
+                                    {c.formulation_notes && (
+                                        <div className="rounded-lg border border-border/60 bg-muted/30 p-3.5 space-y-1.5">
+                                            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                                                <FileText className="h-3.5 w-3.5 text-primary" />
+                                                Formulation & Ingredients Notes
+                                            </p>
+                                            <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                                                {c.formulation_notes}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Client Notes */}
+                                    {c.client_notes && (
+                                        <div className="rounded-lg border border-border/60 bg-muted/30 p-3.5 space-y-1.5">
+                                            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                                                <FileText className="h-3.5 w-3.5 text-amber-500" />
+                                                Client Notes & Breakdown
+                                            </p>
+                                            <div className="text-sm text-foreground leading-relaxed bg-card rounded-md p-3 border border-border/60">
+                                                {c.client_notes}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                    <DialogFooter className="border-t border-border/70 pt-3 sm:justify-end">
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => setViewCustomizationsOpen(false)}
+                        >
+                            Close
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }

@@ -1,3 +1,4 @@
+import { alertModal, promptReasonModal } from '@/lib/sweetalert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -162,7 +163,11 @@ export default function ChatPage({ inquiry, messages, agentId, isArchived, isArc
             removeImage();
             textareaRef.current?.focus();
         } catch (error: any) {
-            window.alert(error.message || 'Unable to send this message.');
+            await alertModal({
+                title: 'Message Error',
+                text: error.message || 'Unable to send this message.',
+                icon: 'error',
+            });
         } finally {
             setIsSending(false);
         }
@@ -186,14 +191,24 @@ export default function ChatPage({ inquiry, messages, agentId, isArchived, isArc
         router.post(route('chat.archive', inquiry.inquiry_id));
     }
 
-    function handleHideMessage(messageId: number) {
-        const reason = window.prompt('Why is this message inappropriate? The sender will receive this reason.');
-        if (!reason?.trim()) return;
+    async function handleHideMessage(msg: Message) {
+        const reason = await promptReasonModal({
+            title: 'Flag Inappropriate Message',
+            text: 'Why is this message inappropriate? The sender will receive this reason.',
+            originalMessage: msg.body,
+            originalSender: msg.sender_name,
+            originalImageUrl: msg.image_url,
+            inputPlaceholder: 'Enter the reason for flagging this message…',
+            confirmButtonText: 'Flag Message',
+            cancelButtonText: 'Cancel',
+        });
+
+        if (!reason) return;
 
         router.post(route('chat.messages.hide', {
             inquiry_id: inquiry.inquiry_id,
-            message_id: messageId,
-        }), { reason: reason.trim() });
+            message_id: msg.message_id,
+        }), { reason });
     }
 
     return (
@@ -313,7 +328,7 @@ export default function ChatPage({ inquiry, messages, agentId, isArchived, isArc
                                         {canModerate && !msg.is_flagged && (
                                             <button
                                                 type="button"
-                                                onClick={() => handleHideMessage(msg.message_id)}
+                                                onClick={() => handleHideMessage(msg)}
                                                 className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive"
                                             >
                                                 <EyeOff className="h-3 w-3" />
