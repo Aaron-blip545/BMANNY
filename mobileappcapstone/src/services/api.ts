@@ -78,6 +78,15 @@ export async function getProducts() {
     return request('/products');
 }
 
+export async function getCustomizationMaterials(): Promise<{
+    all: Array<{ product_id: number; name: string; sku: string; category: string; stock_quantity: number; in_stock: boolean }>;
+    flavors: Array<{ product_id: number; name: string; sku: string; category: string; stock_quantity: number; in_stock: boolean }>;
+    packaging: Array<{ product_id: number; name: string; sku: string; category: string; stock_quantity: number; in_stock: boolean }>;
+    containers: Array<{ product_id: number; name: string; sku: string; category: string; stock_quantity: number; in_stock: boolean }>;
+}> {
+    return request('/customization-materials');
+}
+
 export async function register(data: {
     full_name: string;
     email: string;

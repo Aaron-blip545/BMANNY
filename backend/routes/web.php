@@ -41,6 +41,9 @@ Route::middleware(['backend.auth'])->group(function () {
     })->name('dashboard');
 
     Route::get('products', [ProductPageController::class, 'index'])->name('products.index');
+    Route::post('products', [ProductPageController::class, 'store'])->name('products.store');
+    Route::put('products/{id}', [ProductPageController::class, 'update'])->name('products.update');
+    Route::delete('products/{id}', [ProductPageController::class, 'destroy'])->name('products.destroy');
 
     Route::middleware(['backend.role:admin'])->get('admin/dashboard', [AdminDashboardController::class, 'index'])
         ->name('admin.dashboard');
