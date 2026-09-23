@@ -4,7 +4,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, Sid
 import { type NavItem } from '@/types';
 import { roleDashboardHref } from '@/lib/role-dashboard';
 import { Link, usePage } from '@inertiajs/react';
-import { BarChart3, Bell, Box, CircleHelp, FileText, House, ListTree, PackageCheck, PackageMinus, Settings, SlidersHorizontal, Users as UsersIcon } from 'lucide-react';
+import { BarChart3, Bell, Box, CircleHelp, FileText, House, ListTree, Package, PackageCheck, PackageMinus, Settings, SlidersHorizontal, Users as UsersIcon } from 'lucide-react';
 import AppLogo from './app-logo';
 
 export function AppSidebar() {
@@ -52,7 +52,8 @@ export function AppSidebar() {
 
     const productControllerNavItems: NavItem[] = [
         { title: 'Dashboard', url: '/product-controller/dashboard', icon: House },
-        { title: 'Product Management', url: '/products', icon: PackageMinus },
+        { title: 'Inventory', url: '/products', icon: PackageMinus },
+        { title: 'Product Management', url: '/product-controller/products', icon: Package },
         { title: 'Variant Management', url: '/product-controller/variants', icon: ListTree },
         { title: 'Packaging Management', url: '/product-controller/packaging', icon: Box },
         { title: 'MOQ Management', url: '/product-controller/moq', icon: SlidersHorizontal },

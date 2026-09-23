@@ -39,4 +39,10 @@ class Order extends Model
     {
         return $this->belongsTo(Quotation::class, 'quotation_id', 'quotation_id');
     }
+
+    // 5. Link to OrderItems
+    public function items()
+    {
+        return $this->hasMany(OrderItem::class, 'order_id', 'order_id');
+    }
 }

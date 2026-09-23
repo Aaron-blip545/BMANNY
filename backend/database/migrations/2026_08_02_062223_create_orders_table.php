@@ -18,7 +18,10 @@ return new class extends Migration
             $table->foreignId('quotation_id')->references('quotation_id')->on('quotations')->onDelete('cascade');
             $table->string('internal_tracking_number', 100)->nullable();
             $table->decimal('total_amount', 10, 2);
-            $table->enum('status', ['pending', 'processing', 'completed', 'cancelled'])->default('pending');
+            $table->enum('status', [
+                'pending', 'approved', 'in_production', 'packed',
+                'for_delivery', 'delivered', 'completed', 'cancelled'
+            ])->default('pending');
             $table->timestamps();
         });
     }

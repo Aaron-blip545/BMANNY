@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
 import {
     AlertCircle,
     AlertTriangle,
@@ -102,6 +102,10 @@ function getStockStatus(stock: number) {
 }
 
 export default function ProductsIndex({ products = [], categories = [], error }: Props) {
+    const { auth } = usePage().props as any;
+    const userRole: string = auth?.user?.role ?? '';
+    const canManageInventory = ['product_controller', 'admin'].includes(userRole);
+
     const [search, setSearch] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
@@ -317,10 +321,12 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                             <Archive className="mr-2 h-4 w-4" />
                             Archived materials
                         </Button>
-                        <Button id="add-material-btn" type="button" onClick={openAddModal}>
-                            <Plus className="mr-2 h-4 w-4" />
-                            Add Material
-                        </Button>
+                        {canManageInventory && (
+                            <Button id="add-material-btn" type="button" onClick={openAddModal}>
+                                <Plus className="mr-2 h-4 w-4" />
+                                Add Material
+                            </Button>
+                        )}
                     </div>
                 </header>
 
@@ -456,7 +462,7 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                         ? 'Get started by adding your first raw material.'
                                         : 'Try adjusting your search or filters.'}
                                 </p>
-                                {products.length === 0 && (
+                                {products.length === 0 && canManageInventory && (
                                     <Button onClick={openAddModal} className="mt-4">
                                         <Plus className="mr-2 h-4 w-4" /> Add Material
                                     </Button>
@@ -467,13 +473,15 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                 <table className="w-full text-left text-sm">
                                     <thead className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                                         <tr>
-                                            <th className="w-12 p-4 text-center">
-                                                <Checkbox
-                                                    checked={isAllSelected}
-                                                    onCheckedChange={toggleSelectAll}
-                                                    aria-label="Select all"
-                                                />
-                                            </th>
+                                            {canManageInventory && (
+                                                <th className="w-12 p-4 text-center">
+                                                    <Checkbox
+                                                        checked={isAllSelected}
+                                                        onCheckedChange={toggleSelectAll}
+                                                        aria-label="Select all"
+                                                    />
+                                                </th>
+                                            )}
                                             <th className="p-4 font-medium">#</th>
                                             {([
                                                 { label: 'MATERIAL', field: 'name' as SortField },
@@ -494,7 +502,9 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                                     </button>
                                                 </th>
                                             ))}
-                                            <th className="p-4 font-medium text-center">ACTION</th>
+                                            {canManageInventory && (
+                                                <th className="p-4 font-medium text-center">ACTION</th>
+                                            )}
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-border/50">
@@ -511,13 +521,15 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                                     }`}
                                                 >
                                                     {/* Checkbox */}
-                                                    <td className="p-4 text-center">
-                                                        <Checkbox
-                                                            checked={isSelected}
-                                                            onCheckedChange={() => toggleSelectOne(product.product_id)}
-                                                            aria-label={`Select ${product.name}`}
-                                                        />
-                                                    </td>
+                                                    {canManageInventory && (
+                                                        <td className="p-4 text-center">
+                                                            <Checkbox
+                                                                checked={isSelected}
+                                                                onCheckedChange={() => toggleSelectOne(product.product_id)}
+                                                                aria-label={`Select ${product.name}`}
+                                                            />
+                                                        </td>
+                                                    )}
 
                                                     {/* # */}
                                                     <td className="p-4 font-mono text-xs text-muted-foreground">
@@ -582,27 +594,29 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                                     </td>
 
                                                     {/* Actions */}
-                                                    <td className="p-4 text-center">
-                                                        <div className="flex items-center justify-center gap-2">
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => openEditModal(product)}
-                                                            >
-                                                                <Pencil className="mr-1 h-3.5 w-3.5" />
-                                                                Edit
-                                                            </Button>
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => openDeleteModal(product)}
-                                                                className="text-destructive hover:text-destructive"
-                                                            >
-                                                                <Trash2 className="mr-1 h-3.5 w-3.5" />
-                                                                Delete
-                                                            </Button>
-                                                        </div>
-                                                    </td>
+                                                    {canManageInventory && (
+                                                        <td className="p-4 text-center">
+                                                            <div className="flex items-center justify-center gap-2">
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={() => openEditModal(product)}
+                                                                >
+                                                                    <Pencil className="mr-1 h-3.5 w-3.5" />
+                                                                    Edit
+                                                                </Button>
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={() => openDeleteModal(product)}
+                                                                    className="text-destructive hover:text-destructive"
+                                                                >
+                                                                    <Trash2 className="mr-1 h-3.5 w-3.5" />
+                                                                    Delete
+                                                                </Button>
+                                                            </div>
+                                                        </td>
+                                                    )}
                                                 </tr>
                                             );
                                         })}
@@ -675,295 +689,300 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                 </Card>
             </div>
 
-            {/* ── MODAL: Add ── */}
-            <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-                <DialogContent className="max-w-lg rounded-xl p-6 bg-card text-card-foreground border-border">
-                    <DialogHeader>
-                        <DialogTitle className="text-lg font-bold text-foreground">Add Raw Material</DialogTitle>
-                        <DialogDescription className="text-sm text-muted-foreground">
-                            Enter material specs and initial stock levels.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={handleCreateProduct} className="space-y-4 py-2">
-                        <div className="space-y-1.5">
-                            <Label htmlFor="create-name" className="text-xs font-semibold text-foreground">
-                                Material Name <span className="text-rose-500">*</span>
-                            </Label>
-                            <Input
-                                id="create-name"
-                                value={form.data.name}
-                                onChange={(e) => form.setData('name', e.target.value)}
-                                placeholder="e.g. Vanilla, Hazelnut, Pouch, Bottle..."
-                                required
-                                className="rounded-lg"
-                            />
-                            {form.errors.name && <p className="text-xs text-rose-500">{form.errors.name}</p>}
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1.5">
-                                <Label htmlFor="create-sku" className="text-xs font-semibold text-foreground">
-                                    SKU <span className="text-rose-500">*</span>
-                                </Label>
-                                <Input
-                                    id="create-sku"
-                                    value={form.data.sku}
-                                    onChange={(e) => form.setData('sku', e.target.value)}
-                                    placeholder="e.g. FLV-VAN-001"
-                                    required
-                                    className="rounded-lg"
-                                />
-                                {form.errors.sku && <p className="text-xs text-rose-500">{form.errors.sku}</p>}
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label htmlFor="create-category" className="text-xs font-semibold text-foreground">
-                                    Category / Type
-                                </Label>
-                                <Select
-                                    value={form.data.category_id ? String(form.data.category_id) : 'none'}
-                                    onValueChange={(v) => form.setData('category_id', v === 'none' ? '' : v)}
-                                >
-                                    <SelectTrigger id="create-category" className="rounded-lg">
-                                        <SelectValue placeholder="Select" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none">None</SelectItem>
-                                        {categories.map((c) => (
-                                            <SelectItem key={c.category_id} value={String(c.category_id)}>
-                                                {c.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1.5">
-                                <Label htmlFor="create-price" className="text-xs font-semibold text-foreground">
-                                    Unit Cost (₱) <span className="text-rose-500">*</span>
-                                </Label>
-                                <Input
-                                    id="create-price"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={form.data.price}
-                                    onChange={(e) => form.setData('price', e.target.value)}
-                                    placeholder="45.00"
-                                    required
-                                    className="rounded-lg"
-                                />
-                                {form.errors.price && <p className="text-xs text-rose-500">{form.errors.price}</p>}
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label htmlFor="create-stock" className="text-xs font-semibold text-foreground">
-                                    Stock Quantity <span className="text-rose-500">*</span>
-                                </Label>
-                                <Input
-                                    id="create-stock"
-                                    type="number"
-                                    min="0"
-                                    value={form.data.stock_quantity}
-                                    onChange={(e) => form.setData('stock_quantity', parseInt(e.target.value) || 0)}
-                                    placeholder="150"
-                                    required
-                                    className="rounded-lg"
-                                />
-                                {form.errors.stock_quantity && (
-                                    <p className="text-xs text-rose-500">{form.errors.stock_quantity}</p>
-                                )}
-                            </div>
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label htmlFor="create-image" className="text-xs font-semibold text-foreground">
-                                Image URL (Optional)
-                            </Label>
-                            <Input
-                                id="create-image"
-                                value={form.data.product_image}
-                                onChange={(e) => form.setData('product_image', e.target.value)}
-                                placeholder="https://example.com/image.jpg"
-                                className="rounded-lg"
-                            />
-                        </div>
-                        <DialogFooter className="pt-2 gap-2">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setIsAddModalOpen(false)}
-                                className="rounded-lg"
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                type="submit"
-                                disabled={form.processing}
-                                className="rounded-lg"
-                            >
-                                {form.processing ? 'Saving...' : 'Add Material'}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
+            {/* ── MODALS (Product Controller & Admin only) ── */}
+            {canManageInventory && (
+                <>
+                    {/* ── MODAL: Add ── */}
+                    <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+                        <DialogContent className="max-w-lg rounded-xl p-6 bg-card text-card-foreground border-border">
+                            <DialogHeader>
+                                <DialogTitle className="text-lg font-bold text-foreground">Add Raw Material</DialogTitle>
+                                <DialogDescription className="text-sm text-muted-foreground">
+                                    Enter material specs and initial stock levels.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <form onSubmit={handleCreateProduct} className="space-y-4 py-2">
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="create-name" className="text-xs font-semibold text-foreground">
+                                        Material Name <span className="text-rose-500">*</span>
+                                    </Label>
+                                    <Input
+                                        id="create-name"
+                                        value={form.data.name}
+                                        onChange={(e) => form.setData('name', e.target.value)}
+                                        placeholder="e.g. Vanilla, Hazelnut, Pouch, Bottle..."
+                                        required
+                                        className="rounded-lg"
+                                    />
+                                    {form.errors.name && <p className="text-xs text-rose-500">{form.errors.name}</p>}
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="create-sku" className="text-xs font-semibold text-foreground">
+                                            SKU <span className="text-rose-500">*</span>
+                                        </Label>
+                                        <Input
+                                            id="create-sku"
+                                            value={form.data.sku}
+                                            onChange={(e) => form.setData('sku', e.target.value)}
+                                            placeholder="e.g. FLV-VAN-001"
+                                            required
+                                            className="rounded-lg"
+                                        />
+                                        {form.errors.sku && <p className="text-xs text-rose-500">{form.errors.sku}</p>}
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="create-category" className="text-xs font-semibold text-foreground">
+                                            Category / Type
+                                        </Label>
+                                        <Select
+                                            value={form.data.category_id ? String(form.data.category_id) : 'none'}
+                                            onValueChange={(v) => form.setData('category_id', v === 'none' ? '' : v)}
+                                        >
+                                            <SelectTrigger id="create-category" className="rounded-lg">
+                                                <SelectValue placeholder="Select" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">None</SelectItem>
+                                                {categories.map((c) => (
+                                                    <SelectItem key={c.category_id} value={String(c.category_id)}>
+                                                        {c.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="create-price" className="text-xs font-semibold text-foreground">
+                                            Unit Cost (₱) <span className="text-rose-500">*</span>
+                                        </Label>
+                                        <Input
+                                            id="create-price"
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            value={form.data.price}
+                                            onChange={(e) => form.setData('price', e.target.value)}
+                                            placeholder="45.00"
+                                            required
+                                            className="rounded-lg"
+                                        />
+                                        {form.errors.price && <p className="text-xs text-rose-500">{form.errors.price}</p>}
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="create-stock" className="text-xs font-semibold text-foreground">
+                                            Stock Quantity <span className="text-rose-500">*</span>
+                                        </Label>
+                                        <Input
+                                            id="create-stock"
+                                            type="number"
+                                            min="0"
+                                            value={form.data.stock_quantity}
+                                            onChange={(e) => form.setData('stock_quantity', parseInt(e.target.value) || 0)}
+                                            placeholder="150"
+                                            required
+                                            className="rounded-lg"
+                                        />
+                                        {form.errors.stock_quantity && (
+                                            <p className="text-xs text-rose-500">{form.errors.stock_quantity}</p>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="create-image" className="text-xs font-semibold text-foreground">
+                                        Image URL (Optional)
+                                    </Label>
+                                    <Input
+                                        id="create-image"
+                                        value={form.data.product_image}
+                                        onChange={(e) => form.setData('product_image', e.target.value)}
+                                        placeholder="https://example.com/image.jpg"
+                                        className="rounded-lg"
+                                    />
+                                </div>
+                                <DialogFooter className="pt-2 gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => setIsAddModalOpen(false)}
+                                        className="rounded-lg"
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        type="submit"
+                                        disabled={form.processing}
+                                        className="rounded-lg"
+                                    >
+                                        {form.processing ? 'Saving...' : 'Add Material'}
+                                    </Button>
+                                </DialogFooter>
+                            </form>
+                        </DialogContent>
+                    </Dialog>
 
-            {/* ── MODAL: Edit ── */}
-            <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-                <DialogContent className="max-w-lg rounded-xl p-6 bg-card text-card-foreground border-border">
-                    <DialogHeader>
-                        <DialogTitle className="text-lg font-bold text-foreground">Edit Raw Material</DialogTitle>
-                        <DialogDescription className="text-sm text-muted-foreground">
-                            Update material details, pricing, and stock quantity.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={handleUpdateProduct} className="space-y-4 py-2">
-                        <div className="space-y-1.5">
-                            <Label htmlFor="edit-name" className="text-xs font-semibold text-foreground">
-                                Material Name <span className="text-rose-500">*</span>
-                            </Label>
-                            <Input
-                                id="edit-name"
-                                value={form.data.name}
-                                onChange={(e) => form.setData('name', e.target.value)}
-                                required
-                                className="rounded-lg"
-                            />
-                            {form.errors.name && <p className="text-xs text-rose-500">{form.errors.name}</p>}
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1.5">
-                                <Label htmlFor="edit-sku" className="text-xs font-semibold text-foreground">
-                                    SKU <span className="text-rose-500">*</span>
-                                </Label>
-                                <Input
-                                    id="edit-sku"
-                                    value={form.data.sku}
-                                    onChange={(e) => form.setData('sku', e.target.value)}
-                                    required
-                                    className="rounded-lg"
-                                />
-                                {form.errors.sku && <p className="text-xs text-rose-500">{form.errors.sku}</p>}
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label htmlFor="edit-category" className="text-xs font-semibold text-foreground">
-                                    Category / Type
-                                </Label>
-                                <Select
-                                    value={form.data.category_id ? String(form.data.category_id) : 'none'}
-                                    onValueChange={(v) => form.setData('category_id', v === 'none' ? '' : v)}
-                                >
-                                    <SelectTrigger id="edit-category" className="rounded-lg">
-                                        <SelectValue placeholder="Select" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none">None</SelectItem>
-                                        {categories.map((c) => (
-                                            <SelectItem key={c.category_id} value={String(c.category_id)}>
-                                                {c.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1.5">
-                                <Label htmlFor="edit-price" className="text-xs font-semibold text-foreground">
-                                    Unit Cost (₱) <span className="text-rose-500">*</span>
-                                </Label>
-                                <Input
-                                    id="edit-price"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={form.data.price}
-                                    onChange={(e) => form.setData('price', e.target.value)}
-                                    required
-                                    className="rounded-lg"
-                                />
-                                {form.errors.price && <p className="text-xs text-rose-500">{form.errors.price}</p>}
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label htmlFor="edit-stock" className="text-xs font-semibold text-foreground">
-                                    Stock Quantity <span className="text-rose-500">*</span>
-                                </Label>
-                                <Input
-                                    id="edit-stock"
-                                    type="number"
-                                    min="0"
-                                    value={form.data.stock_quantity}
-                                    onChange={(e) => form.setData('stock_quantity', parseInt(e.target.value) || 0)}
-                                    required
-                                    className="rounded-lg"
-                                />
-                                {form.errors.stock_quantity && (
-                                    <p className="text-xs text-rose-500">{form.errors.stock_quantity}</p>
-                                )}
-                            </div>
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label htmlFor="edit-image" className="text-xs font-semibold text-foreground">
-                                Image URL (Optional)
-                            </Label>
-                            <Input
-                                id="edit-image"
-                                value={form.data.product_image}
-                                onChange={(e) => form.setData('product_image', e.target.value)}
-                                placeholder="https://example.com/image.jpg"
-                                className="rounded-lg"
-                            />
-                        </div>
-                        <DialogFooter className="pt-2 gap-2">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setIsEditModalOpen(false)}
-                                className="rounded-lg"
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                type="submit"
-                                disabled={form.processing}
-                                className="rounded-lg"
-                            >
-                                {form.processing ? 'Saving...' : 'Save Changes'}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
+                    {/* ── MODAL: Edit ── */}
+                    <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+                        <DialogContent className="max-w-lg rounded-xl p-6 bg-card text-card-foreground border-border">
+                            <DialogHeader>
+                                <DialogTitle className="text-lg font-bold text-foreground">Edit Raw Material</DialogTitle>
+                                <DialogDescription className="text-sm text-muted-foreground">
+                                    Update material details, pricing, and stock quantity.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <form onSubmit={handleUpdateProduct} className="space-y-4 py-2">
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="edit-name" className="text-xs font-semibold text-foreground">
+                                        Material Name <span className="text-rose-500">*</span>
+                                    </Label>
+                                    <Input
+                                        id="edit-name"
+                                        value={form.data.name}
+                                        onChange={(e) => form.setData('name', e.target.value)}
+                                        required
+                                        className="rounded-lg"
+                                    />
+                                    {form.errors.name && <p className="text-xs text-rose-500">{form.errors.name}</p>}
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="edit-sku" className="text-xs font-semibold text-foreground">
+                                            SKU <span className="text-rose-500">*</span>
+                                        </Label>
+                                        <Input
+                                            id="edit-sku"
+                                            value={form.data.sku}
+                                            onChange={(e) => form.setData('sku', e.target.value)}
+                                            required
+                                            className="rounded-lg"
+                                        />
+                                        {form.errors.sku && <p className="text-xs text-rose-500">{form.errors.sku}</p>}
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="edit-category" className="text-xs font-semibold text-foreground">
+                                            Category / Type
+                                        </Label>
+                                        <Select
+                                            value={form.data.category_id ? String(form.data.category_id) : 'none'}
+                                            onValueChange={(v) => form.setData('category_id', v === 'none' ? '' : v)}
+                                        >
+                                            <SelectTrigger id="edit-category" className="rounded-lg">
+                                                <SelectValue placeholder="Select" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">None</SelectItem>
+                                                {categories.map((c) => (
+                                                    <SelectItem key={c.category_id} value={String(c.category_id)}>
+                                                        {c.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="edit-price" className="text-xs font-semibold text-foreground">
+                                            Unit Cost (₱) <span className="text-rose-500">*</span>
+                                        </Label>
+                                        <Input
+                                            id="edit-price"
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            value={form.data.price}
+                                            onChange={(e) => form.setData('price', e.target.value)}
+                                            required
+                                            className="rounded-lg"
+                                        />
+                                        {form.errors.price && <p className="text-xs text-rose-500">{form.errors.price}</p>}
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="edit-stock" className="text-xs font-semibold text-foreground">
+                                            Stock Quantity <span className="text-rose-500">*</span>
+                                        </Label>
+                                        <Input
+                                            id="edit-stock"
+                                            type="number"
+                                            min="0"
+                                            value={form.data.stock_quantity}
+                                            onChange={(e) => form.setData('stock_quantity', parseInt(e.target.value) || 0)}
+                                            required
+                                            className="rounded-lg"
+                                        />
+                                        {form.errors.stock_quantity && (
+                                            <p className="text-xs text-rose-500">{form.errors.stock_quantity}</p>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="edit-image" className="text-xs font-semibold text-foreground">
+                                        Image URL (Optional)
+                                    </Label>
+                                    <Input
+                                        id="edit-image"
+                                        value={form.data.product_image}
+                                        onChange={(e) => form.setData('product_image', e.target.value)}
+                                        placeholder="https://example.com/image.jpg"
+                                        className="rounded-lg"
+                                    />
+                                </div>
+                                <DialogFooter className="pt-2 gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => setIsEditModalOpen(false)}
+                                        className="rounded-lg"
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        type="submit"
+                                        disabled={form.processing}
+                                        className="rounded-lg"
+                                    >
+                                        {form.processing ? 'Saving...' : 'Save Changes'}
+                                    </Button>
+                                </DialogFooter>
+                            </form>
+                        </DialogContent>
+                    </Dialog>
 
-            {/* ── MODAL: Delete ── */}
-            <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
-                <DialogContent className="max-w-sm rounded-xl p-6 bg-card text-card-foreground border-border">
-                    <DialogHeader>
-                        <div className="size-11 rounded-full bg-rose-100 dark:bg-rose-950/50 flex items-center justify-center text-rose-600 dark:text-rose-400 mb-3">
-                            <AlertCircle className="size-5" />
-                        </div>
-                        <DialogTitle className="text-base font-bold text-foreground">Delete Raw Material</DialogTitle>
-                        <DialogDescription className="text-sm text-muted-foreground">
-                            Are you sure you want to delete{' '}
-                            <span className="font-semibold text-foreground">{activeProduct?.name}</span> (
-                            {activeProduct?.sku})? This cannot be undone.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter className="pt-3 gap-2">
-                        <Button
-                            variant="outline"
-                            onClick={() => setIsDeleteModalOpen(false)}
-                            className="rounded-lg"
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            onClick={handleDeleteProduct}
-                            className="rounded-lg bg-rose-600 hover:bg-rose-700 text-white"
-                        >
-                            Delete Material
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                    {/* ── MODAL: Delete ── */}
+                    <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+                        <DialogContent className="max-w-sm rounded-xl p-6 bg-card text-card-foreground border-border">
+                            <DialogHeader>
+                                <div className="size-11 rounded-full bg-rose-100 dark:bg-rose-950/50 flex items-center justify-center text-rose-600 dark:text-rose-400 mb-3">
+                                    <AlertCircle className="size-5" />
+                                </div>
+                                <DialogTitle className="text-base font-bold text-foreground">Delete Raw Material</DialogTitle>
+                                <DialogDescription className="text-sm text-muted-foreground">
+                                    Are you sure you want to delete{' '}
+                                    <span className="font-semibold text-foreground">{activeProduct?.name}</span> (
+                                    {activeProduct?.sku})? This cannot be undone.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <DialogFooter className="pt-3 gap-2">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setIsDeleteModalOpen(false)}
+                                    className="rounded-lg"
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    onClick={handleDeleteProduct}
+                                    className="rounded-lg bg-rose-600 hover:bg-rose-700 text-white"
+                                >
+                                    Delete Material
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                </>
+            )}
         </AppLayout>
     );
 }

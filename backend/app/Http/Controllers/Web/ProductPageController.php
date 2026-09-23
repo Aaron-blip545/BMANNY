@@ -12,8 +12,13 @@ use Inertia\Response;
 
 class ProductPageController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        $user = $request->user('web');
+        if (! $user || ! in_array($user->role, ['sales_agent', 'order_manager', 'admin', 'product_controller'])) {
+            abort(403, 'Unauthorized to view raw materials inventory.');
+        }
+
         // Direct Eloquent query — eager load category relation
         $products = Product::with('category')->orderBy('name')->get();
 
@@ -25,6 +30,11 @@ class ProductPageController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $user = $request->user('web');
+        if (! $user || ! in_array($user->role, ['product_controller', 'admin'])) {
+            abort(403, 'Unauthorized to add raw materials.');
+        }
+
         $data = $request->validate([
             'name'           => 'required|string|max:200',
             'sku'            => 'required|string|max:50|unique:products,sku',
@@ -42,6 +52,11 @@ class ProductPageController extends Controller
 
     public function update(Request $request, int $id): RedirectResponse
     {
+        $user = $request->user('web');
+        if (! $user || ! in_array($user->role, ['product_controller', 'admin'])) {
+            abort(403, 'Unauthorized to update raw materials.');
+        }
+
         $product = Product::findOrFail($id);
 
         $data = $request->validate([
@@ -59,8 +74,13 @@ class ProductPageController extends Controller
         return back()->with('success', 'Product updated successfully.');
     }
 
-    public function destroy(int $id): RedirectResponse
+    public function destroy(Request $request, int $id): RedirectResponse
     {
+        $user = $request->user('web');
+        if (! $user || ! in_array($user->role, ['product_controller', 'admin'])) {
+            abort(403, 'Unauthorized to delete raw materials.');
+        }
+
         $product = Product::findOrFail($id);
         $product->delete();
 

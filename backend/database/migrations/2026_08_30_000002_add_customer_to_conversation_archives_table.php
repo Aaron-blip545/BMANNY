@@ -20,10 +20,19 @@ return new class extends Migration
 
         // Preserve existing archive records while converting their scope
         // from one inquiry to the entire customer conversation.
-        DB::table('conversation_archives')
-            ->join('inquiries', 'conversation_archives.inquiry_id', '=', 'inquiries.inquiry_id')
-            ->join('business_clients', 'inquiries.client_id', '=', 'business_clients.client_id')
-            ->update(['conversation_archives.customer_user_id' => DB::raw('business_clients.user_id')]);
+        if (DB::table('conversation_archives')->exists()) {
+            $archives = DB::table('conversation_archives')
+                ->join('inquiries', 'conversation_archives.inquiry_id', '=', 'inquiries.inquiry_id')
+                ->join('business_clients', 'inquiries.client_id', '=', 'business_clients.client_id')
+                ->select('conversation_archives.id', 'business_clients.user_id')
+                ->get();
+
+            foreach ($archives as $arch) {
+                DB::table('conversation_archives')
+                    ->where('id', $arch->id)
+                    ->update(['customer_user_id' => $arch->user_id]);
+            }
+        }
     }
 
     public function down(): void

@@ -9,12 +9,13 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Widen the status enum to match Figure 6.3 exactly. MySQL doesn't
-        // let you ALTER an enum directly with Blueprint, so this uses raw SQL.
-        DB::statement("ALTER TABLE orders MODIFY status ENUM(
-            'pending', 'approved', 'in_production', 'packed',
-            'for_delivery', 'delivered', 'completed', 'cancelled'
-        ) DEFAULT 'pending'");
+        // Widen the status enum to match Figure 6.3 exactly if on MySQL.
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE orders MODIFY status ENUM(
+                'pending', 'approved', 'in_production', 'packed',
+                'for_delivery', 'delivered', 'completed', 'cancelled'
+            ) DEFAULT 'pending'");
+        }
 
         Schema::table('orders', function (Blueprint $table) {
             // Separate from the existing internal_tracking_number (that's

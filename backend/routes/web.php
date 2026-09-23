@@ -40,10 +40,17 @@ Route::middleware(['backend.auth'])->group(function () {
         return Inertia::render('dashboard');
     })->name('dashboard');
 
-    Route::get('products', [ProductPageController::class, 'index'])->name('products.index');
-    Route::post('products', [ProductPageController::class, 'store'])->name('products.store');
-    Route::put('products/{id}', [ProductPageController::class, 'update'])->name('products.update');
-    Route::delete('products/{id}', [ProductPageController::class, 'destroy'])->name('products.destroy');
+    // Inventory: View Raw Materials (Sales Agent, Order Manager, Admin, Product Controller)
+    Route::middleware(['backend.role:sales_agent,order_manager,admin,product_controller'])
+        ->get('products', [ProductPageController::class, 'index'])
+        ->name('products.index');
+
+    // Inventory: Add, Edit, Delete, Add Quantity to Raw Materials (Product Controller, Admin)
+    Route::middleware(['backend.role:product_controller,admin'])->group(function () {
+        Route::post('products', [ProductPageController::class, 'store'])->name('products.store');
+        Route::put('products/{id}', [ProductPageController::class, 'update'])->name('products.update');
+        Route::delete('products/{id}', [ProductPageController::class, 'destroy'])->name('products.destroy');
+    });
 
     Route::middleware(['backend.role:admin'])->get('admin/dashboard', [AdminDashboardController::class, 'index'])
         ->name('admin.dashboard');
@@ -70,6 +77,17 @@ Route::middleware(['backend.auth'])->group(function () {
     Route::middleware(['backend.role:product_controller'])->group(function () {
         Route::get('product-controller/dashboard', [ProductControllerDashboardController::class, 'index'])
             ->name('product-controller.dashboard');
+
+        Route::get('product-controller/products', function () {
+            return Inertia::render('product-controller/module', [
+                'module' => [
+                    'title' => 'Product Management',
+                    'href' => '/product-controller/products',
+                    'description' => 'Manage catalog products, specs, and configurations.',
+                    'emptyMessage' => 'Product management module will be configured here.',
+                ],
+            ]);
+        })->name('product-controller.products.index');
 
         // Variants & Product Types
         Route::get('product-controller/variants', [ProductVariantsController::class, 'index'])

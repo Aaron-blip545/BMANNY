@@ -257,7 +257,8 @@ export async function confirmModal(options: ConfirmModalOptions): Promise<boolea
 
 export interface AlertModalOptions {
     title?: string;
-    text: string;
+    text?: string;
+    html?: string;
     icon?: 'success' | 'error' | 'warning' | 'info';
     confirmButtonText?: string;
 }
@@ -268,25 +269,169 @@ export interface AlertModalOptions {
 export async function alertModal(options: AlertModalOptions): Promise<void> {
     const {
         title = 'Notice',
-        text,
+        text = '',
+        html,
         icon = 'info',
         confirmButtonText = 'OK',
     } = options;
 
     const iconBadge = getIconBadgeHtml(icon);
 
+    const bodyHtml = html
+        ? `<div class="bmanny-modal-desc">${html}</div>`
+        : `<p class="bmanny-modal-desc">${escapeHtml(text)}</p>`;
+
     const htmlContent = `
         <div class="bmanny-modal-wrapper">
             ${iconBadge}
             <h3 class="bmanny-modal-title">${escapeHtml(title)}</h3>
-            <p class="bmanny-modal-desc">${escapeHtml(text)}</p>
+            ${bodyHtml}
         </div>
     `;
 
     await customSwal.fire({
         html: htmlContent,
         confirmButtonText,
+        customClass: {
+            container: 'bmanny-swal-container',
+            popup: 'bmanny-swal-popup',
+            htmlContainer: 'bmanny-swal-html',
+            actions: 'bmanny-swal-actions',
+            confirmButton: icon === 'error' ? 'bmanny-swal-confirm-destructive' : 'bmanny-swal-confirm',
+            cancelButton: 'bmanny-swal-cancel',
+        },
+    });
+}
+
+export interface ProductionShortageItem {
+    name: string;
+    category?: string;
+    required: number | string;
+    available: number | string;
+}
+
+export function parseShortagesFromText(text: string): ProductionShortageItem[] {
+    const items: ProductionShortageItem[] = [];
+    const regex = /([^,:(]+?)\s*\(Required:\s*(\d+),\s*Available:\s*(\d+)\)/gi;
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+        items.push({
+            name: match[1].trim(),
+            required: match[2],
+            available: match[3],
+        });
+    }
+    return items;
+}
+
+function getShortageIcon(name: string, category?: string): string {
+    const n = (name || '').toLowerCase();
+    const c = (category || '').toLowerCase();
+
+    // Bottles / Flask / Packaging containers
+    if (c.includes('packaging') || n.includes('bottle') || n.includes('can') || n.includes('pouch') || n.includes('jar') || n.includes('sachet') || n.includes('tin') || n.includes('bag')) {
+        return `
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#e11d48" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+                <path d="M10 2v3a1 1 0 0 1-1 1H8a3 3 0 0 0-3 3v9a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3V9a3 3 0 0 0-3-3h-1a1 1 0 0 1-1-1V2Z"/>
+                <path d="M9 2h6"/>
+            </svg>
+        `;
+    }
+
+    // Metal / Container materials / Plastics / Glass / Boxes
+    if (c.includes('container') || n.includes('metal') || n.includes('plastic') || n.includes('glass') || n.includes('paper') || n.includes('aluminum') || n.includes('box')) {
+        return `
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#e11d48" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+                <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
+                <path d="m3.3 7 8.7 5 8.7-5"/>
+                <path d="M12 22V12"/>
+            </svg>
+        `;
+    }
+
+    // Leaf / Flavors / Ingredients / Powders / Raw materials
+    return `
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#e11d48" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/>
+            <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+        </svg>
+    `;
+}
+
+/**
+ * Renders the specialized "Cannot Start Production" shortage SweetAlert modal
+ * exactly matching the production shortage design mockup.
+ */
+export async function showProductionShortageModal(input: string | ProductionShortageItem[]): Promise<void> {
+    let items: ProductionShortageItem[] = [];
+
+    if (typeof input === 'string') {
+        items = parseShortagesFromText(input);
+    } else if (Array.isArray(input)) {
+        items = input;
+    }
+
+    if (items.length === 0) {
+        await alertModal({
+            title: 'Cannot Start Production',
+            text: typeof input === 'string' ? input : 'Insufficient raw materials in inventory.',
+            icon: 'error',
+            confirmButtonText: 'Understood',
+        });
+        return;
+    }
+
+    const itemsHtml = items.map((item) => {
+        const iconSvg = getShortageIcon(item.name, item.category);
+        return `
+            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.875rem; gap: 0.75rem;">
+                <div style="display: flex; align-items: center; gap: 0.625rem; color: #1e293b; font-weight: 500; min-width: 0; text-align: left;">
+                    <span style="color: #e11d48; display: inline-flex; flex-shrink: 0;">${iconSvg}</span>
+                    <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(item.name)}</span>
+                </div>
+                <span style="color: #64748b; font-size: 0.8125rem; white-space: nowrap; flex-shrink: 0; font-weight: 400;">(Required: ${escapeHtml(String(item.required))}, Available: ${escapeHtml(String(item.available))})</span>
+            </div>
+        `;
+    }).join('');
+
+    const htmlContent = `
+        <div style="text-align: center; padding: 0.25rem 0.25rem 0.25rem;">
+            <!-- Top Red X Badge -->
+            <div style="width: 64px; height: 64px; margin: 0 auto 1.25rem; background-color: #fee2e2; border-radius: 9999px; display: flex; align-items: center; justify-content: center;">
+                <div style="width: 40px; height: 40px; border-radius: 9999px; border: 2.5px solid #e11d48; display: flex; align-items: center; justify-content: center; background-color: #ffffff;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e11d48" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Title & Subtitle -->
+            <h3 style="font-size: 1.55rem; font-weight: 700; color: #0f172a; margin-bottom: 0.625rem; letter-spacing: -0.02em;">Cannot Start Production</h3>
+            <p style="font-size: 0.9375rem; color: #475569; margin-bottom: 1.375rem; line-height: 1.45; max-width: 440px; margin-left: auto; margin-right: auto;">
+                Insufficient raw materials in inventory to start production. Please restock the following items:
+            </p>
+
+            <!-- Shortage Items Card -->
+            <div style="background-color: #fff1f2; border: 1px solid #fecdd3; border-radius: 0.875rem; padding: 1.125rem 1.25rem; margin-bottom: 1.25rem; display: flex; flex-direction: column; gap: 0.875rem;">
+                ${itemsHtml}
+            </div>
+        </div>
+    `;
+
+    await customSwal.fire({
+        html: htmlContent,
+        confirmButtonText: 'Understood',
+        customClass: {
+            container: 'bmanny-swal-container',
+            popup: 'bmanny-swal-popup bmanny-shortage-popup',
+            htmlContainer: 'bmanny-swal-html',
+            actions: 'bmanny-swal-actions',
+            confirmButton: 'bmanny-swal-understood',
+        },
+        buttonsStyling: false,
     });
 }
 
 export default customSwal;
+

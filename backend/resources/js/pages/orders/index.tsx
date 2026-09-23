@@ -1,3 +1,4 @@
+import { alertModal, confirmModal, showProductionShortageModal } from '@/lib/sweetalert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -6,7 +7,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { PackageCheck, Search } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Orders', href: '/orders' }];
 
@@ -173,20 +174,80 @@ function OrderRow({ order, updatingId, onUpdateStatus, onRequestCancel, onTracki
 }
 
 export default function OrdersIndex({ orders }: Props) {
-    const { flash } = usePage().props as any;
+    const { flash, errors } = usePage().props as any;
     const [updatingId, setUpdatingId] = useState<number | null>(null);
     const [cancelTarget, setCancelTarget] = useState<Order | null>(null);
     const [cancelConfirmText, setCancelConfirmText] = useState('');
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
-    function handleUpdateStatus(orderId: number, newStatus: OrderStatus) {
-        if (!confirm(`Update order #${orderId} status to "${newStatus}"?`)) return;
+    function showOrderErrorModal(errorMsg: string) {
+        if (
+            errorMsg.toLowerCase().includes('insufficient') ||
+            errorMsg.includes('Required:') ||
+            errorMsg.toLowerCase().includes('raw materials')
+        ) {
+            showProductionShortageModal(errorMsg);
+        } else {
+            alertModal({
+                title: 'Cannot Start Production',
+                text: errorMsg,
+                icon: 'error',
+                confirmButtonText: 'Understood',
+            });
+        }
+    }
+
+    const lastErrorRef = useRef<string | null>(null);
+    useEffect(() => {
+        const errorMsg = flash?.error || errors?.inventory || errors?.error;
+        if (errorMsg && errorMsg !== lastErrorRef.current) {
+            lastErrorRef.current = errorMsg;
+            showOrderErrorModal(errorMsg);
+        }
+    }, [flash?.error, errors?.inventory, errors?.error]);
+
+    async function handleUpdateStatus(orderId: number, newStatus: OrderStatus) {
+        const isProd = newStatus === 'in_production';
+        const statusLabel = newStatus.replace('_', ' ');
+        const formattedLabel = statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1);
+
+        const confirmed = await confirmModal({
+            title: isProd ? `Start Production for Order #${orderId}?` : `Update Order #${orderId}?`,
+            text: isProd
+                ? `Change status to "In Production"? This will check and deduct the required raw materials from inventory.`
+                : `Update order #${orderId} status to "${formattedLabel}"?`,
+            confirmButtonText: isProd ? 'Start Production' : 'Update Status',
+            cancelButtonText: 'Cancel',
+            icon: 'question',
+        });
+
+        if (!confirmed) return;
+
         setUpdatingId(orderId);
         router.patch(
             route('orders.update-status', orderId),
             { status: newStatus },
-            { onFinish: () => setUpdatingId(null) },
+            {
+                preserveScroll: true,
+                onFinish: () => setUpdatingId(null),
+                onError: (errs) => {
+                    const message = errs.inventory || errs.error || Object.values(errs).join(' ') || 'Could not update order status.';
+                    showOrderErrorModal(message);
+                },
+                onSuccess: (page: any) => {
+                    if (page.props?.flash?.error) {
+                        showOrderErrorModal(page.props.flash.error);
+                    } else if (page.props?.flash?.success) {
+                        alertModal({
+                            title: 'Status Updated',
+                            text: page.props.flash.success,
+                            icon: 'success',
+                            confirmButtonText: 'OK',
+                        });
+                    }
+                },
+            },
         );
     }
 
@@ -258,9 +319,9 @@ export default function OrdersIndex({ orders }: Props) {
                     </p>
                 </header>
 
-                {/* Flash */}
+                {/* Flash Messages */}
                 {flash?.success && (
-                    <div className="mb-4 rounded-lg border border-border bg-muted px-4 py-3 text-sm text-foreground">
+                    <div className="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-300">
                         {flash.success}
                     </div>
                 )}
