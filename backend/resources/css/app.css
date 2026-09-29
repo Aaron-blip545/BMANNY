@@ -658,4 +658,36 @@
         background-color: var(--muted);
         border-color: var(--input);
     }
+
+    div:where(.swal2-container) .bmanny-swal-understood,
+    div.swal2-container .bmanny-swal-understood {
+        width: 100% !important;
+        flex: 1 1 100% !important;
+        height: 3rem !important;
+        border-radius: 0.75rem !important;
+        border: none !important;
+        background-color: #e11d48 !important;
+        color: #ffffff !important;
+        font-size: 0.9375rem !important;
+        font-weight: 600 !important;
+        transition: all 0.15s ease !important;
+        cursor: pointer !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        box-shadow: 0 4px 14px rgba(225, 29, 72, 0.3) !important;
+    }
+
+    div:where(.swal2-container) .bmanny-swal-understood:hover,
+    div.swal2-container .bmanny-swal-understood:hover {
+        background-color: #be123c !important;
+        box-shadow: 0 6px 18px rgba(225, 29, 72, 0.45) !important;
+    }
+
+    div:where(.swal2-container) .bmanny-shortage-popup,
+    div.swal2-container .bmanny-shortage-popup {
+        max-width: 580px !important;
+        padding: 1.75rem 2rem !important;
+        border-radius: 1.25rem !important;
+    }
 }

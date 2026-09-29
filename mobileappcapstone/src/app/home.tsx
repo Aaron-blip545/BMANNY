@@ -7,6 +7,8 @@ import {
   getNotifications,
   markNotificationRead,
   markAllNotificationsRead,
+  getProducts,
+  getApiBaseUrl,
 } from '../services/api';
 import { subscribeToRealtime } from '../services/realtime';
 
@@ -34,13 +36,41 @@ const carouselImages = [
   require('@/assets/images/sliderimage/639048031_862557200117795_6194756105031337468_n.jpg'),
 ];
 
-const coffeeSupplements = [
-  { id: 1, name: 'Premium Coffee Protein', price: '$24.99', image: require('@/assets/images/homepageimage/sup1.jpg') },
-  { id: 2, name: 'Organic Coffee Energy', price: '$19.99', image: require('@/assets/images/homepageimage/sup2.jpg') },
-  { id: 3, name: 'Coffee Focus Blend', price: '$29.99', image: require('@/assets/images/homepageimage/sup3.jpg') },
-  { id: 4, name: 'Espresso Pre-Workout', price: '$34.99', image: require('@/assets/images/homepageimage/sup4.jpg') },
-  { id: 5, name: 'Coffee Recovery Mix', price: '$27.99', image: require('@/assets/images/homepageimage/sup5.jpg') },
-  { id: 6, name: 'Cold Brew Supplement', price: '$22.99', image: require('@/assets/images/homepageimage/sup6.jpg') },
+const fallbackImages = [
+  require('@/assets/images/homepageimage/sup1.jpg'),
+  require('@/assets/images/homepageimage/sup2.jpg'),
+  require('@/assets/images/homepageimage/sup3.jpg'),
+  require('@/assets/images/homepageimage/sup4.jpg'),
+  require('@/assets/images/homepageimage/sup5.jpg'),
+  require('@/assets/images/homepageimage/sup6.jpg'),
+];
+
+export interface CatalogProductItem {
+  id: number;
+  product_type_id?: number;
+  name: string;
+  category?: string;
+  category_code?: string;
+  price: string;
+  base_price?: number;
+  description?: string;
+  shelf_life?: string;
+  storage_conditions?: string;
+  lead_time_days?: number;
+  formulation_notes?: string;
+  moq?: string;
+  image?: any;
+  image_url?: string | null;
+  is_active?: boolean;
+}
+
+const defaultProducts: CatalogProductItem[] = [
+  { id: 1, name: 'Premium Coffee Protein', price: '₱180.00', image: fallbackImages[0], description: 'High-quality protein powder infused with premium coffee extract', moq: '100 units' },
+  { id: 2, name: 'Organic Coffee Energy', price: '₱95.00', image: fallbackImages[1], description: 'Organic coffee-based energy supplement made from 100% natural ingredients', moq: '100 units' },
+  { id: 3, name: 'Coffee Focus Blend', price: '₱150.00', image: fallbackImages[2], description: 'Specially formulated cognitive enhancer combining coffee with focus-boosting nootropics', moq: '100 units' },
+  { id: 4, name: 'Espresso Pre-Workout', price: '₱175.00', image: fallbackImages[3], description: 'Intense pre-workout formula with concentrated espresso for maximum performance', moq: '100 units' },
+  { id: 5, name: 'Coffee Recovery Mix', price: '₱140.00', image: fallbackImages[4], description: 'Post-workout recovery blend with coffee antioxidants and essential amino acids', moq: '100 units' },
+  { id: 6, name: 'Cold Brew Supplement', price: '₱110.00', image: fallbackImages[5], description: 'Smooth cold brew coffee supplement perfect for daily hydration', moq: '100 units' },
 ];
 
 function formatRelativeTime(dateString: string) {
@@ -75,8 +105,20 @@ export default function HomeScreen() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [products, setProducts] = useState<CatalogProductItem[]>(defaultProducts);
   const scrollViewRef = useRef<ScrollView>(null);
   const { width } = Dimensions.get('window');
+
+  const loadCatalog = useCallback(async () => {
+    try {
+      const data = await getProducts();
+      if (Array.isArray(data) && data.length > 0) {
+        setProducts(data);
+      }
+    } catch (err) {
+      console.warn('Failed to load dynamic product catalog:', err);
+    }
+  }, []);
 
   const loadNotifications = useCallback(async () => {
     try {
@@ -89,6 +131,7 @@ export default function HomeScreen() {
   }, []);
 
   useEffect(() => {
+    loadCatalog();
     loadNotifications();
 
     return subscribeToRealtime((event) => {
@@ -96,7 +139,7 @@ export default function HomeScreen() {
         loadNotifications();
       }
     });
-  }, [loadNotifications]);
+  }, [loadCatalog, loadNotifications]);
 
   const handleNotificationPress = async (item: NotificationItem) => {
     if (!item.is_read) {
@@ -153,13 +196,47 @@ export default function HomeScreen() {
     return () => clearInterval(interval);
   }, [carouselIndex, width]);
 
-  const filteredProducts = coffeeSupplements.filter((product) =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const getProductImage = (product: CatalogProductItem, index: number) => {
+    if (product.image_url) {
+      const uri = product.image_url.startsWith('http')
+        ? product.image_url
+        : `${getApiBaseUrl().replace('/api', '')}${product.image_url}`;
+      return { uri };
+    }
+    if (typeof product.image === 'string' && product.image.length > 0) {
+      const uri = product.image.startsWith('http')
+        ? product.image
+        : `${getApiBaseUrl().replace('/api', '')}${product.image}`;
+      return { uri };
+    }
+    if (product.image && typeof product.image === 'number') {
+      return product.image;
+    }
+    return fallbackImages[index % fallbackImages.length];
+  };
+
+  const filteredProducts = products.filter((product) =>
+    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (product.category && product.category.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={async () => {
+              setRefreshing(true);
+              await Promise.all([loadCatalog(), loadNotifications()]);
+              setRefreshing(false);
+            }}
+            tintColor="#2196F3"
+            colors={['#2196F3']}
+          />
+        }
+      >
         <View style={styles.header}>
           <View style={styles.headerTitleContainer}>
             <Image source={require('@/assets/images/homepageicon/BMANNYLOGO.png')} style={styles.headerLogo} />
@@ -230,25 +307,39 @@ export default function HomeScreen() {
         <Text style={[styles.featuredProductTitle, { color: colors.text }]}>Featured Product</Text>
 
         <View style={styles.productsGrid}>
-          {filteredProducts.map((product) => (
+          {filteredProducts.map((product, idx) => (
             <TouchableOpacity 
-              key={product.id} 
+              key={product.id || idx} 
               style={[styles.productCard, { backgroundColor: colors.card }]}
               onPress={() => {
-                console.log('Navigating to product:', product.id);
+                console.log('Navigating to product:', product.name);
                 try {
-                  // @ts-ignore
-                  router.push(`/product-description?id=${product.id}`);
+                  router.push({
+                    pathname: '/product-description',
+                    params: {
+                      id: (product.id || product.product_type_id || idx + 1).toString(),
+                      name: product.name,
+                      price: product.price,
+                      description: product.description || '',
+                      moq: product.moq || '100 units',
+                      image_url: product.image_url || '',
+                      category: product.category || '',
+                    },
+                  } as any);
                 } catch (error) {
                   console.error('Navigation error:', error);
                 }
               }}
               activeOpacity={0.7}
             >
-              <Image source={product.image} style={styles.productImage} />
+              <Image source={getProductImage(product, idx)} style={styles.productImage} />
               <View style={styles.productInfo}>
-                <Text style={[styles.productName, { color: colors.text }]}>{product.name}</Text>
-                <Text style={[styles.productPrice, { color: colors.text }]}>{product.price}</Text>
+                <Text style={[styles.productName, { color: colors.text }]} numberOfLines={1}>
+                  {product.name}
+                </Text>
+                <Text style={[styles.productPrice, { color: colors.text }]}>
+                  {product.price}
+                </Text>
               </View>
             </TouchableOpacity>
           ))}

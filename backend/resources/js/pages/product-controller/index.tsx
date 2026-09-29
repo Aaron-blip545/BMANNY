@@ -89,7 +89,7 @@ export default function ProductControllerDashboard({ stats, recentUpdates, moqAl
                         <p className="bmanny-page-eyebrow">Product Controller</p>
                         <h1 className="text-2xl font-semibold tracking-tight text-slate-950 dark:text-foreground">Dashboard</h1>
                         <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-                            Manage and maintain product configurations, variants, packaging, customization options, and MOQ.
+                            Manage and maintain product configurations, packaging, customization options, and MOQ.
                         </p>
                     </section>
 

@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Services\InventoryService;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -63,13 +65,31 @@ class OrderManagerController extends Controller
     public function updateStatus(Request $request, $id)
     {
         $validated = $request->validate([
-            // CHANGED: matches Figure 6.3 exactly now.
+            // Matches Figure 6.3 exactly
             'status' => 'required|in:pending,approved,in_production,packed,for_delivery,delivered,completed,cancelled',
         ]);
 
-        $order = Order::with('client.user')->findOrFail($id);
-        $order->status = $validated['status'];
-        $order->save();
+        $order = Order::with(['client.user', 'items.product', 'quotation.inquiry.customizations'])->findOrFail($id);
+        $previousStatus = $order->status;
+        $targetStatus = $validated['status'];
+
+        try {
+            DB::transaction(function () use ($order, $previousStatus, $targetStatus) {
+                // If transitioning to "in_production", calculate and deduct required raw materials from inventory
+                if ($targetStatus === 'in_production' && $previousStatus !== 'in_production') {
+                    InventoryService::deductOrderMaterials($order);
+                }
+
+                $order->status = $targetStatus;
+                $order->save();
+            });
+        } catch (\Throwable $e) {
+            Log::warning("Status update failed for Order #{$order->order_id}: " . $e->getMessage());
+
+            return redirect()->route('orders.index')
+                ->with('error', $e->getMessage())
+                ->withErrors(['inventory' => $e->getMessage()]);
+        }
 
         // Notify client about order status change
         if ($order->client && $order->client->user) {
@@ -86,8 +106,12 @@ class OrderManagerController extends Controller
             );
         }
 
+        $successMsg = ($targetStatus === 'in_production' && $previousStatus !== 'in_production')
+            ? "Order #{$order->order_id} is now In Production. Required raw materials have been deducted from inventory."
+            : "Order #{$order->order_id} status updated to " . str_replace('_', ' ', $order->status) . ".";
+
         return redirect()->route('orders.index')
-            ->with('success', "Order #{$order->order_id} status updated to {$order->status}.");
+            ->with('success', $successMsg);
     }
 
     /**

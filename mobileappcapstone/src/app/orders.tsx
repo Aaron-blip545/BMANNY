@@ -576,7 +576,6 @@ export default function OrdersScreen() {
                           size: sizeMatch ? sizeMatch[1].trim() : undefined,
                           quantity: qtyMatch ? qtyMatch[1].trim() : undefined,
                           labelDesign: labelMatch ? labelMatch[1].trim() : undefined,
-                          container: order.customizations?.[0]?.packaging_type || undefined,
                           orderDate: order.created_at,
                         };
 

@@ -62,10 +62,9 @@ class ProductVariant extends Model
         return $query->where('is_published', true);
     }
 
-    // Computed label: "500ml PET Bottle"
+    // Computed label: variant name
     public function getFullNameAttribute(): string
     {
-        $parts = array_filter([$this->name, $this->container_type]);
-        return implode(' ', $parts) ?: $this->name;
+        return $this->name ?? '';
     }
 }

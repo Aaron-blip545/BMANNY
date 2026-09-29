@@ -13,12 +13,21 @@ class ProductType extends Model
 
     protected $fillable = [
         'name',
+        'category_code',
         'description',
+        'shelf_life',
+        'storage_conditions',
+        'lead_time_days',
+        'suggested_srp',
+        'formulation_notes',
+        'image_url',
         'is_active',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'suggested_srp' => 'decimal:2',
+        'lead_time_days' => 'integer',
     ];
 
     // A product type has many variants (including soft-deleted ones)

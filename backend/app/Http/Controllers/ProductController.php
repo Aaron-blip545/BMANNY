@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Product;
 use App\Models\ProductVariant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -9,33 +10,80 @@ use Illuminate\Http\Request;
 class ProductController extends Controller
 {
     /**
+     * Customer-facing raw materials and customization options inventory (mobile app).
+     * Returns all flavors and packaging types with their real-time stock counts.
+     */
+    public function customizationMaterials(): JsonResponse
+    {
+        $materials = Product::with('category:category_id,name')
+            ->orderBy('name')
+            ->get()
+            ->map(function ($p) {
+                $categoryName = $p->category?->name ?? 'Uncategorized';
+                return [
+                    'product_id'     => $p->product_id,
+                    'name'           => $p->name,
+                    'sku'            => $p->sku,
+                    'category'       => $categoryName,
+                    'category_id'    => $p->category_id,
+                    'price'          => (float) $p->price,
+                    'stock_quantity' => (int) $p->stock_quantity,
+                    'in_stock'       => (int) $p->stock_quantity > 0,
+                    'product_image'  => $p->product_image,
+                ];
+            });
+
+        $flavors = $materials->filter(fn($m) => strtolower($m['category']) === 'flavors')->values();
+        $packaging = $materials->filter(fn($m) => str_contains(strtolower($m['category']), 'packaging'))->values();
+
+        return response()->json([
+            'all'       => $materials->values(),
+            'flavors'   => $flavors,
+            'packaging' => $packaging,
+        ]);
+    }
+
+    /**
      * Customer-facing product listing (mobile app).
-     * Returns only published variants so customers only see what's been
-     * explicitly made public by the Product Controller.
+     * Returns all active catalog products so customers see exactly what is in
+     * the Product Management catalog.
      */
     public function index(): JsonResponse
     {
-        $variants = ProductVariant::published()
-            ->with('productType:product_type_id,name')
-            ->orderBy('product_type_id')
+        $products = \App\Models\ProductType::where('is_active', true)
+            ->with(['activeVariants'])
             ->orderBy('name')
             ->get()
-            ->map(fn($v) => [
-                'variant_id'     => $v->variant_id,
-                'name'           => $v->name,
-                'full_name'      => $v->full_name,
-                'size_value'     => $v->size_value,
-                'size_unit'      => $v->size_unit,
-                'container_type' => $v->container_type,
-                'is_available'   => $v->is_available,
-                'notes'          => $v->notes,
-                'product_type'   => $v->productType ? [
-                    'product_type_id' => $v->productType->product_type_id,
-                    'name'            => $v->productType->name,
-                ] : null,
-            ]);
+            ->map(function ($product) {
+                $basePrice = (float) ($product->suggested_srp ?? 0);
+                return [
+                    'id'                 => $product->product_type_id,
+                    'product_type_id'    => $product->product_type_id,
+                    'name'               => $product->name,
+                    'category'           => $product->category_code ?? 'General',
+                    'category_code'      => $product->category_code ?? 'General',
+                    'price'              => '₱' . number_format($basePrice, 2),
+                    'base_price'         => $basePrice,
+                    'description'        => $product->description ?? '',
+                    'shelf_life'         => $product->shelf_life ?? '12 Months',
+                    'storage_conditions' => $product->storage_conditions ?? 'Cool, dry place',
+                    'lead_time_days'     => $product->lead_time_days ?? 14,
+                    'formulation_notes'  => $product->formulation_notes,
+                    'moq'                => '100 units',
+                    'image'              => $product->image_url,
+                    'image_url'          => $product->image_url,
+                    'is_active'          => (bool) $product->is_active,
+                    'variants'           => $product->activeVariants->map(fn($v) => [
+                        'variant_id'   => $v->variant_id,
+                        'name'         => $v->name,
+                        'size_value'   => $v->size_value,
+                        'size_unit'    => $v->size_unit,
+                        'is_available' => (bool) $v->is_available,
+                    ]),
+                ];
+            });
 
-        return response()->json($variants);
+        return response()->json($products);
     }
 
     /**
