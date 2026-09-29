@@ -31,11 +31,10 @@ class InventoryDeductionTest extends TestCase
         ]);
     }
 
-    private function setupCustomizedOrder(int $orderedQty, int $flavorStock, int $packagingStock, int $containerStock): array
+    private function setupCustomizedOrder(int $orderedQty, int $flavorStock, int $packagingStock): array
     {
         $flavorsCat = Category::create(['name' => 'Flavors', 'description' => 'Flavors']);
         $pkgCat     = Category::create(['name' => 'Packaging Types', 'description' => 'Packaging']);
-        $cntCat     = Category::create(['name' => 'Container Materials', 'description' => 'Containers']);
 
         $flavorProduct = Product::create([
             'name'           => 'Vanilla',
@@ -51,14 +50,6 @@ class InventoryDeductionTest extends TestCase
             'category_id'    => $pkgCat->category_id,
             'price'          => 15.00,
             'stock_quantity' => $packagingStock,
-        ]);
-
-        $containerProduct = Product::create([
-            'name'           => 'Plastic',
-            'sku'            => 'CNT-PLS-001',
-            'category_id'    => $cntCat->category_id,
-            'price'          => 10.00,
-            'stock_quantity' => $containerStock,
         ]);
 
         $user = User::factory()->create(['role' => 'customer', 'is_active' => true]);
@@ -79,7 +70,6 @@ class InventoryDeductionTest extends TestCase
             'inquiry_id'         => $inquiry->inquiry_id,
             'customization_type' => 'Custom Rebrand & Packaging',
             'packaging_type'     => 'Pouch',
-            'packaging_finish'   => 'Plastic',
             'serving_size'       => "500g × {$orderedQty} units",
             'client_notes'       => 'Flavor: Vanilla | Brand: Acme Brand',
         ]);
@@ -99,26 +89,25 @@ class InventoryDeductionTest extends TestCase
             'status'       => 'approved',
         ]);
 
-        return compact('order', 'flavorProduct', 'packagingProduct', 'containerProduct');
+        return compact('order', 'flavorProduct', 'packagingProduct');
     }
 
     public function test_inventory_service_calculates_required_materials_accurately(): void
     {
-        $data = $this->setupCustomizedOrder(150, 200, 300, 400);
+        $data = $this->setupCustomizedOrder(150, 200, 300);
         $order = $data['order'];
 
         $required = InventoryService::calculateRequiredMaterials($order);
 
-        $this->assertCount(3, $required);
+        $this->assertCount(2, $required);
         $this->assertEquals(150, $required[$data['flavorProduct']->product_id]['quantity']);
         $this->assertEquals(150, $required[$data['packagingProduct']->product_id]['quantity']);
-        $this->assertEquals(150, $required[$data['containerProduct']->product_id]['quantity']);
     }
 
     public function test_inventory_deduction_succeeds_when_stock_is_sufficient(): void
     {
         $manager = $this->createOrderManager();
-        $data = $this->setupCustomizedOrder(100, 150, 200, 250);
+        $data = $this->setupCustomizedOrder(100, 150, 200);
         $order = $data['order'];
 
         $response = $this->actingAs($manager, 'web')->patch(route('orders.update-status', $order->order_id), [
@@ -131,14 +120,13 @@ class InventoryDeductionTest extends TestCase
         $this->assertEquals('in_production', $order->fresh()->status);
         $this->assertEquals(50, $data['flavorProduct']->fresh()->stock_quantity);      // 150 - 100
         $this->assertEquals(100, $data['packagingProduct']->fresh()->stock_quantity);  // 200 - 100
-        $this->assertEquals(150, $data['containerProduct']->fresh()->stock_quantity);  // 250 - 100
     }
 
     public function test_inventory_deduction_fails_when_stock_is_insufficient(): void
     {
         $manager = $this->createOrderManager();
         // Vanilla has only 20 in stock, but order needs 100
-        $data = $this->setupCustomizedOrder(100, 20, 200, 250);
+        $data = $this->setupCustomizedOrder(100, 20, 200);
         $order = $data['order'];
 
         $response = $this->actingAs($manager, 'web')->patch(route('orders.update-status', $order->order_id), [
@@ -155,13 +143,12 @@ class InventoryDeductionTest extends TestCase
         // No inventory deducted
         $this->assertEquals(20, $data['flavorProduct']->fresh()->stock_quantity);
         $this->assertEquals(200, $data['packagingProduct']->fresh()->stock_quantity);
-        $this->assertEquals(250, $data['containerProduct']->fresh()->stock_quantity);
     }
 
     public function test_re_updating_in_production_order_does_not_deduct_twice(): void
     {
         $manager = $this->createOrderManager();
-        $data = $this->setupCustomizedOrder(50, 100, 100, 100);
+        $data = $this->setupCustomizedOrder(50, 100, 100);
         $order = $data['order'];
 
         // First transition: approved -> in_production

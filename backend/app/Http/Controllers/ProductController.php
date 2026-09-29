@@ -11,7 +11,7 @@ class ProductController extends Controller
 {
     /**
      * Customer-facing raw materials and customization options inventory (mobile app).
-     * Returns all flavors, packaging types, and container materials with their real-time stock counts.
+     * Returns all flavors and packaging types with their real-time stock counts.
      */
     public function customizationMaterials(): JsonResponse
     {
@@ -35,44 +35,55 @@ class ProductController extends Controller
 
         $flavors = $materials->filter(fn($m) => strtolower($m['category']) === 'flavors')->values();
         $packaging = $materials->filter(fn($m) => str_contains(strtolower($m['category']), 'packaging'))->values();
-        $containers = $materials->filter(fn($m) => str_contains(strtolower($m['category']), 'container'))->values();
 
         return response()->json([
-            'all'        => $materials->values(),
-            'flavors'    => $flavors,
-            'packaging'  => $packaging,
-            'containers' => $containers,
+            'all'       => $materials->values(),
+            'flavors'   => $flavors,
+            'packaging' => $packaging,
         ]);
     }
 
     /**
      * Customer-facing product listing (mobile app).
-     * Returns only published variants so customers only see what's been
-     * explicitly made public by the Product Controller.
+     * Returns all active catalog products so customers see exactly what is in
+     * the Product Management catalog.
      */
     public function index(): JsonResponse
     {
-        $variants = ProductVariant::published()
-            ->with('productType:product_type_id,name')
-            ->orderBy('product_type_id')
+        $products = \App\Models\ProductType::where('is_active', true)
+            ->with(['activeVariants'])
             ->orderBy('name')
             ->get()
-            ->map(fn($v) => [
-                'variant_id'     => $v->variant_id,
-                'name'           => $v->name,
-                'full_name'      => $v->full_name,
-                'size_value'     => $v->size_value,
-                'size_unit'      => $v->size_unit,
-                'container_type' => $v->container_type,
-                'is_available'   => $v->is_available,
-                'notes'          => $v->notes,
-                'product_type'   => $v->productType ? [
-                    'product_type_id' => $v->productType->product_type_id,
-                    'name'            => $v->productType->name,
-                ] : null,
-            ]);
+            ->map(function ($product) {
+                $basePrice = (float) ($product->suggested_srp ?? 0);
+                return [
+                    'id'                 => $product->product_type_id,
+                    'product_type_id'    => $product->product_type_id,
+                    'name'               => $product->name,
+                    'category'           => $product->category_code ?? 'General',
+                    'category_code'      => $product->category_code ?? 'General',
+                    'price'              => '₱' . number_format($basePrice, 2),
+                    'base_price'         => $basePrice,
+                    'description'        => $product->description ?? '',
+                    'shelf_life'         => $product->shelf_life ?? '12 Months',
+                    'storage_conditions' => $product->storage_conditions ?? 'Cool, dry place',
+                    'lead_time_days'     => $product->lead_time_days ?? 14,
+                    'formulation_notes'  => $product->formulation_notes,
+                    'moq'                => '100 units',
+                    'image'              => $product->image_url,
+                    'image_url'          => $product->image_url,
+                    'is_active'          => (bool) $product->is_active,
+                    'variants'           => $product->activeVariants->map(fn($v) => [
+                        'variant_id'   => $v->variant_id,
+                        'name'         => $v->name,
+                        'size_value'   => $v->size_value,
+                        'size_unit'    => $v->size_unit,
+                        'is_available' => (bool) $v->is_available,
+                    ]),
+                ];
+            });
 
-        return response()->json($variants);
+        return response()->json($products);
     }
 
     /**

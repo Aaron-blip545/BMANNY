@@ -78,21 +78,6 @@ class InventoryService
                         $required[$pId]['quantity'] += $qty;
                     }
                 }
-
-                // Identify Container Material
-                if (!empty($cust->packaging_finish)) {
-                    $containerProduct = self::findProductByName($cust->packaging_finish, 'Container Materials');
-                    if ($containerProduct) {
-                        $pId = $containerProduct->product_id;
-                        if (!isset($required[$pId])) {
-                            $required[$pId] = [
-                                'product'  => $containerProduct,
-                                'quantity' => 0,
-                            ];
-                        }
-                        $required[$pId]['quantity'] += $qty;
-                    }
-                }
             }
         }
 

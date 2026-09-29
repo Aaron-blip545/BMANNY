@@ -28,7 +28,6 @@ interface Order {
   flavor?: string;
   size?: string;
   packaging?: string;
-  container?: string;
   labelDesign?: string;
   brandName?: string;
   quantity?: string;
@@ -148,11 +147,6 @@ export default function OrderDetailScreen() {
           <View style={styles.detailRow}>
             <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Packaging</Text>
             <Text style={[styles.detailValue, { color: colors.text }]}>{order.packaging || 'N/A'}</Text>
-          </View>
-          
-          <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Container</Text>
-            <Text style={[styles.detailValue, { color: colors.text }]}>{order.container || 'N/A'}</Text>
           </View>
           
           <View style={styles.detailRow}>

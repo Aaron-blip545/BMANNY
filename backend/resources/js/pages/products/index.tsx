@@ -313,7 +313,7 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                         <p className="bmanny-page-eyebrow">Inventory Workspace</p>
                         <h1 className="text-2xl font-semibold tracking-tight">Raw Materials</h1>
                         <p className="mt-1 text-sm text-muted-foreground">
-                            Track flavors, packaging &amp; container stock for product customization.
+                            Track flavors &amp; packaging stock for product customization.
                         </p>
                     </div>
                     <div className="flex gap-2">

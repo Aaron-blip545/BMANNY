@@ -1,48 +1,127 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator, SafeAreaView } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
+import { getProducts, getApiBaseUrl } from '../services/api';
 
 interface Product {
   id: number;
   name: string;
   price: string;
-  image: any;
+  image?: any;
+  image_url?: string | null;
   description?: string;
   moq?: string;
+  shelf_life?: string;
+  storage_conditions?: string;
 }
 
-const coffeeSupplements: Product[] = [
-  { id: 1, name: 'Premium Coffee Protein', price: '$24.99', image: require('@/assets/images/homepageimage/sup1.jpg'), description: 'High-quality protein powder infused with premium coffee extract for sustained energy and muscle recovery.', moq: '100 units' },
-  { id: 2, name: 'Organic Coffee Energy', price: '$19.99', image: require('@/assets/images/homepageimage/sup2.jpg'), description: 'Organic coffee-based energy supplement made from 100% natural ingredients for clean energy boost.', moq: '100 units' },
-  { id: 3, name: 'Coffee Focus Blend', price: '$29.99', image: require('@/assets/images/homepageimage/sup3.jpg'), description: 'Specially formulated cognitive enhancer combining coffee with focus-boosting nootropics.', moq: '100 units' },
-  { id: 4, name: 'Espresso Pre-Workout', price: '$34.99', image: require('@/assets/images/homepageimage/sup4.jpg'), description: 'Intense pre-workout formula with concentrated espresso for maximum performance and pump.', moq: '100 units' },
-  { id: 5, name: 'Coffee Recovery Mix', price: '$27.99', image: require('@/assets/images/homepageimage/sup5.jpg'), description: 'Post-workout recovery blend with coffee antioxidants and essential amino acids.', moq: '100 units' },
-  { id: 6, name: 'Cold Brew Supplement', price: '$22.99', image: require('@/assets/images/homepageimage/sup6.jpg'), description: 'Smooth cold brew coffee supplement perfect for daily hydration and moderate caffeine intake.', moq: '100 units' },
+const fallbackImages = [
+  require('@/assets/images/homepageimage/sup1.jpg'),
+  require('@/assets/images/homepageimage/sup2.jpg'),
+  require('@/assets/images/homepageimage/sup3.jpg'),
+  require('@/assets/images/homepageimage/sup4.jpg'),
+  require('@/assets/images/homepageimage/sup5.jpg'),
+  require('@/assets/images/homepageimage/sup6.jpg'),
 ];
 
 export default function ProductDetailScreen() {
   const { colors } = useTheme();
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const product = coffeeSupplements.find(p => p.id === parseInt(id));
+  const params = useLocalSearchParams<{
+    id?: string;
+    name?: string;
+    price?: string;
+    description?: string;
+    moq?: string;
+    image_url?: string;
+    category?: string;
+  }>();
 
-  if (!product) {
+  const [product, setProduct] = useState<Product | null>(() => {
+    if (params.name) {
+      return {
+        id: parseInt(params.id || '1') || 1,
+        name: params.name,
+        price: params.price || '₱0.00',
+        description: params.description || 'Premium custom formulation base.',
+        moq: params.moq || '100 units',
+        image_url: params.image_url || null,
+      };
+    }
+    return null;
+  });
+  const [loading, setLoading] = useState(!params.name);
+
+  useEffect(() => {
+    async function fetchProduct() {
+      if (!params.id && !params.name) return;
+      try {
+        const catalog = await getProducts();
+        if (Array.isArray(catalog)) {
+          const found = catalog.find(
+            (p: any) =>
+              (params.id && p.id?.toString() === params.id.toString()) ||
+              (params.name && p.name.toLowerCase() === params.name.toLowerCase())
+          );
+          if (found) {
+            setProduct({
+              id: found.id || 1,
+              name: found.name,
+              price: found.price || '₱0.00',
+              description: found.description || 'Premium custom formulation base.',
+              moq: found.moq || '100 units',
+              image_url: found.image_url || null,
+              shelf_life: found.shelf_life,
+              storage_conditions: found.storage_conditions,
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load product details from server:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (!product || !product.name) {
+      fetchProduct();
+    }
+  }, [params.id, params.name]);
+
+  if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <Text style={[styles.errorText, { color: colors.text }]}>Product not found</Text>
-        <TouchableOpacity style={[styles.headerBackButton, { backgroundColor: '#2196F3' }]} onPress={() => router.back()}>
-          <Text style={styles.backButtonText}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#2196F3" />
+      </SafeAreaView>
     );
   }
 
+  if (!product) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+        <Text style={[styles.errorText, { color: colors.text, marginBottom: 16 }]}>Product not found</Text>
+        <TouchableOpacity style={[styles.errorButton, { backgroundColor: '#2196F3' }]} onPress={() => router.back()}>
+          <Text style={styles.errorButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
+  const getImageSource = () => {
+    if (product.image_url) {
+      const uri = product.image_url.startsWith('http')
+        ? product.image_url
+        : `${getApiBaseUrl().replace('/api', '')}${product.image_url}`;
+      return { uri };
+    }
+    const idx = (product.id || 1) % fallbackImages.length;
+    return fallbackImages[idx];
+  };
+
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.header}>
-      </View>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Image source={product.image} style={styles.productImage} />
+        <Image source={getImageSource()} style={styles.productImage} />
 
         <View style={[styles.productInfo, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.productName, { color: colors.text }]}>{product.name}</Text>
@@ -61,14 +140,17 @@ export default function ProductDetailScreen() {
       </ScrollView>
 
       <View style={[styles.bottomButtons, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
-        <TouchableOpacity style={[styles.customizeButton, { backgroundColor: '#2196F3' }]} onPress={() => router.push({ pathname: '/product-customization', params: { name: product.name } })}>
+        <TouchableOpacity
+          style={[styles.customizeButton, { backgroundColor: '#2196F3' }]}
+          onPress={() => router.push({ pathname: '/product-customization', params: { name: product.name } } as any)}
+        >
           <View style={styles.buttonContent}>
             <Image source={require('@/assets/images/homepageimage/settings.png')} style={styles.iconImage} tintColor="#ffffff" />
             <Text style={styles.sendInquiryText}>Customize order</Text>
           </View>
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -76,19 +158,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    paddingBottom: 8,
-  },
-  headerBackButton: {
+  errorButton: {
     backgroundColor: '#2196F3',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
-  backButtonText: {
+  errorButtonText: {
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '700',

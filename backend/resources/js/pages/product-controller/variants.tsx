@@ -23,7 +23,6 @@ interface ProductVariant {
     name: string;
     size_value: number | null;
     size_unit: string | null;
-    container_type: string | null;
     is_available: boolean;
     is_published: boolean;
     notes: string | null;
@@ -114,7 +113,6 @@ export default function VariantsPage({ productTypes }: Props) {
         name: '',
         size_value: '',
         size_unit: '',
-        container_type: '',
         is_available: true,
         is_published: false,
         notes: '',
@@ -134,7 +132,6 @@ export default function VariantsPage({ productTypes }: Props) {
             name: variant.name,
             size_value: variant.size_value?.toString() ?? '',
             size_unit: variant.size_unit ?? '',
-            container_type: variant.container_type ?? '',
             is_available: variant.is_available,
             is_published: variant.is_published,
             notes: variant.notes ?? '',
@@ -253,7 +250,6 @@ export default function VariantsPage({ productTypes }: Props) {
                                                             <tr>
                                                                 <th className="px-5 py-3 font-medium">Variant</th>
                                                                 <th className="px-5 py-3 font-medium">Size</th>
-                                                                <th className="px-5 py-3 font-medium">Container</th>
                                                                 <th className="px-5 py-3 font-medium">MOQ</th>
                                                                 <th className="px-5 py-3 font-medium">Availability</th>
                                                                 <th className="px-5 py-3 font-medium">Catalog</th>
@@ -267,7 +263,6 @@ export default function VariantsPage({ productTypes }: Props) {
                                                                     <td className="px-5 py-4 text-muted-foreground">
                                                                         {variant.size_value != null ? `${variant.size_value}${variant.size_unit ?? ''}` : '—'}
                                                                     </td>
-                                                                    <td className="px-5 py-4 text-muted-foreground">{variant.container_type ?? '—'}</td>
                                                                     <td className="px-5 py-4">
                                                                         {variant.current_moq ? (
                                                                             <span className="font-medium">{variant.current_moq.min_quantity.toLocaleString()} units</span>
@@ -313,7 +308,6 @@ export default function VariantsPage({ productTypes }: Props) {
                                                                     <td className="px-5 py-3 text-muted-foreground">
                                                                         {variant.size_value != null ? `${variant.size_value}${variant.size_unit ?? ''}` : '—'}
                                                                     </td>
-                                                                    <td className="px-5 py-3 text-muted-foreground">{variant.container_type ?? '—'}</td>
                                                                     <td className="px-5 py-3 text-muted-foreground">—</td>
                                                                     <td className="px-5 py-3"><span className="text-xs text-muted-foreground">Removed</span></td>
                                                                     <td className="px-5 py-3"></td>
@@ -429,16 +423,6 @@ export default function VariantsPage({ productTypes }: Props) {
                                     <SelectItem value="oz">oz</SelectItem>
                                 </SelectContent>
                             </Select>
-                        </div>
-
-                        <div className="col-span-2 space-y-1.5">
-                            <Label htmlFor="variant-container">Container Type</Label>
-                            <Input
-                                id="variant-container"
-                                value={variantForm.data.container_type}
-                                onChange={(e) => variantForm.setData('container_type', e.target.value)}
-                                placeholder="e.g. PET Bottle"
-                            />
                         </div>
 
                         <div className="space-y-1.5">

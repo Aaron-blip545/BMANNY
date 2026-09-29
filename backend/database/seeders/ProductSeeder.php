@@ -14,7 +14,6 @@ class ProductSeeder extends Seeder
         $categories = [
             'Flavors' => 'Raw flavor extracts, concentrates, and natural flavor ingredients.',
             'Packaging Types' => 'Primary packaging containers, pouches, cans, boxes, and bulk packs.',
-            'Container Materials' => 'Container material types including food-grade plastics, glass, metals, and eco-friendly options.',
         ];
 
         $categoryModels = [];
@@ -183,62 +182,6 @@ class ProductSeeder extends Seeder
                 'product_image'  => null,
                 'description'    => null,
             ],
-
-            // ── Container Materials ────────────────────────────────────────────
-            [
-                'name'           => 'Plastic',
-                'sku'            => 'CNT-PLS-001',
-                'category_id'    => $categoryModels['Container Materials']->category_id,
-                'price'          => 10.00,
-                'stock_quantity' => 500,
-                'product_image'  => null,
-                'description'    => null,
-            ],
-            [
-                'name'           => 'Glass',
-                'sku'            => 'CNT-GLS-002',
-                'category_id'    => $categoryModels['Container Materials']->category_id,
-                'price'          => 22.00,
-                'stock_quantity' => 200,
-                'product_image'  => null,
-                'description'    => null,
-            ],
-            [
-                'name'           => 'Metal',
-                'sku'            => 'CNT-MTL-003',
-                'category_id'    => $categoryModels['Container Materials']->category_id,
-                'price'          => 26.00,
-                'stock_quantity' => 150,
-                'product_image'  => null,
-                'description'    => null,
-            ],
-            [
-                'name'           => 'Paper',
-                'sku'            => 'CNT-PPR-004',
-                'category_id'    => $categoryModels['Container Materials']->category_id,
-                'price'          => 12.00,
-                'stock_quantity' => 300,
-                'product_image'  => null,
-                'description'    => null,
-            ],
-            [
-                'name'           => 'Aluminum',
-                'sku'            => 'CNT-ALU-005',
-                'category_id'    => $categoryModels['Container Materials']->category_id,
-                'price'          => 28.00,
-                'stock_quantity' => 180,
-                'product_image'  => null,
-                'description'    => null,
-            ],
-            [
-                'name'           => 'Biodegradable',
-                'sku'            => 'CNT-BIO-006',
-                'category_id'    => $categoryModels['Container Materials']->category_id,
-                'price'          => 32.00,
-                'stock_quantity' => 0, // OUT OF STOCK for testing
-                'product_image'  => null,
-                'description'    => null,
-            ],
         ];
 
         $validSkus = array_column($materials, 'sku');
@@ -256,6 +199,94 @@ class ProductSeeder extends Seeder
             Product::updateOrCreate(
                 ['sku' => $m['sku']],
                 $m
+            );
+        }
+
+        // 3. Catalog Products (Product Management / Mobile App Customization Catalog)
+        $catalogProducts = [
+            [
+                'name'               => 'Citrus Energy Shot',
+                'category_code'      => 'Beverage',
+                'suggested_srp'      => 85.00,
+                'description'        => '60ml functional beverage base',
+                'shelf_life'         => '12 Months',
+                'storage_conditions' => 'Refrigerate after opening',
+                'lead_time_days'     => 14,
+                'formulation_notes'  => 'Standard concentrated citrus formula with natural caffeine.',
+                'image_url'          => null,
+                'is_active'          => true,
+            ],
+            [
+                'name'               => 'Daily Collagen Blend',
+                'category_code'      => 'Supplement',
+                'suggested_srp'      => 210.00,
+                'description'        => 'Powdered supplement, unflavored base',
+                'shelf_life'         => '24 Months',
+                'storage_conditions' => 'Cool, dry place away from sunlight',
+                'lead_time_days'     => 10,
+                'formulation_notes'  => 'Hydrolyzed bovine collagen peptides type I & III.',
+                'image_url'          => null,
+                'is_active'          => true,
+            ],
+            [
+                'name'               => 'Matte Lip Balm',
+                'category_code'      => 'Cosmetic',
+                'suggested_srp'      => 65.00,
+                'description'        => 'Tinted base, tube packaging',
+                'shelf_life'         => '18 Months',
+                'storage_conditions' => 'Room temperature (below 30°C)',
+                'lead_time_days'     => 7,
+                'formulation_notes'  => 'Beeswax and shea butter hydrating base.',
+                'image_url'          => null,
+                'is_active'          => false,
+            ],
+            [
+                'name'               => 'Sparkling Botanical Water',
+                'category_code'      => 'Beverage',
+                'suggested_srp'      => 55.00,
+                'description'        => '250ml carbonated base',
+                'shelf_life'         => '12 Months',
+                'storage_conditions' => 'Keep cool',
+                'lead_time_days'     => 14,
+                'formulation_notes'  => 'Infused sparkling botanical base, zero sugar.',
+                'image_url'          => null,
+                'is_active'          => true,
+            ],
+            [
+                'name'               => 'Premium Coffee Protein',
+                'category_code'      => 'Supplement',
+                'suggested_srp'      => 180.00,
+                'description'        => 'High-quality protein powder infused with premium coffee extract',
+                'shelf_life'         => '24 Months',
+                'storage_conditions' => 'Cool dry place',
+                'lead_time_days'     => 14,
+                'formulation_notes'  => 'Whey protein isolate with 100% Arabica instant coffee powder.',
+                'image_url'          => null,
+                'is_active'          => true,
+            ],
+            [
+                'name'               => 'Organic Coffee Energy',
+                'category_code'      => 'Beverage',
+                'suggested_srp'      => 95.00,
+                'description'        => 'Organic coffee-based energy supplement made from 100% natural ingredients',
+                'shelf_life'         => '12 Months',
+                'storage_conditions' => 'Keep chilled',
+                'lead_time_days'     => 10,
+                'formulation_notes'  => 'Cold extracted organic robusta and guarana extract.',
+                'image_url'          => null,
+                'is_active'          => true,
+            ],
+        ];
+
+        foreach ($catalogProducts as $cp) {
+            $type = \App\Models\ProductType::updateOrCreate(
+                ['name' => $cp['name']],
+                $cp
+            );
+
+            \App\Models\ProductVariant::firstOrCreate(
+                ['product_type_id' => $type->product_type_id, 'name' => 'Standard'],
+                ['is_available' => true, 'is_published' => true]
             );
         }
     }

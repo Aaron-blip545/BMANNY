@@ -4,7 +4,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, Sid
 import { type NavItem } from '@/types';
 import { roleDashboardHref } from '@/lib/role-dashboard';
 import { Link, usePage } from '@inertiajs/react';
-import { BarChart3, Bell, Box, CircleHelp, FileText, House, ListTree, Package, PackageCheck, PackageMinus, Settings, SlidersHorizontal, Users as UsersIcon } from 'lucide-react';
+import { BarChart3, Bell, Box, CircleHelp, FileText, House, Package, PackageCheck, PackageMinus, Settings, SlidersHorizontal, Users as UsersIcon } from 'lucide-react';
 import AppLogo from './app-logo';
 
 export function AppSidebar() {
@@ -13,23 +13,23 @@ export function AppSidebar() {
     const { auth } = usePage().props as any;
     const role: string = auth?.user?.role ?? '';
 
-    const isAdmin        = role === 'admin';
-    const isSalesAgent   = role === 'sales_agent';
+    const isAdmin = role === 'admin';
+    const isSalesAgent = role === 'sales_agent';
     const isOrderManager = role === 'order_manager';
     const isProductController = role === 'product_controller';
     const dashboardHref = roleDashboardHref(role);
 
     const standardNavItems: NavItem[] = [
         // Everyone sees Dashboard and Inventory
-        { title: 'Dashboard', url: dashboardHref,      icon: House },
-        { title: 'Inventory',  url: '/products',        icon: PackageMinus },
+        { title: 'Dashboard', url: dashboardHref, icon: House },
+        { title: 'Inventory', url: '/products', icon: PackageMinus },
 
         // Sales Agent + Admin: customer inquiries and quotation workflow
         ...(isSalesAgent || isAdmin
             ? [
-                { title: 'Inquiries',   url: '/inquiries',   icon: CircleHelp },
-                { title: 'Quotations',  url: '/quotations',  icon: FileText },
-              ]
+                { title: 'Inquiries', url: '/inquiries', icon: CircleHelp },
+                { title: 'Quotations', url: '/quotations', icon: FileText },
+            ]
             : []),
 
         // Order Manager + Admin: production and delivery tracking
@@ -54,7 +54,6 @@ export function AppSidebar() {
         { title: 'Dashboard', url: '/product-controller/dashboard', icon: House },
         { title: 'Inventory', url: '/products', icon: PackageMinus },
         { title: 'Product Management', url: '/product-controller/products', icon: Package },
-        { title: 'Variant Management', url: '/product-controller/variants', icon: ListTree },
         { title: 'Packaging Management', url: '/product-controller/packaging', icon: Box },
         { title: 'MOQ Management', url: '/product-controller/moq', icon: SlidersHorizontal },
         { title: 'Customization Options', url: '/product-controller/customization', icon: CircleHelp },

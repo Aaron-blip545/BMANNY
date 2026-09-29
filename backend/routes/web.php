@@ -8,6 +8,7 @@ use App\Http\Controllers\Web\CustomizationController;
 use App\Http\Controllers\Web\MoqController;
 use App\Http\Controllers\Web\PackagingController;
 use App\Http\Controllers\Web\ProductControllerDashboardController;
+use App\Http\Controllers\Web\ProductManagementController;
 use App\Http\Controllers\Web\ProductVariantsController;
 use App\Http\Controllers\Web\ProductPageController;
 use App\Http\Controllers\Web\SalesAgentController;
@@ -78,16 +79,17 @@ Route::middleware(['backend.auth'])->group(function () {
         Route::get('product-controller/dashboard', [ProductControllerDashboardController::class, 'index'])
             ->name('product-controller.dashboard');
 
-        Route::get('product-controller/products', function () {
-            return Inertia::render('product-controller/module', [
-                'module' => [
-                    'title' => 'Product Management',
-                    'href' => '/product-controller/products',
-                    'description' => 'Manage catalog products, specs, and configurations.',
-                    'emptyMessage' => 'Product management module will be configured here.',
-                ],
-            ]);
-        })->name('product-controller.products.index');
+        // Product Management (Catalog)
+        Route::get('product-controller/products', [ProductManagementController::class, 'index'])
+            ->name('product-controller.products.index');
+        Route::post('product-controller/products', [ProductManagementController::class, 'store'])
+            ->name('product-controller.products.store');
+        Route::put('product-controller/products/{id}', [ProductManagementController::class, 'update'])
+            ->name('product-controller.products.update');
+        Route::patch('product-controller/products/{id}/toggle-status', [ProductManagementController::class, 'toggleStatus'])
+            ->name('product-controller.products.toggle-status');
+        Route::delete('product-controller/products/{id}', [ProductManagementController::class, 'destroy'])
+            ->name('product-controller.products.destroy');
 
         // Variants & Product Types
         Route::get('product-controller/variants', [ProductVariantsController::class, 'index'])

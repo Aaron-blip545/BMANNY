@@ -44,15 +44,6 @@ const defaultPackaging: CustomizationOptionItem[] = [
   { name: 'Bag', inStock: true, stockQuantity: 250 },
 ];
 
-const defaultContainers: CustomizationOptionItem[] = [
-  { name: 'Plastic', inStock: true, stockQuantity: 500 },
-  { name: 'Glass', inStock: true, stockQuantity: 200 },
-  { name: 'Metal', inStock: true, stockQuantity: 150 },
-  { name: 'Paper', inStock: true, stockQuantity: 300 },
-  { name: 'Aluminum', inStock: true, stockQuantity: 180 },
-  { name: 'Biodegradable', inStock: false, stockQuantity: 0 },
-];
-
 const quantityOptions: CustomizationOptionItem[] = [
   { name: '100', inStock: true },
   { name: '200', inStock: true },
@@ -73,7 +64,6 @@ export default function ProductCustomizationScreen() {
     flavor: '',
     size: '',
     packaging: '',
-    container: '',
     labelDesign: '',
     brandName: '',
     quantity: '',
@@ -81,14 +71,13 @@ export default function ProductCustomizationScreen() {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [successModalVisible, setSuccessModalVisible] = useState(false);
-  const [activeSelector, setActiveSelector] = useState<'flavor' | 'size' | 'packaging' | 'container' | 'quantity' | null>(null);
+  const [activeSelector, setActiveSelector] = useState<'flavor' | 'size' | 'packaging' | 'quantity' | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [loadingMaterials, setLoadingMaterials] = useState(true);
 
   // Dynamic raw material inventory state
   const [flavorOptions, setFlavorOptions] = useState<CustomizationOptionItem[]>(defaultFlavors);
   const [packagingOptions, setPackagingOptions] = useState<CustomizationOptionItem[]>(defaultPackaging);
-  const [containerOptions, setContainerOptions] = useState<CustomizationOptionItem[]>(defaultContainers);
 
   // Load real-time raw material inventory on mount
   useEffect(() => {
@@ -113,16 +102,6 @@ export default function ProductCustomizationScreen() {
               name: p.name,
               inStock: Boolean(p.in_stock && Number(p.stock_quantity) > 0),
               stockQuantity: Number(p.stock_quantity) || 0,
-            }))
-          );
-        }
-
-        if (res && res.containers && res.containers.length > 0) {
-          setContainerOptions(
-            res.containers.map((c: any) => ({
-              name: c.name,
-              inStock: Boolean(c.in_stock && Number(c.stock_quantity) > 0),
-              stockQuantity: Number(c.stock_quantity) || 0,
             }))
           );
         }
@@ -174,12 +153,6 @@ export default function ProductCustomizationScreen() {
       return;
     }
 
-    const selectedContainerObj = containerOptions.find((c) => c.name.toLowerCase() === formData.container.toLowerCase());
-    if (selectedContainerObj && !selectedContainerObj.inStock) {
-      Alert.alert('Out of Stock', `The selected container "${formData.container}" is currently out of stock. Please select another container.`);
-      return;
-    }
-
     setSubmitting(true);
     try {
       // 1. Get the logged-in user's businessClient profile to get client_id.
@@ -194,7 +167,6 @@ export default function ProductCustomizationScreen() {
       // 2. Map the form fields to the backend's customization schema.
       const customizations = [{
         packaging_type: formData.packaging || formData.productType,
-        packaging_finish: formData.container || undefined,
         serving_size: `${formData.size} × ${formData.quantity} units`,
         client_notes: [
           formData.flavor ? `Flavor: ${formData.flavor}` : null,
@@ -214,7 +186,7 @@ export default function ProductCustomizationScreen() {
     }
   };
 
-  const openSelector = (type: 'flavor' | 'size' | 'packaging' | 'container' | 'quantity') => {
+  const openSelector = (type: 'flavor' | 'size' | 'packaging' | 'quantity') => {
     setActiveSelector(type);
     setModalVisible(true);
   };
@@ -230,8 +202,6 @@ export default function ProductCustomizationScreen() {
       setFormData({ ...formData, size: option.name });
     } else if (activeSelector === 'packaging') {
       setFormData({ ...formData, packaging: option.name });
-    } else if (activeSelector === 'container') {
-      setFormData({ ...formData, container: option.name });
     } else if (activeSelector === 'quantity') {
       setFormData({ ...formData, quantity: option.name });
     }
@@ -247,8 +217,6 @@ export default function ProductCustomizationScreen() {
         return sizeOptions;
       case 'packaging':
         return packagingOptions;
-      case 'container':
-        return containerOptions;
       case 'quantity':
         return quantityOptions;
       default:
@@ -310,20 +278,6 @@ export default function ProductCustomizationScreen() {
             >
               <Text style={[styles.selectorButtonText, { color: formData.packaging ? colors.text : '#666' }]}>
                 {formData.packaging || 'Select packaging'}
-              </Text>
-              <Text style={[styles.selectorArrow, { color: colors.textSecondary }]}>▼</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Container Selector */}
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>Container</Text>
-            <TouchableOpacity
-              style={[styles.selectorButton, { backgroundColor: colors.background, borderColor: colors.border }]}
-              onPress={() => openSelector('container')}
-            >
-              <Text style={[styles.selectorButtonText, { color: formData.container ? colors.text : '#666' }]}>
-                {formData.container || 'Select container'}
               </Text>
               <Text style={[styles.selectorArrow, { color: colors.textSecondary }]}>▼</Text>
             </TouchableOpacity>
@@ -409,9 +363,7 @@ export default function ProductCustomizationScreen() {
                   ? 'Select Size'
                   : activeSelector === 'packaging'
                     ? 'Select Packaging'
-                    : activeSelector === 'container'
-                      ? 'Select Container'
-                      : 'Select Quantity'}
+                    : 'Select Quantity'}
             </Text>
 
             <ScrollView style={styles.optionsList}>
