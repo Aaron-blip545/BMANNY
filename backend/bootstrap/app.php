@@ -28,8 +28,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'backend.auth' => EnsureBackendAuthenticated::class,
             'backend.role' => EnsureBackendRole::class,
-            'role' => CheckRole::class,
-            'active.api' => EnsureActiveApiUser::class,
+            'role'         => CheckRole::class,
+            'active.api'   => EnsureActiveApiUser::class,
+            'verified'     => \App\Http\Middleware\EnsureVerified::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

@@ -106,7 +106,12 @@ export async function register(data: {
     // making the person log in again right after signing up.
     await setToken(response.token);
 
-    return response.user;
+    // Merge the top-level registration_number into the user object so
+    // the register screen can display it to the user.
+    return {
+        ...response.user,
+        registration_number: response.registration_number ?? response.user?.registration_number ?? null,
+    };
 }
 
 
@@ -428,4 +433,72 @@ export async function deleteNotification(notificationId: number) {
     });
 }
 
+/**
+ * Fetch the current verification status for the authenticated customer.
+ * Returns: registration_number, is_verified, verification_status,
+ *          business_permit_url, verification_submitted_at, verification_notes
+ */
+export async function getVerificationStatus(): Promise<{
+    registration_number: string | null;
+    is_verified: boolean;
+    verification_status: 'not_submitted' | 'pending' | 'approved' | 'rejected';
+    business_permit_url: string | null;
+    verification_submitted_at: string | null;
+    verification_reviewed_at: string | null;
+    verification_notes: string | null;
+}> {
+    return request('/user/verification/status');
+}
 
+/**
+ * Upload a business permit image/PDF to request account verification.
+ * Uses XHR (not fetch) to support the RN FormData file shorthand.
+ */
+export async function submitVerification(fileUri: string): Promise<{
+    message: string;
+    verification_status: string;
+    business_permit_url: string | null;
+}> {
+    const token = await getToken();
+    const form = new FormData();
+    const filename = fileUri.split('/').pop() || 'business_permit.jpg';
+    const extensionMatch = /\.(\w+)$/.exec(filename);
+    const mimeMap: Record<string, string> = {
+        pdf: 'application/pdf',
+        png: 'image/png',
+        webp: 'image/webp',
+    };
+    const ext = extensionMatch?.[1]?.toLowerCase() ?? 'jpg';
+    const type = mimeMap[ext] ?? 'image/jpeg';
+
+    form.append('business_permit', { uri: fileUri, name: filename, type } as any);
+
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `${API_BASE_URL}/user/verification/submit`);
+        xhr.setRequestHeader('Accept', 'application/json');
+        if (token) {
+            xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        }
+
+        xhr.onload = () => {
+            let data: any = {};
+            try {
+                data = JSON.parse(xhr.responseText);
+            } catch { }
+
+            if (xhr.status >= 200 && xhr.status < 300) {
+                resolve(data);
+                return;
+            }
+
+            const message = data.errors
+                ? Object.values(data.errors).flat().join('\n')
+                : data.message || 'Failed to submit verification.';
+            reject(new Error(message));
+        };
+
+        xhr.onerror = () => reject(new Error('Network request failed.'));
+        xhr.send(form as any);
+    });
+}

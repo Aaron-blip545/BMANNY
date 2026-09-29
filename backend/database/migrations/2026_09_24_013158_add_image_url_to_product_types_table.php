@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::table('product_types', function (Blueprint $table) {
             if (! Schema::hasColumn('product_types', 'image_url')) {
-                $table->string('image_url', 500)->nullable()->after('formulation_notes');
+                $table->string('image_url', 500)->nullable();
             }
         });
     }

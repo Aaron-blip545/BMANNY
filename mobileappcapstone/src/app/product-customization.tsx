@@ -164,7 +164,32 @@ export default function ProductCustomizationScreen() {
         return;
       }
 
-      // 2. Map the form fields to the backend's customization schema.
+      // 2. Verification gate — unverified accounts cannot submit inquiries.
+      //    Show a friendly prompt and route them to the verification screen.
+      const businessClient = me?.business_client ?? me?.businessClient;
+      const isVerified = Boolean(businessClient?.is_verified);
+      if (!isVerified) {
+        const verStatus: string = businessClient?.verification_status ?? 'not_submitted';
+        const messages: Record<string, string> = {
+          not_submitted: 'Your account is not yet verified. Please upload your business permit to submit inquiries.',
+          pending:       'Your verification is currently under review. You will be notified once approved.',
+          rejected:      'Your verification was rejected. Please re-upload a valid business permit.',
+        };
+        Alert.alert(
+          '⚠️ Verification Required',
+          messages[verStatus] ?? 'Please verify your account before submitting an inquiry.',
+          [
+            { text: 'Not Now', style: 'cancel' },
+            {
+              text: 'Go to Verification',
+              onPress: () => router.push('/verification' as any),
+            },
+          ]
+        );
+        return;
+      }
+
+      // 3. Map the form fields to the backend's customization schema.
       const customizations = [{
         packaging_type: formData.packaging || formData.productType,
         serving_size: `${formData.size} × ${formData.quantity} units`,
@@ -175,7 +200,7 @@ export default function ProductCustomizationScreen() {
         ].filter(Boolean).join(' | ') || undefined,
       }];
 
-      // 3. Submit to the backend.
+      // 4. Submit to the backend.
       await submitInquiry(clientId, customizations);
 
       setSuccessModalVisible(true);

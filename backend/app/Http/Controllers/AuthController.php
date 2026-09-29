@@ -16,25 +16,25 @@ class AuthController extends Controller
     public function updateProfile(Request $request)
     {
         $validated = $request->validate([
-            'full_name' => ['required', 'string', 'max:100'],
-            'phone_number' => ['nullable', 'string', 'max:20'],
+            'full_name'        => ['required', 'string', 'max:100'],
+            'phone_number'     => ['nullable', 'string', 'max:20'],
             'business_address' => ['nullable', 'string', 'max:255'],
         ]);
 
         $user = $request->user();
         $user->update([
-            'full_name' => $validated['full_name'],
+            'full_name'    => $validated['full_name'],
             'phone_number' => $validated['phone_number'] ?? null,
         ]);
 
         $user->businessClient()->update([
-            'contact_person' => $validated['full_name'],
+            'contact_person'   => $validated['full_name'],
             'business_address' => $validated['business_address'] ?? null,
         ]);
 
         return response()->json([
             'message' => 'Profile updated successfully.',
-            'user' => $user->fresh()->load('businessClient'),
+            'user'    => $user->fresh()->load('businessClient'),
         ]);
     }
 
@@ -57,9 +57,9 @@ class AuthController extends Controller
         $client->update(['profile_pic' => $path]);
 
         return response()->json([
-            'message' => 'Profile picture updated successfully.',
+            'message'         => 'Profile picture updated successfully.',
             'profile_pic_url' => $client->fresh()->profile_pic_url,
-            'user' => $request->user()->fresh()->load('businessClient'),
+            'user'            => $request->user()->fresh()->load('businessClient'),
         ]);
     }
 
@@ -81,22 +81,29 @@ class AuthController extends Controller
         // User to exist without a matching business profile.
         $user = DB::transaction(function () use ($request) {
             $user = User::create([
-                'full_name' => $request->full_name,
-                'email'     => $request->email,
-                'password'  => Hash::make($request->password),
+                'full_name'           => $request->full_name,
+                'email'               => $request->email,
+                'password'            => Hash::make($request->password),
                 // FIXED: was `$request->role ?? 'customer'` - anyone hitting this
                 // public endpoint could pass role: "admin" and self-promote.
                 // Staff accounts (sales_agent, product_controller, order_manager,
                 // admin) should only be created by an existing Admin through a
                 // protected endpoint, not through public self-registration.
-                'role'      => 'customer',
+                'role'                => 'customer',
+                // Auto-generate a unique BMN-YYYYMMDD-XXXXX number so no two
+                // users share an account identifier — deters duplicate accounts.
+                'registration_number' => User::generateRegistrationNumber(),
             ]);
 
             $user->businessClient()->create([
-                'business_name'    => $request->business_name,
-                'business_type'    => $request->business_type,
-                'contact_person'   => $request->contact_person,
-                'business_address' => $request->business_address,
+                'business_name'       => $request->business_name,
+                'business_type'       => $request->business_type,
+                'contact_person'      => $request->contact_person,
+                'business_address'    => $request->business_address,
+                // New accounts start unverified — they can browse products
+                // but cannot submit inquiries until a permit is approved.
+                'is_verified'         => false,
+                'verification_status' => 'not_submitted',
             ]);
 
             return $user;
@@ -105,9 +112,10 @@ class AuthController extends Controller
         $token = $user->createToken('bmanny-auth-token')->plainTextToken;
 
         return response()->json([
-            'message' => 'User registered successfully',
-            'user'    => $user->load('businessClient'),
-            'token'   => $token,
+            'message'             => 'User registered successfully',
+            'user'                => $user->load('businessClient'),
+            'token'               => $token,
+            'registration_number' => $user->registration_number,
         ], 201);
     }
 
@@ -115,7 +123,7 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $request->validate([
-            'email' => 'required|email',
+            'email'    => 'required|email',
             'password' => 'required',
         ]);
 
@@ -135,10 +143,14 @@ class AuthController extends Controller
 
         $token = $user->createToken('bmanny-auth-token')->plainTextToken;
 
+        // Load businessClient so mobile app gets is_verified & verification_status
+        // without needing a separate /user request.
+        $user->load('businessClient');
+
         return response()->json([
             'message' => 'Login successful',
-            'user' => $user,
-            'token' => $token
+            'user'    => $user,
+            'token'   => $token,
         ], 200);
     }
 }

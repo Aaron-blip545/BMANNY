@@ -22,6 +22,7 @@ class User extends Authenticatable
         'phone_number',
         'role',
         'is_active',
+        'registration_number',
     ];
 
     protected $hidden = [
@@ -32,6 +33,20 @@ class User extends Authenticatable
     protected $casts = [
         'is_active' => 'boolean',
     ];
+
+    /**
+     * Generate a unique registration number for a new user account.
+     * Format: BMN-YYYYMMDD-XXXXX  (5 random uppercase alphanum chars)
+     */
+    public static function generateRegistrationNumber(): string
+    {
+        do {
+            $suffix = strtoupper(substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 5));
+            $number = 'BMN-' . now()->format('Ymd') . '-' . $suffix;
+        } while (static::where('registration_number', $number)->exists());
+
+        return $number;
+    }
 
     // Tell Laravel Sanctum/Auth where the hashed password column lives
     public function getAuthPassword()

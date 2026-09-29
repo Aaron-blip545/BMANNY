@@ -73,4 +73,22 @@ class NotificationService
 
         return $created;
     }
+
+    /**
+     * Send a notification to a specific list of user IDs.
+     * Used when we know exactly who to notify (e.g. approve/reject a permit).
+     */
+    public static function sendToUsers(array $userIds, string $type, string $title, string $message, ?array $data = null): array
+    {
+        $created = [];
+
+        foreach ($userIds as $userId) {
+            $notification = self::send((int) $userId, $type, $title, $message, $data);
+            if ($notification) {
+                $created[] = $notification;
+            }
+        }
+
+        return $created;
+    }
 }

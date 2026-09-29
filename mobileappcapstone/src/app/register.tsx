@@ -12,6 +12,7 @@ import {
   ScrollView,
   Image,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,6 +27,8 @@ export default function RegisterScreen() {
   const [loading, setLoading]                 = useState(false);
   const [showPassword, setShowPassword]       = useState(false);
   const [showConfirm, setShowConfirm]         = useState(false);
+  const [registrationNumber, setRegNumber]    = useState<string | null>(null);
+  const [showSuccess, setShowSuccess]         = useState(false);
 
   // Focus states for input highlighting
   const [nameFocused, setNameFocused]         = useState(false);
@@ -57,7 +60,7 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      await register({
+      const user = await register({
         full_name:             fullName.trim(),
         email:                 email.trim(),
         password,
@@ -67,8 +70,13 @@ export default function RegisterScreen() {
         contact_person:        fullName.trim(),
         business_address:      'TBD',
       });
-      // register() already saves the token so we go straight home
-      router.replace('/home');
+      // Show the registration number before navigating so the user can note it down.
+      if (user?.registration_number) {
+        setRegNumber(user.registration_number);
+        setShowSuccess(true);
+      } else {
+        router.replace('/home');
+      }
     } catch (err: any) {
       setErrorMessage(err.message || 'Registration failed. Please try again.');
     } finally {
@@ -203,6 +211,34 @@ export default function RegisterScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Registration Success Modal — shows unique registration number */}
+      <Modal visible={showSuccess} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.successCard}>
+            <View style={styles.successIconWrap}>
+              <Ionicons name="checkmark-circle" size={52} color="#10b981" />
+            </View>
+            <Text style={styles.successTitle}>Account Created! 🎉</Text>
+            <Text style={styles.successSubtitle}>Your unique registration number</Text>
+            <View style={styles.regNumBox}>
+              <Text style={styles.regNumText}>{registrationNumber}</Text>
+            </View>
+            <Text style={styles.successNote}>
+              Keep this number safe — it identifies your account and is required for any support requests.
+            </Text>
+            <Text style={styles.successNote2}>
+              ⚠️ Your account is currently <Text style={{ fontWeight: '800', color: '#f59e0b' }}>unverified</Text>. Upload your business permit from your Profile to unlock inquiries.
+            </Text>
+            <TouchableOpacity
+              style={styles.continueBtn}
+              onPress={() => router.replace('/home')}
+            >
+              <Text style={styles.continueBtnText}>Continue to App</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -327,4 +363,78 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
-});
+
+  /* Registration success modal */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  successCard: {
+    backgroundColor: '#1a1a2e',
+    borderRadius: 20,
+    padding: 28,
+    width: '100%',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#2a2a4a',
+  },
+  successIconWrap: { marginBottom: 12 },
+  successTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#ffffff',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  successSubtitle: {
+    fontSize: 13,
+    color: '#a0a0a0',
+    marginBottom: 10,
+  },
+  regNumBox: {
+    backgroundColor: '#0d1b2a',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    marginBottom: 14,
+    borderWidth: 1.5,
+    borderColor: '#2196F3',
+  },
+  regNumText: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#2196F3',
+    letterSpacing: 1.5,
+    textAlign: 'center',
+  },
+  successNote: {
+    fontSize: 12,
+    color: '#a0a0a0',
+    textAlign: 'center',
+    lineHeight: 17,
+    marginBottom: 10,
+  },
+  successNote2: {
+    fontSize: 12,
+    color: '#a0a0a0',
+    textAlign: 'center',
+    lineHeight: 17,
+    marginBottom: 20,
+  },
+  continueBtn: {
+    backgroundColor: '#2196F3',
+    paddingVertical: 14,
+    paddingHorizontal: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    width: '100%',
+  },
+  continueBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+});
