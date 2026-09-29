@@ -400,7 +400,7 @@ export default function VariantsPage({ productTypes }: Props) {
                                 id="variant-name"
                                 value={variantForm.data.name}
                                 onChange={(e) => variantForm.setData('name', e.target.value)}
-                                placeholder="e.g. 500ml"
+                                placeholder="e.g. 10 Capsules, 20g Sachet, 50ml Bottle"
                             />
                             {variantForm.errors.name && <p className="text-xs text-destructive">{variantForm.errors.name}</p>}
                         </div>
@@ -412,7 +412,7 @@ export default function VariantsPage({ productTypes }: Props) {
                                 type="number"
                                 value={variantForm.data.size_value}
                                 onChange={(e) => variantForm.setData('size_value', e.target.value)}
-                                placeholder="e.g. 500"
+                                placeholder="e.g. 10, 20, 50"
                             />
                         </div>
                         <div className="space-y-1.5">
@@ -422,11 +422,14 @@ export default function VariantsPage({ productTypes }: Props) {
                                     <SelectValue placeholder="Select unit" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="ml">ml</SelectItem>
-                                    <SelectItem value="L">L</SelectItem>
+                                    <SelectItem value="capsules">capsules</SelectItem>
+                                    <SelectItem value="pcs">pcs</SelectItem>
                                     <SelectItem value="g">g</SelectItem>
                                     <SelectItem value="kg">kg</SelectItem>
+                                    <SelectItem value="ml">ml</SelectItem>
+                                    <SelectItem value="L">L</SelectItem>
                                     <SelectItem value="oz">oz</SelectItem>
+                                    <SelectItem value="sachets">sachets</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -437,7 +440,7 @@ export default function VariantsPage({ productTypes }: Props) {
                                 id="variant-container"
                                 value={variantForm.data.container_type}
                                 onChange={(e) => variantForm.setData('container_type', e.target.value)}
-                                placeholder="e.g. PET Bottle"
+                                placeholder="e.g. Blister Pack, Sachet, Bottle, Box"
                             />
                         </div>
 
