@@ -156,6 +156,11 @@ Route::middleware(['backend.auth'])->group(function () {
         Route::post('inquiries/{inquiry_id}/chat/archive', [ChatController::class, 'archive'])->name('chat.archive');
         Route::delete('inquiries/{inquiry_id}/chat/archive', [ChatController::class, 'restore'])->name('chat.restore');
         Route::get('archived-chats', [SalesAgentController::class, 'archivedChats'])->name('archived-chats.index');
+
+        // Verification queue (web UI for the sales agent)
+        Route::get('sales/verifications', [SalesAgentController::class, 'verifications'])->name('sales.verifications');
+        Route::patch('sales/verifications/{client_id}/approve', [SalesAgentController::class, 'approveClient'])->name('sales.verifications.approve');
+        Route::patch('sales/verifications/{client_id}/reject', [SalesAgentController::class, 'rejectClient'])->name('sales.verifications.reject');
     });
 
     // Order Manager + Admin: Orders list and status updates

@@ -4,7 +4,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, Sid
 import { type NavItem } from '@/types';
 import { roleDashboardHref } from '@/lib/role-dashboard';
 import { Link, usePage } from '@inertiajs/react';
-import { BarChart3, Bell, Box, CircleHelp, FileText, House, Package, PackageCheck, PackageMinus, Settings, SlidersHorizontal, Users as UsersIcon } from 'lucide-react';
+import { BarChart3, Bell, Box, CircleHelp, FileText, House, Package, PackageCheck, PackageMinus, Settings, ShieldCheck, SlidersHorizontal, Users as UsersIcon } from 'lucide-react';
 import AppLogo from './app-logo';
 
 export function AppSidebar() {
@@ -29,6 +29,7 @@ export function AppSidebar() {
             ? [
                 { title: 'Inquiries', url: '/inquiries', icon: CircleHelp },
                 { title: 'Quotations', url: '/quotations', icon: FileText },
+                { title: 'Verifications', url: '/sales/verifications', icon: ShieldCheck },
             ]
             : []),
 
