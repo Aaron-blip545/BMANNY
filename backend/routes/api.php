@@ -45,8 +45,10 @@ Route::middleware(['auth:sanctum', 'active.api'])->group(function () {
         Route::post('/admin/users', [UserController::class, 'store']);
         Route::put('/admin/users/{user}', [UserController::class, 'update']);
         Route::patch('/admin/users/{user}/toggle-active', [UserController::class, 'toggleActive']);
+    });
 
-        // Verification management — admin reviews, approves, and rejects permits
+    // Verification queue — sales agents handle permit review, approval, and rejection
+    Route::middleware('role:sales_agent,admin')->group(function () {
         Route::get('/admin/verifications', [VerificationController::class, 'index']);
         Route::patch('/admin/verifications/{client_id}/approve', [VerificationController::class, 'approve']);
         Route::patch('/admin/verifications/{client_id}/reject', [VerificationController::class, 'reject']);
@@ -110,7 +112,7 @@ Route::middleware(['auth:sanctum', 'active.api'])->group(function () {
 
     Route::get('/user', function (Request $request) {
         // Include the businessClient profile so the mobile app can read
-        // client_id, is_verified, and registration_number without a separate request.
+        // client_id and is_verified without a separate request.
         return $request->user()->load('businessClient');
     });
 });

@@ -22,7 +22,6 @@ class VerificationController extends Controller
         }
 
         return response()->json([
-            'registration_number'       => $user->registration_number,
             'is_verified'               => (bool) $client->is_verified,
             'verification_status'       => $client->verification_status,
             'business_permit_url'       => $client->business_permit_url,

@@ -7,17 +7,18 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Add a unique registration number to each user account (prevents
-     * duplicate accounts) and verification tracking fields to the
-     * business_clients table so we can gate inquiry access.
+     * Make phone_number unique on the users table (prevents duplicate accounts)
+     * and add verification tracking fields to the business_clients table so we
+     * can gate inquiry access.
      */
     public function up(): void
     {
         // ── users ────────────────────────────────────────────────────────────
         Schema::table('users', function (Blueprint $table) {
-            // Unique human-readable number shown on the user's profile,
-            // e.g.  BMN-20260929-A3F7X.  Generated on registration.
-            $table->string('registration_number', 30)->nullable()->unique()->after('phone_number');
+            // A unique index on phone_number stops duplicate account creation.
+            // phone_number is nullable for staff accounts that don't need one,
+            // but any customer who provides one must have a unique number.
+            $table->unique('phone_number');
         });
 
         // ── business_clients ─────────────────────────────────────────────────
@@ -59,7 +60,7 @@ return new class extends Migration
         });
 
         Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('registration_number');
+            $table->dropUnique(['phone_number']);
         });
     }
 };
