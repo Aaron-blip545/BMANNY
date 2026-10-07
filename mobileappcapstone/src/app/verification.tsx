@@ -62,7 +62,6 @@ export default function VerificationScreen() {
 
   const [loading, setLoading]               = useState(true);
   const [submitting, setSubmitting]         = useState(false);
-  const [regNumber, setRegNumber]           = useState<string | null>(null);
   const [status, setStatus]                 = useState<VerificationStatus>('not_submitted');
   const [permitUrl, setPermitUrl]           = useState<string | null>(null);
   const [submittedAt, setSubmittedAt]       = useState<string | null>(null);
@@ -73,7 +72,6 @@ export default function VerificationScreen() {
   const fetchStatus = useCallback(async () => {
     try {
       const data = await getVerificationStatus();
-      setRegNumber(data.registration_number);
       setStatus(data.verification_status);
       setPermitUrl(data.business_permit_url);
       setSubmittedAt(data.verification_submitted_at);
@@ -157,17 +155,6 @@ export default function VerificationScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
-
-        {/* Registration Number Card */}
-        {regNumber && (
-          <View style={[styles.regCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Ionicons name="id-card-outline" size={20} color="#2196F3" />
-            <View style={styles.regInfo}>
-              <Text style={[styles.regLabel, { color: colors.textSecondary }]}>Registration Number</Text>
-              <Text style={[styles.regNumber, { color: colors.text }]}>{regNumber}</Text>
-            </View>
-          </View>
-        )}
 
         {/* Status Badge */}
         <View style={[styles.statusCard, { backgroundColor: cfg.bg, borderColor: cfg.color + '40' }]}>
@@ -316,19 +303,6 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: '700' },
 
   scroll: { padding: 16, paddingBottom: 40 },
-
-  regCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 14,
-    marginBottom: 14,
-    gap: 12,
-  },
-  regInfo: { flex: 1 },
-  regLabel: { fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 2 },
-  regNumber: { fontSize: 17, fontWeight: '800', letterSpacing: 0.5 },
 
   statusCard: {
     alignItems: 'center',

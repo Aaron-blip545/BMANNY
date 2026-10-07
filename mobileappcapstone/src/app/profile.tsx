@@ -55,7 +55,6 @@ export default function ProfileScreen() {
   const [avatarImage, setAvatarImage]           = useState<string | null>(profileImage || null);
   const [userName, setUserName]                 = useState('');
   const [email, setEmail]                       = useState('');
-  const [registrationNumber, setRegNumber]      = useState<string | null>(null);
   const [verificationStatus, setVerifStatus]    = useState<VerificationStatus>('not_submitted');
 
   useEffect(() => {
@@ -66,10 +65,6 @@ export default function ProfileScreen() {
         if (!isMounted) return;
         setUserName(user?.full_name ?? 'BMANNY customer');
         setEmail(user?.email ?? '');
-
-        if (user?.registration_number) {
-          setRegNumber(user.registration_number);
-        }
 
         const businessClient = user?.business_client ?? user?.businessClient;
 
@@ -150,13 +145,6 @@ export default function ProfileScreen() {
 
           {/* Verification badge */}
           <VerificationBadge status={verificationStatus} />
-
-          {/* Registration number */}
-          {registrationNumber && (
-            <Text style={[styles.regNum, { color: colors.textSecondary }]}>
-              ID: {registrationNumber}
-            </Text>
-          )}
 
           {/* Edit profile button */}
           <TouchableOpacity
@@ -320,8 +308,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   badgeText: { fontSize: 12, fontWeight: '700' },
-
-  regNum: { fontSize: 12, marginBottom: 16, letterSpacing: 0.3 },
 
   editButton: {
     paddingVertical: 12,

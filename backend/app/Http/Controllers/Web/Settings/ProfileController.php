@@ -19,7 +19,7 @@ class ProfileController extends Controller
     public function edit(Request $request): Response
     {
         return Inertia::render('settings/profile', [
-            'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
+            'mustVerifyEmail' => $request->user('web') instanceof MustVerifyEmail,
             'status' => $request->session()->get('status'),
         ]);
     }
@@ -29,13 +29,13 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
+        $request->user('web')->fill($request->validated());
 
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
+        if ($request->user('web')->isDirty('email')) {
+            $request->user('web')->email_verified_at = null;
         }
 
-        $request->user()->save();
+        $request->user('web')->save();
 
         return to_route('profile.edit');
     }

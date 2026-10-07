@@ -33,6 +33,8 @@ class SalesAgentController extends Controller
         $inquiries = Inquiry::with([
             'client.user',       // business name + contact info
             'customizations',    // packaging specs
+            'productRequestReview.suggestedVariant.productType',
+            'productRequestReview.suggestedPackaging',
         ])
         ->whereNotIn('inquiry_id', $legacyArchivedInquiryIds)
         ->when($archivedCustomerIds->isNotEmpty(), fn ($query) => $query->whereHas(
@@ -70,7 +72,7 @@ class SalesAgentController extends Controller
     {
         // Pass the list of pending/reviewed inquiries that don't yet have
         // a quotation, so the sales agent can pick one from a dropdown.
-        $pendingInquiries = Inquiry::with(['client.user', 'customizations'])
+        $pendingInquiries = Inquiry::with(['client.user', 'customizations', 'productRequestReview.suggestedVariant.productType', 'productRequestReview.suggestedPackaging'])
             ->whereIn('status', ['pending', 'reviewed'])
             ->whereDoesntHave('quotation')
             ->orderByDesc('created_at')

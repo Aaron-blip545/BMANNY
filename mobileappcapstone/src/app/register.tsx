@@ -23,11 +23,11 @@ export default function RegisterScreen() {
   const [email, setEmail]                     = useState('');
   const [password, setPassword]               = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [phoneNumber, setPhoneNumber]           = useState('');
   const [errorMessage, setErrorMessage]       = useState('');
   const [loading, setLoading]                 = useState(false);
   const [showPassword, setShowPassword]       = useState(false);
   const [showConfirm, setShowConfirm]         = useState(false);
-  const [registrationNumber, setRegNumber]    = useState<string | null>(null);
   const [showSuccess, setShowSuccess]         = useState(false);
 
   // Focus states for input highlighting
@@ -35,6 +35,7 @@ export default function RegisterScreen() {
   const [emailFocused, setEmailFocused]       = useState(false);
   const [passFocused, setPassFocused]         = useState(false);
   const [confFocused, setConfFocused]         = useState(false);
+  const [phoneFocused, setPhoneFocused]       = useState(false);
 
   const validateEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
@@ -57,26 +58,25 @@ export default function RegisterScreen() {
       setErrorMessage('Passwords do not match.');
       return;
     }
+    if (phoneNumber.trim().length < 10) {
+      setErrorMessage('Please enter a valid phone number.');
+      return;
+    }
 
     setLoading(true);
     try {
-      const user = await register({
+      await register({
         full_name:             fullName.trim(),
         email:                 email.trim(),
         password,
+        phone_number:           phoneNumber.trim(),
         password_confirmation: confirmPassword,
         business_name:         fullName.trim(),   // customer can update this later in profile
         business_type:         'private_label',
         contact_person:        fullName.trim(),
         business_address:      'TBD',
       });
-      // Show the registration number before navigating so the user can note it down.
-      if (user?.registration_number) {
-        setRegNumber(user.registration_number);
-        setShowSuccess(true);
-      } else {
-        router.replace('/home');
-      }
+      setShowSuccess(true);
     } catch (err: any) {
       setErrorMessage(err.message || 'Registration failed. Please try again.');
     } finally {
@@ -183,9 +183,29 @@ export default function RegisterScreen() {
                 onFocus={() => setConfFocused(true)}
                 onBlur={() => setConfFocused(false)}
               />
+
               <TouchableOpacity onPress={() => setShowConfirm(!showConfirm)} style={styles.eyeIcon}>
                 <Ionicons name={showConfirm ? 'eye-off-outline' : 'eye-outline'} size={20} color="#2196F3" />
               </TouchableOpacity>
+
+            </View>
+
+            {/* Phone Number */}
+            <View style={[styles.inputContainer, phoneFocused && styles.inputFocused]}>
+              <Ionicons name="call-outline" size={20} color="#2196F3" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Phone Number"
+                placeholderTextColor="#888"
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
+                keyboardType="phone-pad"
+                textContentType="telephoneNumber"
+                underlineColorAndroid="transparent"
+                selectionColor="#2196F3"
+                onFocus={() => setPhoneFocused(true)}
+                onBlur={() => setPhoneFocused(false)}
+              />
             </View>
 
             {/* Sign Up Button */}
@@ -212,28 +232,18 @@ export default function RegisterScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Registration Success Modal — shows unique registration number */}
       <Modal visible={showSuccess} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.successCard}>
             <View style={styles.successIconWrap}>
               <Ionicons name="checkmark-circle" size={52} color="#10b981" />
             </View>
-            <Text style={styles.successTitle}>Account Created! 🎉</Text>
-            <Text style={styles.successSubtitle}>Your unique registration number</Text>
-            <View style={styles.regNumBox}>
-              <Text style={styles.regNumText}>{registrationNumber}</Text>
-            </View>
-            <Text style={styles.successNote}>
-              Keep this number safe — it identifies your account and is required for any support requests.
-            </Text>
+            <Text style={styles.successTitle}>Account Created!</Text>
+            <Text style={styles.successSubtitle}>Your account is ready for verification.</Text>
             <Text style={styles.successNote2}>
-              ⚠️ Your account is currently <Text style={{ fontWeight: '800', color: '#f59e0b' }}>unverified</Text>. Upload your business permit from your Profile to unlock inquiries.
+              Your account is currently <Text style={{ fontWeight: '800', color: '#f59e0b' }}>unverified</Text>. Upload your business permit from your Profile to unlock inquiries.
             </Text>
-            <TouchableOpacity
-              style={styles.continueBtn}
-              onPress={() => router.replace('/home')}
-            >
+            <TouchableOpacity style={styles.continueBtn} onPress={() => router.replace('/home')}>
               <Text style={styles.continueBtnText}>Continue to App</Text>
             </TouchableOpacity>
           </View>
@@ -394,29 +404,6 @@ const styles = StyleSheet.create({
     color: '#a0a0a0',
     marginBottom: 10,
   },
-  regNumBox: {
-    backgroundColor: '#0d1b2a',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    marginBottom: 14,
-    borderWidth: 1.5,
-    borderColor: '#2196F3',
-  },
-  regNumText: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#2196F3',
-    letterSpacing: 1.5,
-    textAlign: 'center',
-  },
-  successNote: {
-    fontSize: 12,
-    color: '#a0a0a0',
-    textAlign: 'center',
-    lineHeight: 17,
-    marginBottom: 10,
-  },
   successNote2: {
     fontSize: 12,
     color: '#a0a0a0',
@@ -437,4 +424,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
-});
+});

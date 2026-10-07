@@ -73,7 +73,7 @@ export default function ProductsPage({ products = [], categories = [] }: Props) 
     // Form fields
     const [formData, setFormData] = useState({
         name: '',
-        category_code: 'Beverage',
+        category_code: 'Health & Wellness',
         suggested_srp: '',
         description: '',
         formulation_notes: '',
@@ -108,7 +108,7 @@ export default function ProductsPage({ products = [], categories = [] }: Props) 
         setEditingProduct(null);
         setFormData({
             name: '',
-            category_code: categories[0] || 'Beverage',
+            category_code: categories.includes('Health & Wellness') ? 'Health & Wellness' : (categories[0] || ''),
             suggested_srp: '',
             description: '',
             formulation_notes: '',
@@ -124,7 +124,7 @@ export default function ProductsPage({ products = [], categories = [] }: Props) 
         setEditingProduct(product);
         setFormData({
             name: product.name,
-            category_code: product.category_code || 'Beverage',
+            category_code: product.category_code || 'Health & Wellness',
             suggested_srp: product.suggested_srp.toString(),
             description: product.description || '',
             formulation_notes: product.formulation_notes || '',
@@ -487,20 +487,17 @@ export default function ProductsPage({ products = [], categories = [] }: Props) 
                                     Category <span className="text-red-500">*</span>
                                 </Label>
                                 <div className="mt-1 relative">
-                                    <input
+                                    <select
                                         id="category_code"
-                                        list="category-options"
                                         required
                                         value={formData.category_code}
                                         onChange={(e) => setFormData({ ...formData, category_code: e.target.value })}
-                                        placeholder="Select or type category"
                                         className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                                    />
-                                    <datalist id="category-options">
+                                    >
                                         {categories.map((cat) => (
-                                            <option key={cat} value={cat} />
+                                            <option key={cat} value={cat}>{cat}</option>
                                         ))}
-                                    </datalist>
+                                    </select>
                                 </div>
                             </div>
 

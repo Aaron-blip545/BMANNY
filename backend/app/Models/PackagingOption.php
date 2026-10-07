@@ -13,6 +13,7 @@ class PackagingOption extends Model
 
     protected $fillable = [
         'name',
+        'category',
         'description',
         'is_available',
     ];

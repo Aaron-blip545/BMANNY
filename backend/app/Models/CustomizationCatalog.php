@@ -9,6 +9,8 @@ class CustomizationCatalog extends Model
 {
     use HasFactory;
 
+    protected $table = 'customization_catalog';
+
     protected $primaryKey = 'customization_id';
 
     protected $fillable = [

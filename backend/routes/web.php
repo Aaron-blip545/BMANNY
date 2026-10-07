@@ -11,6 +11,8 @@ use App\Http\Controllers\Web\ProductControllerDashboardController;
 use App\Http\Controllers\Web\ProductManagementController;
 use App\Http\Controllers\Web\ProductVariantsController;
 use App\Http\Controllers\Web\ProductPageController;
+use App\Http\Controllers\Web\ProductConfigurationController;
+use App\Http\Controllers\Web\ProductRequestReviewController;
 use App\Http\Controllers\Web\SalesAgentController;
 use App\Http\Controllers\Web\SalesDashboardController;
 use App\Http\Controllers\Web\UserManagementController;
@@ -26,6 +28,7 @@ Route::get('/', function () {
 Route::middleware(['backend.auth'])->group(function () {
     // Real-Time Notification Endpoints (Web Authenticated)
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::get('notifications/page', fn () => Inertia::render('notifications'))->name('notifications.page');
     Route::get('notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
     Route::patch('notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
     Route::post('notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
@@ -109,6 +112,16 @@ Route::middleware(['backend.auth'])->group(function () {
         Route::patch('product-controller/variants/{id}/restore', [ProductVariantsController::class, 'restore'])
             ->name('product-controller.variants.restore');
 
+        Route::get('product-controller/configurations', [ProductConfigurationController::class, 'index'])
+            ->name('product-controller.configurations.index');
+        Route::put('product-controller/configurations/{id}', [ProductConfigurationController::class, 'update'])
+            ->name('product-controller.configurations.update');
+
+        Route::get('product-controller/requests', [ProductRequestReviewController::class, 'index'])
+            ->name('product-controller.requests.index');
+        Route::patch('product-controller/requests/{id}', [ProductRequestReviewController::class, 'review'])
+            ->name('product-controller.requests.review');
+
         // Packaging
         Route::get('product-controller/packaging', [PackagingController::class, 'index'])
             ->name('product-controller.packaging.index');
@@ -148,6 +161,8 @@ Route::middleware(['backend.auth'])->group(function () {
         Route::post('quotations', [SalesAgentController::class, 'storeQuotation'])->name('quotations.store');
         Route::post('quotations/{id}/accept', [SalesAgentController::class, 'acceptQuotation'])->name('quotations.accept');
         Route::post('quotations/{id}/reject-payment', [SalesAgentController::class, 'rejectPayment'])->name('quotations.reject-payment');
+        Route::post('inquiries/{inquiry_id}/product-request', [ProductRequestReviewController::class, 'submit'])
+            ->name('inquiries.product-request.submit');
 
         // Chat: one thread per inquiry
         Route::get('conversations/with/{user_id}', [ChatController::class, 'openConversationWith'])->name('chat.with-user');

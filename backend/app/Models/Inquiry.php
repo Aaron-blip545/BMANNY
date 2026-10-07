@@ -42,4 +42,9 @@ class Inquiry extends Model
     {
         return $this->hasOne(Quotation::class, 'inquiry_id', 'inquiry_id');
     }
+
+    public function productRequestReview()
+    {
+        return $this->hasOne(ProductRequestReview::class, 'inquiry_id', 'inquiry_id');
+    }
 }

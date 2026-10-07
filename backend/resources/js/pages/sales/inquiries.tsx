@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { BmannyMetricCard } from '@/components/bmanny-metric-card';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Archive, CircleCheck, CircleX, ClipboardList, Clock3, MessageSquare, Plus, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
@@ -32,6 +32,12 @@ interface Inquiry {
     client: BusinessClient | null;
     customizations: Customization[];
     quotation: null | { quotation_id: number };
+    product_request_review: null | {
+        status: 'pending' | 'available' | 'alternative' | 'unavailable';
+        response_notes: string | null;
+        suggested_variant: { name: string; product_type: { name: string } | null } | null;
+        suggested_packaging: { name: string; category: string } | null;
+    };
 }
 
 interface Props {
@@ -170,6 +176,7 @@ export default function InquiriesPage({ inquiries }: Props) {
                                             <th className="p-4 font-medium">Business</th>
                                             <th className="p-4 font-medium">Contact</th>
                                             <th className="p-4 font-medium">Packaging Types</th>
+                                            <th className="p-4 font-medium">Product review</th>
                                             <th className="p-4 font-medium">Status</th>
                                             <th className="p-4 font-medium">Date</th>
                                             <th className="p-4 font-medium">Action</th>
@@ -208,6 +215,18 @@ export default function InquiriesPage({ inquiries }: Props) {
                                                     </div>
                                                 </td>
                                                 <td className="p-4">
+                                                    {!inquiry.product_request_review ? (
+                                                        <span className="text-xs text-muted-foreground">Not sent</span>
+                                                    ) : (
+                                                        <div className="max-w-52 text-xs">
+                                                            <span className="font-medium capitalize">{inquiry.product_request_review.status.replace('_', ' ')}</span>
+                                                            {inquiry.product_request_review.response_notes && <p className="mt-1 text-muted-foreground">{inquiry.product_request_review.response_notes}</p>}
+                                                            {inquiry.product_request_review.suggested_variant && <p className="mt-1 text-muted-foreground">Variant: {inquiry.product_request_review.suggested_variant.product_type?.name} — {inquiry.product_request_review.suggested_variant.name}</p>}
+                                                            {inquiry.product_request_review.suggested_packaging && <p className="mt-1 text-muted-foreground">Packaging: {inquiry.product_request_review.suggested_packaging.name}</p>}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="p-4">
                                                     <span
                                                         className={`bmanny-status bmanny-status-${inquiry.cancelled_at ? 'cancelled' : inquiry.status} capitalize`}
                                                     >
@@ -225,6 +244,10 @@ export default function InquiriesPage({ inquiries }: Props) {
                                                                 <MessageSquare className="mr-1 h-3.5 w-3.5" />
                                                                 Chat
                                                             </Link>
+                                                        </Button>
+
+                                                        <Button variant="ghost" size="sm" disabled={inquiry.product_request_review?.status === 'pending'} onClick={() => router.post(route('inquiries.product-request.submit', inquiry.inquiry_id))}>
+                                                            {inquiry.product_request_review ? 'Resend review' : 'Product review'}
                                                         </Button>
 
                                                         {/* Quote — only on pending/reviewed */}

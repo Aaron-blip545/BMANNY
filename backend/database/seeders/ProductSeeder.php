@@ -205,18 +205,6 @@ class ProductSeeder extends Seeder
         // 3. Catalog Products (Product Management / Mobile App Customization Catalog)
         $catalogProducts = [
             [
-                'name'               => 'Citrus Energy Shot',
-                'category_code'      => 'Beverage',
-                'suggested_srp'      => 85.00,
-                'description'        => '60ml functional beverage base',
-                'shelf_life'         => '12 Months',
-                'storage_conditions' => 'Refrigerate after opening',
-                'lead_time_days'     => 14,
-                'formulation_notes'  => 'Standard concentrated citrus formula with natural caffeine.',
-                'image_url'          => null,
-                'is_active'          => true,
-            ],
-            [
                 'name'               => 'Daily Collagen Blend',
                 'category_code'      => 'Supplement',
                 'suggested_srp'      => 210.00,

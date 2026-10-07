@@ -13,6 +13,7 @@ import { useState } from 'react';
 interface PackagingOption {
     packaging_id: number;
     name: string;
+    category: string;
     description: string | null;
     is_available: boolean;
     updated_at: string;
@@ -33,6 +34,7 @@ export default function PackagingPage({ packagingOptions }: Props) {
 
     const form = useForm({
         name: '',
+        category: 'Pouch',
         description: '',
         is_available: true,
     });
@@ -46,6 +48,7 @@ export default function PackagingPage({ packagingOptions }: Props) {
     const openEdit = (option: PackagingOption) => {
         form.setData({
             name: option.name,
+            category: option.category,
             description: option.description ?? '',
             is_available: option.is_available,
         });
@@ -109,6 +112,7 @@ export default function PackagingPage({ packagingOptions }: Props) {
                                     <thead className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
                                         <tr>
                                             <th className="px-5 py-3 font-medium">Name</th>
+                                            <th className="px-5 py-3 font-medium">Category</th>
                                             <th className="px-5 py-3 font-medium">Description</th>
                                             <th className="px-5 py-3 font-medium">Status</th>
                                             <th className="px-5 py-3 font-medium"></th>
@@ -118,6 +122,7 @@ export default function PackagingPage({ packagingOptions }: Props) {
                                         {packagingOptions.map((opt) => (
                                             <tr key={opt.packaging_id} className="border-b border-border/70 last:border-0 hover:bg-muted/40">
                                                 <td className="px-5 py-4 font-medium">{opt.name}</td>
+                                                <td className="px-5 py-4 text-muted-foreground">{opt.category}</td>
                                                 <td className="px-5 py-4 text-muted-foreground">{opt.description ?? '—'}</td>
                                                 <td className="px-5 py-4">
                                                     <span
@@ -181,6 +186,17 @@ export default function PackagingPage({ packagingOptions }: Props) {
                                 placeholder="e.g. Shrink Wrap 6-pack"
                             />
                             {form.errors.name && <p className="text-xs text-destructive">{form.errors.name}</p>}
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label>Packaging Category</Label>
+                            <Select value={form.data.category} onValueChange={(value) => form.setData('category', value)}>
+                                <SelectTrigger id="pkg-category"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {['Pouch', 'Sachet', 'Bottle', 'Jar', 'Box', 'Label', 'Other'].map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                            {form.errors.category && <p className="text-xs text-destructive">{form.errors.category}</p>}
                         </div>
 
                         <div className="space-y-1.5">

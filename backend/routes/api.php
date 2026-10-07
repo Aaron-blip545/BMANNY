@@ -112,7 +112,7 @@ Route::middleware(['auth:sanctum', 'active.api'])->group(function () {
 
     Route::get('/user', function (Request $request) {
         // Include the businessClient profile so the mobile app can read
-        // client_id and is_verified without a separate request.
+        // client_id and verification status without a separate request.
         return $request->user()->load('businessClient');
     });
 });

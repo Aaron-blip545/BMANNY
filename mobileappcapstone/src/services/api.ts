@@ -90,6 +90,7 @@ export async function register(data: {
     full_name: string;
     email: string;
     password: string;
+    phone_number: string;
     password_confirmation: string;
     business_name: string;
     business_type: string;
@@ -106,12 +107,7 @@ export async function register(data: {
     // making the person log in again right after signing up.
     await setToken(response.token);
 
-    // Merge the top-level registration_number into the user object so
-    // the register screen can display it to the user.
-    return {
-        ...response.user,
-        registration_number: response.registration_number ?? response.user?.registration_number ?? null,
-    };
+    return response.user;
 }
 
 
@@ -435,11 +431,10 @@ export async function deleteNotification(notificationId: number) {
 
 /**
  * Fetch the current verification status for the authenticated customer.
- * Returns: registration_number, is_verified, verification_status,
+ * Returns: is_verified, verification_status,
  *          business_permit_url, verification_submitted_at, verification_notes
  */
 export async function getVerificationStatus(): Promise<{
-    registration_number: string | null;
     is_verified: boolean;
     verification_status: 'not_submitted' | 'pending' | 'approved' | 'rejected';
     business_permit_url: string | null;

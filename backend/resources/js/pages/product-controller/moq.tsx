@@ -249,18 +249,17 @@ export default function MoqPage({ variants = [], variantsWithoutMoq = [] }: Prop
                                 </div>
                                 <h3 className="mt-4 text-base font-semibold">No matching variants found</h3>
                                 <p className="mt-1 text-sm text-muted-foreground max-w-sm">
-                                    {searchQuery || selectedType !== 'all' || statusFilter !== 'all'
+                                    {searchQuery || statusFilter !== 'all'
                                         ? 'Try adjusting your search criteria or clear active filters.'
                                         : 'No variants are currently available in the catalog.'}
                                 </p>
-                                {(searchQuery || selectedType !== 'all' || statusFilter !== 'all') && (
+                                {(searchQuery || statusFilter !== 'all') && (
                                     <Button
                                         variant="outline"
                                         size="sm"
                                         className="mt-4"
                                         onClick={() => {
                                             setSearchQuery('');
-                                            setSelectedType('all');
                                             setStatusFilter('all');
                                         }}
                                     >

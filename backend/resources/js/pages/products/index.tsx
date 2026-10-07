@@ -124,7 +124,7 @@ export default function ProductsIndex({ products = [], categories = [], error }:
         sku: '',
         category_id: '' as string | number,
         price: '',
-        stock_quantity: 0,
+        stock_quantity: '',
         description: '',
         product_image: '',
     });
@@ -265,7 +265,7 @@ export default function ProductsIndex({ products = [], categories = [], error }:
             sku: product.sku,
             category_id: product.category_id ? String(product.category_id) : '',
             price: String(product.price),
-            stock_quantity: product.stock_quantity,
+            stock_quantity: String(product.stock_quantity),
             description: product.description ?? '',
             product_image: product.product_image ?? '',
         });
@@ -773,17 +773,17 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                     </div>
                                     <div className="space-y-1.5">
                                         <Label htmlFor="create-stock" className="text-xs font-semibold text-foreground">
-                                            Stock Quantity <span className="text-rose-500">*</span>
+                                            Set Stock Quantity <span className="text-rose-500">*</span>
                                         </Label>
                                         <Input
                                             id="create-stock"
                                             type="number"
                                             min="0"
                                             value={form.data.stock_quantity}
-                                            onChange={(e) => form.setData('stock_quantity', parseInt(e.target.value) || 0)}
+                                            onChange={(e) => form.setData('stock_quantity', e.target.value)}
                                             placeholder="150"
                                             required
-                                            className="rounded-lg"
+                                            className="appearance-none rounded-lg [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                                         />
                                         {form.errors.stock_quantity && (
                                             <p className="text-xs text-rose-500">{form.errors.stock_quantity}</p>
@@ -901,16 +901,16 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                     </div>
                                     <div className="space-y-1.5">
                                         <Label htmlFor="edit-stock" className="text-xs font-semibold text-foreground">
-                                            Stock Quantity <span className="text-rose-500">*</span>
+                                            Set Stock Quantity <span className="text-rose-500">*</span>
                                         </Label>
                                         <Input
                                             id="edit-stock"
                                             type="number"
                                             min="0"
                                             value={form.data.stock_quantity}
-                                            onChange={(e) => form.setData('stock_quantity', parseInt(e.target.value) || 0)}
+                                            onChange={(e) => form.setData('stock_quantity', e.target.value)}
                                             required
-                                            className="rounded-lg"
+                                            className="appearance-none rounded-lg [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                                         />
                                         {form.errors.stock_quantity && (
                                             <p className="text-xs text-rose-500">{form.errors.stock_quantity}</p>

@@ -35,7 +35,7 @@ class ProductControllerModuleController extends Controller
         ],
         'notifications' => [
             'title' => 'Notifications',
-            'href' => '/product-controller/notifications',
+            'href' => '/notifications/page',
             'description' => 'Review product configuration and MOQ notifications.',
             'emptyMessage' => 'No notifications available.',
         ],

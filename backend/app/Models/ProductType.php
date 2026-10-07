@@ -43,6 +43,18 @@ class ProductType extends Model
             ->whereNull('deleted_at');
     }
 
+    public function packagingOptions()
+    {
+        return $this->belongsToMany(PackagingOption::class, 'product_packaging_options', 'product_type_id', 'packaging_id')
+            ->withTimestamps();
+    }
+
+    public function customizationOptions()
+    {
+        return $this->belongsToMany(CustomizationCatalog::class, 'product_customization_options', 'product_type_id', 'customization_id')
+            ->withTimestamps();
+    }
+
     // Scope: only active types
     public function scopeActive($query)
     {

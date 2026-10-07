@@ -45,7 +45,12 @@ class ProductManagementController extends Controller
             ->pluck('category_code')
             ->toArray();
 
-        $defaultCategories = ['Beverage', 'Supplement', 'Cosmetic', 'Personal Care', 'Functional Food'];
+        $defaultCategories = [
+            'Health & Wellness',
+            'Supplements & Wellbeing',
+            'Detox & Nutrition',
+            'Beauty & Personal Care',
+        ];
         $categories = array_values(array_unique(array_merge($defaultCategories, $existingCategories)));
         sort($categories);
 
@@ -84,12 +89,13 @@ class ProductManagementController extends Controller
         $productType = ProductType::create($data);
 
         // Automatically create a default base variant if none exists
-        ProductVariant::create([
+        $variant = ProductVariant::create([
             'product_type_id' => $productType->product_type_id,
             'name'            => 'Standard',
             'is_available'    => true,
             'is_published'    => true,
         ]);
+        $variant->update(['sku' => sprintf('BMN-%04d-%04d', $productType->product_type_id, $variant->variant_id)]);
 
         return back()->with('success', 'Product added successfully and is now active in the catalog.');
     }

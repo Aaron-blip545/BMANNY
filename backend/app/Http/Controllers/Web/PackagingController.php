@@ -24,6 +24,7 @@ class PackagingController extends Controller
     {
         $data = $request->validate([
             'name'         => 'required|string|max:150',
+            'category'     => 'required|in:Pouch,Sachet,Bottle,Jar,Box,Label,Other',
             'description'  => 'nullable|string',
             'is_available' => 'boolean',
         ]);
@@ -39,6 +40,7 @@ class PackagingController extends Controller
 
         $data = $request->validate([
             'name'         => 'required|string|max:150',
+            'category'     => 'required|in:Pouch,Sachet,Bottle,Jar,Box,Label,Other',
             'description'  => 'nullable|string',
             'is_available' => 'boolean',
         ]);

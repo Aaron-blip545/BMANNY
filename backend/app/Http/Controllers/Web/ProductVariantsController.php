@@ -82,7 +82,8 @@ class ProductVariantsController extends Controller
             'notes'           => 'nullable|string',
         ]);
 
-        ProductVariant::create($data);
+        $variant = ProductVariant::create($data);
+        $variant->update(['sku' => $this->skuFor($variant)]);
 
         return back()->with('success', 'Variant added.');
     }
@@ -121,5 +122,10 @@ class ProductVariantsController extends Controller
         $variant->restore();
 
         return back()->with('success', 'Variant restored.');
+    }
+
+    private function skuFor(ProductVariant $variant): string
+    {
+        return sprintf('BMN-%04d-%04d', $variant->product_type_id, $variant->variant_id);
     }
 }

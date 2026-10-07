@@ -23,6 +23,7 @@ interface ProductVariant {
     name: string;
     size_value: number | null;
     size_unit: string | null;
+    container_type: string | null;
     is_available: boolean;
     is_published: boolean;
     notes: string | null;
@@ -113,6 +114,7 @@ export default function VariantsPage({ productTypes }: Props) {
         name: '',
         size_value: '',
         size_unit: '',
+        container_type: '',
         is_available: true,
         is_published: false,
         notes: '',
@@ -132,6 +134,7 @@ export default function VariantsPage({ productTypes }: Props) {
             name: variant.name,
             size_value: variant.size_value?.toString() ?? '',
             size_unit: variant.size_unit ?? '',
+            container_type: variant.container_type ?? '',
             is_available: variant.is_available,
             is_published: variant.is_published,
             notes: variant.notes ?? '',
@@ -428,7 +431,6 @@ export default function VariantsPage({ productTypes }: Props) {
                             </Select>
                         </div>
 
-<<<<<<< HEAD
                         <div className="col-span-2 space-y-1.5">
                             <Label htmlFor="variant-container">Container Type</Label>
                             <Input
@@ -438,9 +440,6 @@ export default function VariantsPage({ productTypes }: Props) {
                                 placeholder="e.g. Blister Pack, Sachet, Bottle, Box"
                             />
                         </div>
-
-=======
->>>>>>> f956f74d6af644c85bbb5584cea8292d0a4b413d
                         <div className="space-y-1.5">
                             <Label>Availability</Label>
                             <Select
