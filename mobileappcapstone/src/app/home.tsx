@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, TextInput, Dimensions, Modal, RefreshControl } from 'react-native';
-import { router } from 'expo-router';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, TextInput, Dimensions, Modal, RefreshControl, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
 import { useTheme } from '../contexts/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -8,9 +9,12 @@ import {
   markNotificationRead,
   markAllNotificationsRead,
   getProducts,
+  getProductCategories,
   getApiBaseUrl,
+  getMe,
 } from '../services/api';
 import { subscribeToRealtime } from '../services/realtime';
+import { MobileNavDock } from '../components/mobile-nav-dock';
 
 const HomeIcon = ({ colors, isActive }: { colors: any; isActive?: boolean }) => (
   <Image source={require('@/assets/images/homepageicon/home.png')} style={styles.navIcon} tintColor={isActive ? '#2196F3' : colors.text} />
@@ -64,14 +68,19 @@ export interface CatalogProductItem {
   is_active?: boolean;
 }
 
-const defaultProducts: CatalogProductItem[] = [
-  { id: 1, name: 'Premium Coffee Protein', price: '₱180.00', image: fallbackImages[0], description: 'High-quality protein powder infused with premium coffee extract', moq: '100 units' },
-  { id: 2, name: 'Organic Coffee Energy', price: '₱95.00', image: fallbackImages[1], description: 'Organic coffee-based energy supplement made from 100% natural ingredients', moq: '100 units' },
-  { id: 3, name: 'Coffee Focus Blend', price: '₱150.00', image: fallbackImages[2], description: 'Specially formulated cognitive enhancer combining coffee with focus-boosting nootropics', moq: '100 units' },
-  { id: 4, name: 'Espresso Pre-Workout', price: '₱175.00', image: fallbackImages[3], description: 'Intense pre-workout formula with concentrated espresso for maximum performance', moq: '100 units' },
-  { id: 5, name: 'Coffee Recovery Mix', price: '₱140.00', image: fallbackImages[4], description: 'Post-workout recovery blend with coffee antioxidants and essential amino acids', moq: '100 units' },
-  { id: 6, name: 'Cold Brew Supplement', price: '₱110.00', image: fallbackImages[5], description: 'Smooth cold brew coffee supplement perfect for daily hydration', moq: '100 units' },
-];
+
+
+const getCategoryIcon = (category: string): keyof typeof Ionicons.glyphMap => {
+  const lower = category.toLowerCase();
+  if (lower === 'all') return 'grid-outline';
+  if (lower === 'favorites' || lower.includes('favorite')) return 'heart-outline';
+  if (lower.includes('beverage') || lower.includes('drink') || lower.includes('coffee') || lower.includes('water') || lower.includes('shot')) return 'cafe-outline';
+  if (lower.includes('supplement') || lower.includes('collagen') || lower.includes('blend') || lower.includes('capsule')) return 'medkit-outline';
+  if (lower.includes('cosmetic') || lower.includes('balm') || lower.includes('beauty') || lower.includes('skin') || lower.includes('care') || lower.includes('lip')) return 'sparkles-outline';
+  if (lower.includes('health') || lower.includes('wellness')) return 'heart-outline';
+  if (lower.includes('detox') || lower.includes('nutrition')) return 'leaf-outline';
+  return 'cube-outline';
+};
 
 function formatRelativeTime(dateString: string) {
   if (!dateString) return 'Just now';
@@ -98,25 +107,93 @@ interface NotificationItem {
 }
 
 export default function HomeScreen() {
-  const { colors } = useTheme();
+  const { colors, isDarkMode } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [apiCategories, setApiCategories] = useState<string[]>([]);
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [refreshing, setRefreshing] = useState(false);
-  const [products, setProducts] = useState<CatalogProductItem[]>(defaultProducts);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [products, setProducts] = useState<CatalogProductItem[]>([]);
+  const [favorites, setFavorites] = useState<number[]>([]);
+  const [clientId, setClientId] = useState<string | number | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const { width } = Dimensions.get('window');
 
+  const loadFavorites = useCallback(async () => {
+    try {
+      let cId = clientId;
+      if (!cId) {
+        try {
+          const user = await getMe();
+          cId = user?.id || user?.user_id || user?.business_client?.client_id || user?.business_client?.user_id;
+          if (cId) setClientId(cId);
+        } catch (e) { }
+      }
+
+      const clientKey = cId ? `bmanny_favorites_${cId}` : 'bmanny_favorites';
+      const saved = await SecureStore.getItemAsync(clientKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setFavorites(parsed);
+          return;
+        }
+      }
+
+      // Check legacy generic key
+      const legacySaved = await SecureStore.getItemAsync('bmanny_favorites');
+      if (legacySaved) {
+        const parsed = JSON.parse(legacySaved);
+        if (Array.isArray(parsed)) {
+          setFavorites(parsed);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to load favorites in home:', err);
+    }
+  }, [clientId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadFavorites();
+    }, [loadFavorites])
+  );
+
+  const toggleFavorite = useCallback(async (productId: number) => {
+    setFavorites((prev) => {
+      const updated = prev.includes(productId)
+        ? prev.filter((id) => id !== productId)
+        : [...prev, productId];
+      const json = JSON.stringify(updated);
+      if (clientId) {
+        SecureStore.setItemAsync(`bmanny_favorites_${clientId}`, json).catch(() => { });
+      }
+      SecureStore.setItemAsync('bmanny_favorites', json).catch(() => { });
+      return updated;
+    });
+  }, [clientId]);
+
   const loadCatalog = useCallback(async () => {
     try {
-      const data = await getProducts();
-      if (Array.isArray(data) && data.length > 0) {
-        setProducts(data);
+      setLoadingProducts(true);
+      const [productsData, categoriesData] = await Promise.all([
+        getProducts(),
+        getProductCategories(),
+      ]);
+      if (Array.isArray(productsData)) {
+        setProducts(productsData);
+      }
+      if (Array.isArray(categoriesData) && categoriesData.length > 0) {
+        setApiCategories(categoriesData);
       }
     } catch (err) {
       console.warn('Failed to load dynamic product catalog:', err);
+    } finally {
+      setLoadingProducts(false);
     }
   }, []);
 
@@ -143,7 +220,7 @@ export default function HomeScreen() {
 
   const handleNotificationPress = async (item: NotificationItem) => {
     if (!item.is_read) {
-      markNotificationRead(item.notification_id).catch(() => {});
+      markNotificationRead(item.notification_id).catch(() => { });
       setNotifications((prev) =>
         prev.map((n) => (n.notification_id === item.notification_id ? { ...n, is_read: true } : n))
       );
@@ -215,13 +292,59 @@ export default function HomeScreen() {
     return fallbackImages[index % fallbackImages.length];
   };
 
-  const filteredProducts = products.filter((product) =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (product.category && product.category.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const categories = useMemo(() => {
+    const list: string[] = ['All', 'Favorites'];
+
+    // Categories from Product Controller API
+    apiCategories.forEach((cat) => {
+      const trimmed = cat?.trim();
+      if (trimmed && !list.some((item) => item.toLowerCase() === trimmed.toLowerCase())) {
+        list.push(trimmed);
+      }
+    });
+
+    // Categories assigned to catalog products in Product Management
+    products.forEach((p) => {
+      const cat = (p.category || p.category_code)?.trim();
+      if (cat && !list.some((item) => item.toLowerCase() === cat.toLowerCase())) {
+        list.push(cat);
+      }
+    });
+
+
+    return list;
+  }, [products, apiCategories]);
+
+  const filteredProducts = useMemo(() => {
+    return products.filter((product) => {
+      const query = searchQuery.toLowerCase().trim();
+      const matchesSearch =
+        !query ||
+        product.name.toLowerCase().includes(query) ||
+        (product.category && product.category.toLowerCase().includes(query));
+
+      let matchesCategory = false;
+      if (selectedCategory === 'All') {
+        matchesCategory = true;
+      } else if (selectedCategory === 'Favorites') {
+        const pId = Number(product.id);
+        const pTypeId = product.product_type_id ? Number(product.product_type_id) : null;
+        matchesCategory = favorites.includes(pId) || (pTypeId !== null && favorites.includes(pTypeId));
+      } else {
+        matchesCategory = Boolean(
+          product.category && product.category.toLowerCase() === selectedCategory.toLowerCase()
+        );
+      }
+
+      return matchesSearch && matchesCategory;
+    });
+  }, [products, searchQuery, selectedCategory, favorites]);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <KeyboardAvoidingView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
@@ -229,7 +352,7 @@ export default function HomeScreen() {
             refreshing={refreshing}
             onRefresh={async () => {
               setRefreshing(true);
-              await Promise.all([loadCatalog(), loadNotifications()]);
+              await Promise.all([loadCatalog(), loadNotifications(), loadFavorites()]);
               setRefreshing(false);
             }}
             tintColor="#2196F3"
@@ -260,16 +383,26 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Search Bar Under Header */}
         <View style={styles.searchContainer}>
-          <View style={[styles.searchInput, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
+          <View style={[styles.searchInput, { backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.40)' : '#f1f5f9', borderColor: colors.border }]}>
+            <Ionicons name="search-outline" size={19} color={colors.textSecondary} style={styles.searchIcon} />
             <TextInput
-              style={styles.searchField}
-              placeholder="Search products..."
-              placeholderTextColor="#999"
+              style={[styles.searchField, { color: colors.text }]}
+              placeholder="Search products, categories..."
+              placeholderTextColor={colors.textSecondary}
               value={searchQuery}
               onChangeText={setSearchQuery}
+              returnKeyType="search"
             />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity
+                onPress={() => setSearchQuery('')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -304,66 +437,182 @@ export default function HomeScreen() {
           </View>
         )}
 
-        <Text style={[styles.featuredProductTitle, { color: colors.text }]}>Featured Product</Text>
+        {/* Categories Section */}
+        <View style={styles.categoriesSection}>
+          <View style={styles.categoriesHeader}>
+            <Text style={[styles.sectionHeading, { color: colors.text }]}>Categories</Text>
+            <Text style={[styles.categoriesCount, { color: colors.textSecondary }]}>
+              {filteredProducts.length} {filteredProducts.length === 1 ? 'item' : 'items'}
+            </Text>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryChipsList}
+          >
+            {categories.map((category) => {
+              const isSelected = selectedCategory === category;
+              const isFavCategory = category === 'Favorites';
+              const iconName = getCategoryIcon(category);
+              const label = isFavCategory ? `Favorites (${favorites.length})` : category;
+              return (
+                <TouchableOpacity
+                  key={category}
+                  style={[
+                    styles.categoryChip,
+                    isSelected
+                      ? styles.categoryChipActive
+                      : [
+                        styles.categoryChipInactive,
+                        {
+                          backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.08)' : '#f1f5f9',
+                          borderColor: colors.border,
+                        },
+                      ],
+                  ]}
+                  onPress={() => setSelectedCategory(category)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={iconName}
+                    size={15}
+                    color={isSelected ? '#ffffff' : colors.textSecondary}
+                    style={styles.categoryChipIcon}
+                  />
+                  <Text
+                    style={[
+                      styles.categoryChipText,
+                      isSelected
+                        ? styles.categoryChipTextActive
+                        : [styles.categoryChipTextInactive, { color: colors.text }],
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
 
-        <View style={styles.productsGrid}>
-          {filteredProducts.map((product, idx) => (
-            <TouchableOpacity 
-              key={product.id || idx} 
-              style={[styles.productCard, { backgroundColor: colors.card }]}
-              onPress={() => {
-                console.log('Navigating to product:', product.name);
-                try {
-                  router.push({
-                    pathname: '/product-description',
-                    params: {
-                      id: (product.id || product.product_type_id || idx + 1).toString(),
-                      name: product.name,
-                      price: product.price,
-                      description: product.description || '',
-                      moq: product.moq || '100 units',
-                      image_url: product.image_url || '',
-                      category: product.category || '',
-                    },
-                  } as any);
-                } catch (error) {
-                  console.error('Navigation error:', error);
-                }
-              }}
-              activeOpacity={0.7}
-            >
-              <Image source={getProductImage(product, idx)} style={styles.productImage} />
-              <View style={styles.productInfo}>
-                <Text style={[styles.productName, { color: colors.text }]} numberOfLines={1}>
-                  {product.name}
-                </Text>
-                <Text style={[styles.productPrice, { color: colors.text }]}>
-                  {product.price}
-                </Text>
-              </View>
+        {/* Section Heading with Dynamic Title and Filter Reset */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={[styles.featuredProductTitle, { color: colors.text }]}>
+            {selectedCategory === 'All'
+              ? 'Featured Products'
+              : selectedCategory === 'Favorites'
+                ? 'Your Favorited Products'
+                : selectedCategory}
+          </Text>
+          {selectedCategory !== 'All' && (
+            <TouchableOpacity onPress={() => setSelectedCategory('All')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={styles.clearFilterText}>Show All</Text>
             </TouchableOpacity>
-          ))}
+          )}
+        </View>
+
+        {/* Products Grid */}
+        <View style={styles.productsGrid}>
+          {loadingProducts && products.length === 0 ? (
+            <View style={[styles.emptyContainer, { paddingVertical: 48 }]}>
+              <ActivityIndicator size="large" color="#2196F3" />
+              <Text style={[styles.emptySubtitle, { color: colors.textSecondary, marginTop: 12 }]}>
+                Loading products...
+              </Text>
+            </View>
+          ) : filteredProducts.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons
+                name={selectedCategory === 'Favorites' ? 'heart-dislike-outline' : 'basket-outline'}
+                size={40}
+                color={selectedCategory === 'Favorites' ? '#EF4444' : colors.textSecondary}
+              />
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                {selectedCategory === 'Favorites' ? 'No Favorites Found' : 'No products found'}
+              </Text>
+              <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+                {searchQuery
+                  ? `No formulations match "${searchQuery}".`
+                  : selectedCategory === 'Favorites'
+                    ? "You haven't favorited any products yet. Tap the heart icon on any product to save your favorites here!"
+                    : `No formulations available in "${selectedCategory}".`}
+              </Text>
+              <TouchableOpacity
+                style={styles.resetBtn}
+                onPress={() => {
+                  setSearchQuery('');
+                  setSelectedCategory('All');
+                }}
+              >
+                <Text style={styles.resetBtnText}>View All Products</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            filteredProducts.map((product, idx) => {
+              const pId = Number(product.id || product.product_type_id || idx + 1);
+              const isFav = favorites.includes(pId);
+              return (
+                <TouchableOpacity
+                  key={product.id || idx}
+                  style={[styles.productCard, { backgroundColor: colors.card }]}
+                  onPress={() => {
+                    console.log('Navigating to product:', product.name);
+                    try {
+                      router.push({
+                        pathname: '/product-description',
+                        params: {
+                          id: (product.id || product.product_type_id || idx + 1).toString(),
+                          name: product.name,
+                          price: product.price,
+                          description: product.description || '',
+                          moq: product.moq || '100 units',
+                          image_url: product.image_url || '',
+                          category: product.category || '',
+                        },
+                      } as any);
+                    } catch (error) {
+                      console.error('Navigation error:', error);
+                    }
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.productImageContainer}>
+                    <Image source={getProductImage(product, idx)} style={styles.productImage} />
+                    <TouchableOpacity
+                      style={[
+                        styles.cardFavoriteBtn,
+                        { backgroundColor: isDarkMode ? 'rgba(30, 30, 32, 0.88)' : 'rgba(255, 255, 255, 0.92)' },
+                      ]}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        toggleFavorite(pId);
+                      }}
+                      activeOpacity={0.8}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons
+                        name={isFav ? 'heart' : 'heart-outline'}
+                        size={17}
+                        color={isFav ? '#EF4444' : (isDarkMode ? '#A1A1AA' : '#6B7280')}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.productInfo}>
+                    <Text style={[styles.productName, { color: colors.text }]} numberOfLines={1}>
+                      {product.name}
+                    </Text>
+                    <Text style={[styles.productPrice, { color: colors.text }]}>
+                      {product.price}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          )}
         </View>
       </ScrollView>
 
-      <View style={[styles.navigationBar, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/home')}>
-          <HomeIcon colors={colors} isActive={true} />
-          <Text style={[styles.navText, { color: '#2196F3' }]}>Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/orders')}>
-          <OrdersIcon colors={colors} />
-          <Text style={[styles.navText, { color: colors.textSecondary }]}>Orders</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/messages')}>
-          <MessagesIcon colors={colors} />
-          <Text style={[styles.navText, { color: colors.textSecondary }]}>Messages</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/profile')}>
-          <ProfileIcon colors={colors} />
-          <Text style={[styles.navText, { color: colors.textSecondary }]}>Profile</Text>
-        </TouchableOpacity>
-      </View>
+      <MobileNavDock activeTab="home" />
 
       <Modal
         visible={showNotifications}
@@ -385,7 +634,7 @@ export default function HomeScreen() {
               <View style={{ width: 24 }} />
             )}
           </View>
-          
+
           <ScrollView
             style={styles.notificationList}
             contentContainerStyle={{ paddingBottom: 40 }}
@@ -472,7 +721,7 @@ export default function HomeScreen() {
           </ScrollView>
         </View>
       </Modal>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -533,18 +782,24 @@ const styles = StyleSheet.create({
   searchInput: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: 24,
     borderWidth: 1,
-    paddingHorizontal: 12,
-    height: 48,
+    paddingHorizontal: 14,
+    height: 44,
+    shadowColor: '#475569',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: 10,
   },
   searchField: {
     flex: 1,
-    fontSize: 15,
-    color: '#333',
+    fontSize: 14,
+    paddingVertical: 0,
+    height: '100%',
   },
   carouselContainer: {
     marginBottom: 24,
@@ -594,10 +849,100 @@ const styles = StyleSheet.create({
     backgroundColor: '#2196F3',
     width: 20,
   },
+  categoriesSection: {
+    marginBottom: 22,
+  },
+  categoriesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sectionHeading: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  categoriesCount: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  categoryChipsList: {
+    paddingRight: 12,
+    gap: 8,
+  },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  categoryChipActive: {
+    backgroundColor: '#2196F3',
+    borderColor: '#2196F3',
+    shadowColor: '#2196F3',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  categoryChipInactive: {},
+  categoryChipIcon: {
+    marginRight: 6,
+  },
+  categoryChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  categoryChipTextActive: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+  categoryChipTextInactive: {},
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  clearFilterText: {
+    color: '#2196F3',
+    fontSize: 13,
+    fontWeight: '600',
+  },
   featuredProductTitle: {
     fontSize: 18,
     fontWeight: '700',
+  },
+  emptyContainer: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 36,
+    paddingHorizontal: 20,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    textAlign: 'center',
     marginBottom: 16,
+  },
+  resetBtn: {
+    backgroundColor: '#2196F3',
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  resetBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '600',
   },
   productsGrid: {
     flexDirection: 'row',
@@ -615,6 +960,27 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
+  },
+  productImageContainer: {
+    position: 'relative',
+    width: '100%',
+    height: 140,
+  },
+  cardFavoriteBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 3,
+    zIndex: 2,
   },
   productImage: {
     width: '100%',

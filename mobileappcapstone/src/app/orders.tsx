@@ -19,6 +19,7 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import { getMyOrders, getMyInquiries, cancelInquiry } from '../services/api';
 import { subscribeToRealtime } from '../services/realtime';
+import { MobileNavDock } from '../components/mobile-nav-dock';
 
 const HomeIcon = ({ colors, isActive }: { colors: any; isActive?: boolean }) => (
   <Image source={require('@/assets/images/homepageicon/home.png')} style={styles.navIcon} tintColor={isActive ? '#2196F3' : colors.text} />
@@ -602,24 +603,7 @@ export default function OrdersScreen() {
       )}
 
       {/* BOTTOM NAV */}
-      <View style={[styles.navBar, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/home')}>
-          <HomeIcon colors={colors} />
-          <Text style={[styles.navText, { color: colors.textSecondary }]}>Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/orders')}>
-          <OrdersIcon colors={colors} isActive />
-          <Text style={[styles.navText, { color: '#2196F3' }]}>Orders</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/messages')}>
-          <MessagesIcon colors={colors} />
-          <Text style={[styles.navText, { color: colors.textSecondary }]}>Messages</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/profile')}>
-          <ProfileIcon colors={colors} />
-          <Text style={[styles.navText, { color: colors.textSecondary }]}>Profile</Text>
-        </TouchableOpacity>
-      </View>
+      <MobileNavDock activeTab="orders" />
 
       {/* ── CANCEL INQUIRY MODAL (with reason) ── */}
       <Modal

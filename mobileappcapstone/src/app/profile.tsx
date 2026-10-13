@@ -7,12 +7,14 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Image,
-  Alert,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { getMe, logout, resolveImageUrl } from '../services/api';
+import { MobileNavDock } from '../components/mobile-nav-dock';
 
 const HomeIcon = ({ colors, isActive }: { colors: any; isActive?: boolean }) => (
   <Image source={require('@/assets/images/homepageicon/home.png')} style={styles.navIcon} tintColor={isActive ? '#2196F3' : colors.text} />
@@ -50,12 +52,14 @@ function VerificationBadge({ status }: { status: VerificationStatus }) {
 }
 
 export default function ProfileScreen() {
-  const { colors } = useTheme();
+  const { colors, isDarkMode } = useTheme();
   const { profileImage } = useLocalSearchParams<{ profileImage: string }>();
   const [avatarImage, setAvatarImage]           = useState<string | null>(profileImage || null);
   const [userName, setUserName]                 = useState('');
   const [email, setEmail]                       = useState('');
   const [verificationStatus, setVerifStatus]    = useState<VerificationStatus>('not_submitted');
+  const [showLogoutModal, setShowLogoutModal]   = useState(false);
+  const [isLoggingOut, setIsLoggingOut]         = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -92,22 +96,20 @@ export default function ProfileScreen() {
   }, [userName]);
 
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to log out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            await logout();
-            router.dismissAll();
-            router.replace('/login');
-          },
-        },
-      ]
-    );
+    setShowLogoutModal(true);
+  };
+
+  const confirmLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      await logout();
+      setShowLogoutModal(false);
+      router.dismissAll();
+      router.replace('/login');
+    } catch (e) {
+      setIsLoggingOut(false);
+      setShowLogoutModal(false);
+    }
   };
 
   const isVerified = verificationStatus === 'approved';
@@ -238,24 +240,90 @@ export default function ProfileScreen() {
       </ScrollView>
 
       {/* Navigation Bar */}
-      <View style={[styles.navigationBar, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/home')}>
-          <HomeIcon colors={colors} />
-          <Text style={[styles.navText, { color: colors.textSecondary }]}>Home</Text>
+      <MobileNavDock activeTab="profile" />
+
+      {/* Custom Designed Logout Confirmation Modal */}
+      <Modal
+        visible={showLogoutModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!isLoggingOut) setShowLogoutModal(false);
+        }}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => {
+            if (!isLoggingOut) setShowLogoutModal(false);
+          }}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor: isDarkMode ? '#1E1E20' : '#FFFFFF',
+                borderColor: isDarkMode ? '#27272A' : '#E5E7EB',
+              },
+            ]}
+          >
+            {/* Top Status Icon Badge */}
+            <View style={styles.modalIconWrapper}>
+              <View style={styles.modalOuterRing}>
+                <View style={styles.modalInnerCircle}>
+                  <Ionicons name="log-out" size={26} color="#FFFFFF" />
+                </View>
+              </View>
+            </View>
+
+            {/* Title */}
+            <Text style={[styles.modalTitle, { color: isDarkMode ? '#FFFFFF' : '#18181B' }]}>
+              Logout
+            </Text>
+
+            {/* Subtitle Message */}
+            <Text style={[styles.modalMessage, { color: isDarkMode ? '#A1A1AA' : '#6B7280' }]}>
+              Are you sure you want to log out?
+            </Text>
+
+            {/* Action Buttons Row */}
+            <View style={styles.modalButtonsRow}>
+              <TouchableOpacity
+                style={[
+                  styles.modalCancelBtn,
+                  { backgroundColor: isDarkMode ? '#27272A' : '#F3F4F6' },
+                ]}
+                onPress={() => setShowLogoutModal(false)}
+                disabled={isLoggingOut}
+                activeOpacity={0.75}
+              >
+                <Text
+                  style={[
+                    styles.modalCancelBtnText,
+                    { color: isDarkMode ? '#E4E4E7' : '#374151' },
+                  ]}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalLogoutBtn}
+                onPress={confirmLogout}
+                disabled={isLoggingOut}
+                activeOpacity={0.88}
+              >
+                {isLoggingOut ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.modalLogoutBtnText}>Logout</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/orders')}>
-          <OrdersIcon colors={colors} />
-          <Text style={[styles.navText, { color: colors.textSecondary }]}>Orders</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/messages')}>
-          <MessagesIcon colors={colors} />
-          <Text style={[styles.navText, { color: colors.textSecondary }]}>Messages</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/profile')}>
-          <ProfileIcon colors={colors} isActive={true} />
-          <Text style={[styles.navText, { color: '#2196F3' }]}>Profile</Text>
-        </TouchableOpacity>
-      </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -355,4 +423,104 @@ const styles = StyleSheet.create({
   navItem: { flex: 1, paddingVertical: 15, alignItems: 'center' },
   navText: { fontSize: 12, fontWeight: '600', marginTop: 4 },
   navIcon: { width: 24, height: 24, resizeMode: 'contain' },
+
+  /* Custom Logout Modal Styles */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 28,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 340,
+    borderRadius: 24,
+    borderWidth: 1,
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: 22,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  modalIconWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  modalOuterRing: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalInnerCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#EF4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  modalTitle: {
+    fontSize: 19,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  modalMessage: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginBottom: 24,
+    paddingHorizontal: 6,
+  },
+  modalButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    width: '100%',
+  },
+  modalCancelBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCancelBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  modalLogoutBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#EF4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  modalLogoutBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
 });

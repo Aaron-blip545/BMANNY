@@ -240,30 +240,6 @@ class ProductSeeder extends Seeder
                 'image_url'          => null,
                 'is_active'          => true,
             ],
-            [
-                'name'               => 'Premium Coffee Protein',
-                'category_code'      => 'Supplement',
-                'suggested_srp'      => 180.00,
-                'description'        => 'High-quality protein powder infused with premium coffee extract',
-                'shelf_life'         => '24 Months',
-                'storage_conditions' => 'Cool dry place',
-                'lead_time_days'     => 14,
-                'formulation_notes'  => 'Whey protein isolate with 100% Arabica instant coffee powder.',
-                'image_url'          => null,
-                'is_active'          => true,
-            ],
-            [
-                'name'               => 'Organic Coffee Energy',
-                'category_code'      => 'Beverage',
-                'suggested_srp'      => 95.00,
-                'description'        => 'Organic coffee-based energy supplement made from 100% natural ingredients',
-                'shelf_life'         => '12 Months',
-                'storage_conditions' => 'Keep chilled',
-                'lead_time_days'     => 10,
-                'formulation_notes'  => 'Cold extracted organic robusta and guarana extract.',
-                'image_url'          => null,
-                'is_active'          => true,
-            ],
         ];
 
         foreach ($catalogProducts as $cp) {

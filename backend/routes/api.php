@@ -19,6 +19,7 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:au
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:auth');
 Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:auth');
 Route::get('/products', [ProductController::class, 'index']);
+Route::get('/product-categories', [ProductController::class, 'categories']);
 Route::get('/customization-materials', [ProductController::class, 'customizationMaterials']);
 
 // Protected Routes (Must be authenticated via Sanctum)

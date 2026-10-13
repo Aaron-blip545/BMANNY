@@ -87,6 +87,23 @@ class ProductController extends Controller
     }
 
     /**
+     * Customer-facing category listing from product management.
+     */
+    public function categories(): JsonResponse
+    {
+        $categories = \App\Models\ProductType::where('is_active', true)
+            ->whereNotNull('category_code')
+            ->where('category_code', '!=', '')
+            ->distinct()
+            ->orderBy('category_code')
+            ->pluck('category_code')
+            ->filter()
+            ->values();
+
+        return response()->json($categories);
+    }
+
+    /**
      * Store a new product variant (internal, role: product_controller / admin).
      * Kept for API clients if needed; primary CRUD is through the web UI.
      */

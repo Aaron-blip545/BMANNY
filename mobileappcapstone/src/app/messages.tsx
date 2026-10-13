@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import { getConversations, resolveImageUrl } from '../services/api';
 import { subscribeToRealtime } from '../services/realtime';
+import { MobileNavDock } from '../components/mobile-nav-dock';
 
 interface Conversation {
   id: number;
@@ -159,24 +160,7 @@ export default function MessagesScreen() {
         )}
       </ScrollView>
 
-      <View style={[styles.navigationBar, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/home')}>
-          <HomeIcon colors={colors} />
-          <Text style={[styles.navText, { color: colors.textSecondary }]}>Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/orders')}>
-          <OrdersIcon colors={colors} />
-          <Text style={[styles.navText, { color: colors.textSecondary }]}>Orders</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/messages')}>
-          <MessagesIcon colors={colors} />
-          <Text style={[styles.navText, { color: '#2196F3' }]}>Messages</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/profile')}>
-          <ProfileIcon colors={colors} />
-          <Text style={[styles.navText, { color: colors.textSecondary }]}>Profile</Text>
-        </TouchableOpacity>
-      </View>
+      <MobileNavDock activeTab="messages" />
 
     </SafeAreaView>
   );

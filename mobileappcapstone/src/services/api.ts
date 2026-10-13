@@ -78,6 +78,10 @@ export async function getProducts() {
     return request('/products');
 }
 
+export async function getProductCategories(): Promise<string[]> {
+    return request('/product-categories').catch(() => []);
+}
+
 export async function getCustomizationMaterials(): Promise<{
     all: Array<{ product_id: number; name: string; sku: string; category: string; stock_quantity: number; in_stock: boolean }>;
     flavors: Array<{ product_id: number; name: string; sku: string; category: string; stock_quantity: number; in_stock: boolean }>;
