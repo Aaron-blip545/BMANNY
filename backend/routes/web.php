@@ -34,6 +34,7 @@ Route::middleware(['backend.auth'])->group(function () {
     Route::post('notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
     Route::delete('notifications/{id}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
 
+    Route::get('user-guide', fn () => Inertia::render('user-guide'))->name('user-guide');
     Route::get('dashboard', function (Request $request) {
         $dashboardRoute = RoleDashboard::routeNameFor($request->user('web')?->role);
 
