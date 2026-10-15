@@ -12,6 +12,7 @@ class ProductType extends Model
     protected $primaryKey = 'product_type_id';
 
     protected $fillable = [
+        'product_code',
         'name',
         'category_code',
         'description',
@@ -53,6 +54,32 @@ class ProductType extends Model
     {
         return $this->belongsToMany(CustomizationCatalog::class, 'product_customization_options', 'product_type_id', 'customization_id')
             ->withTimestamps();
+    }
+
+    /**
+     * Bill of Materials (BOM) / Formulation recipe items.
+     */
+    public function recipes()
+    {
+        return $this->hasMany(ProductRecipe::class, 'product_type_id', 'product_type_id');
+    }
+
+    /**
+     * Raw materials used in this product's formulation.
+     */
+    public function rawMaterials()
+    {
+        return $this->belongsToMany(Product::class, 'product_recipes', 'product_type_id', 'product_id')
+            ->withPivot(['quantity_per_unit', 'rate', 'amount', 'notes'])
+            ->withTimestamps();
+    }
+
+    /**
+     * Calculated total formulation cost per unit from the BOM.
+     */
+    public function getTotalRecipeCostAttribute(): float
+    {
+        return (float) $this->recipes->sum('amount');
     }
 
     // Scope: only active types

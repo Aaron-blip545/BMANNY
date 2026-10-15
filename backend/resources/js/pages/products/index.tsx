@@ -27,12 +27,15 @@ import {
     AlertTriangle,
     Archive,
     ArrowUpDown,
-    CircleCheck,
-    CircleX,
+    CheckCircle2,
     ChevronLeft,
     ChevronRight,
+    CircleAlert,
+    CircleCheck,
+    CircleX,
     ClipboardList,
-    Clock,
+    FlaskConical,
+    Layers,
     Package,
     PackageSearch,
     Pencil,
@@ -52,7 +55,10 @@ interface Product {
     sku: string;
     description: string | null;
     price: string | number;
-    stock_quantity: number;
+    stock_quantity: number | string;
+    reorder_level?: number | string;
+    unit_of_measure?: string;
+    recipes_count?: number;
     product_image: string | null;
     created_at?: string;
     updated_at?: string;
@@ -70,32 +76,47 @@ interface Props {
     error?: string | null;
 }
 
-type SortField = 'name' | 'sku' | 'category' | 'stock' | 'price' | 'status';
+type SortField = 'name' | 'sku' | 'category' | 'stock' | 'reorder' | 'price' | 'status';
 type SortOrder = 'asc' | 'desc';
 
 function formatCurrency(value: string | number) {
     const amount = typeof value === 'string' ? parseFloat(value) : value;
     if (isNaN(amount)) return '₱0';
-    return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(amount);
+    return new Intl.NumberFormat('en-PH', {
+        style: 'currency',
+        currency: 'PHP',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    }).format(amount);
 }
 
-function getStockStatus(stock: number) {
+function formatQuantity(value: string | number, unit: string = 'kg') {
+    const qty = typeof value === 'string' ? parseFloat(value) : value;
+    if (isNaN(qty)) return `0 ${unit}`;
+    const formatted = parseFloat(qty.toFixed(4)).toString();
+    return `${formatted} ${unit}`;
+}
+
+function getStockStatus(stock: number, reorder: number = 0) {
     if (stock <= 0) {
         return {
             label: 'Out of Stock',
+            badgeClass: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20',
             dotClass: 'bg-rose-500',
             textClass: 'text-rose-500 dark:text-rose-400',
         };
     }
-    if (stock <= 10) {
+    if (reorder > 0 && stock <= reorder) {
         return {
-            label: 'Low Stock',
+            label: 'Reorder Alert',
+            badgeClass: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20',
             dotClass: 'bg-amber-500',
             textClass: 'text-amber-500 dark:text-amber-400',
         };
     }
     return {
         label: 'In Stock',
+        badgeClass: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20',
         dotClass: 'bg-emerald-500',
         textClass: 'text-emerald-500 dark:text-emerald-400',
     };
@@ -113,7 +134,8 @@ export default function ProductsIndex({ products = [], categories = [], error }:
     const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
-    const pageSize = 10;
+    const pageSize = 12;
+
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -125,21 +147,24 @@ export default function ProductsIndex({ products = [], categories = [], error }:
         category_id: '' as string | number,
         price: '',
         stock_quantity: '',
+        reorder_level: '',
+        unit_of_measure: 'kg',
         description: '',
         product_image: '',
     });
 
     const metrics = useMemo(() => {
         let inStock = 0;
-        let lowStock = 0;
+        let reorderNeeded = 0;
         let outOfStock = 0;
         for (const p of products) {
             const s = Number(p.stock_quantity) || 0;
+            const r = Number(p.reorder_level) || 0;
             if (s <= 0) outOfStock++;
-            else if (s <= 10) lowStock++;
+            else if (r > 0 && s <= r) reorderNeeded++;
             else inStock++;
         }
-        return { total: products.length, inStock, lowStock, outOfStock };
+        return { total: products.length, inStock, reorderNeeded, outOfStock };
     }, [products]);
 
     const filteredProducts = useMemo(() => {
@@ -154,8 +179,11 @@ export default function ProductsIndex({ products = [], categories = [], error }:
             }
             if (statusFilter !== 'all') {
                 const s = Number(p.stock_quantity) || 0;
-                if (statusFilter === 'in_stock' && s <= 10) return false;
-                if (statusFilter === 'low_stock' && (s <= 0 || s > 10)) return false;
+                const r = Number(p.reorder_level) || 0;
+                const isReorder = r > 0 && s <= r;
+
+                if (statusFilter === 'in_stock' && (s <= 0 || isReorder)) return false;
+                if (statusFilter === 'reorder' && (!isReorder || s <= 0)) return false;
                 if (statusFilter === 'out_of_stock' && s > 0) return false;
             }
             if (!term) return true;
@@ -188,6 +216,10 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                     av = Number(a.stock_quantity) || 0;
                     bv = Number(b.stock_quantity) || 0;
                     break;
+                case 'reorder':
+                    av = Number(a.reorder_level) || 0;
+                    bv = Number(b.reorder_level) || 0;
+                    break;
                 case 'price':
                     av = parseFloat(String(a.price)) || 0;
                     bv = parseFloat(String(b.price)) || 0;
@@ -195,7 +227,10 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                 case 'status': {
                     const w = (p: Product) => {
                         const s = Number(p.stock_quantity) || 0;
-                        return s <= 0 ? 0 : s <= 10 ? 1 : 2;
+                        const r = Number(p.reorder_level) || 0;
+                        if (s <= 0) return 0;
+                        if (r > 0 ? s <= r : s <= 10) return 1;
+                        return 2;
                     };
                     av = w(a);
                     bv = w(b);
@@ -243,6 +278,17 @@ export default function ProductsIndex({ products = [], categories = [], error }:
     const openAddModal = () => {
         form.reset();
         form.clearErrors();
+        form.setData({
+            name: '',
+            sku: '',
+            category_id: '',
+            price: '',
+            stock_quantity: '',
+            reorder_level: '',
+            unit_of_measure: 'kg',
+            description: '',
+            product_image: '',
+        });
         setIsAddModalOpen(true);
     };
 
@@ -266,6 +312,8 @@ export default function ProductsIndex({ products = [], categories = [], error }:
             category_id: product.category_id ? String(product.category_id) : '',
             price: String(product.price),
             stock_quantity: String(product.stock_quantity),
+            reorder_level: product.reorder_level ? String(product.reorder_level) : '0',
+            unit_of_measure: product.unit_of_measure ?? 'kg',
             description: product.description ?? '',
             product_image: product.product_image ?? '',
         });
@@ -306,66 +354,69 @@ export default function ProductsIndex({ products = [], categories = [], error }:
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Inventory - Raw Materials" />
 
-            <div className="bmanny-page">
+            <div className="bmanny-page space-y-6">
                 {/* ─── Header ────────────────────────────────────────────── */}
                 <header className="bmanny-page-header flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <p className="bmanny-page-eyebrow">Inventory Workspace</p>
-                        <h1 className="text-2xl font-semibold tracking-tight">Raw Materials</h1>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                            Track flavors &amp; packaging stock for product customization.
+                        <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                                <FlaskConical className="size-3.5" /> Factory Inventory
+                            </span>
+                            <span className="text-xs text-muted-foreground">Location: CDO Main Factory</span>
+                        </div>
+                        <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground">
+                            Raw Materials Inventory
+                        </h1>
+                        <p className="text-sm text-muted-foreground">
+                            Track formulation ingredients, extracts, powders, and reorder levels for manufacturing.
                         </p>
                     </div>
-                    <div className="flex gap-2">
-                        <Button variant="outline" type="button">
-                            <Archive className="mr-2 h-4 w-4" />
-                            Archived materials
-                        </Button>
+                    <div className="flex items-center gap-2">
                         {canManageInventory && (
-                            <Button id="add-material-btn" type="button" onClick={openAddModal}>
+                            <Button id="add-material-btn" type="button" onClick={openAddModal} className="shadow-sm">
                                 <Plus className="mr-2 h-4 w-4" />
-                                Add Material
+                                Add Raw Material
                             </Button>
                         )}
                     </div>
                 </header>
 
                 {/* ─── 4 Metric Cards (BmannyMetricCard) ──────────────────── */}
-                <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                     <BmannyMetricCard
-                        label="TOTAL"
+                        label="TOTAL MATERIALS"
                         value={metrics.total}
-                        description="All raw materials"
+                        description="Active raw materials"
                         icon={ClipboardList}
                         accent="blue"
                     />
                     <BmannyMetricCard
                         label="IN STOCK"
                         value={metrics.inStock}
-                        description="Available for use"
-                        icon={Clock}
-                        accent="gold"
-                    />
-                    <BmannyMetricCard
-                        label="LOW STOCK"
-                        value={metrics.lowStock}
-                        description="Needs restocking soon"
+                        description="Above reorder level"
                         icon={CircleCheck}
                         accent="green"
                     />
                     <BmannyMetricCard
+                        label="REORDER ALERT"
+                        value={metrics.reorderNeeded}
+                        description="At or below reorder level"
+                        icon={CircleAlert}
+                        accent="gold"
+                    />
+                    <BmannyMetricCard
                         label="OUT OF STOCK"
                         value={metrics.outOfStock}
-                        description="Currently unavailable"
+                        description="Zero stock on hand"
                         icon={CircleX}
                         accent="navy"
                     />
                 </div>
 
                 {/* ─── Search & Filter Controls Bar ──────────────────────── */}
-                <div className="bmanny-workspace mb-4 flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                <div className="bmanny-workspace flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
                     <p className="text-sm font-medium text-foreground">
-                        {sortedProducts.length} of {products.length} materials
+                        {sortedProducts.length} of {products.length} raw materials
                     </p>
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                         <div className="relative">
@@ -377,7 +428,7 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                     setSearch(e.target.value);
                                     setCurrentPage(1);
                                 }}
-                                placeholder="Search material, SKU…"
+                                placeholder="Search raw material, SKU (R-)..."
                                 className="w-full rounded-md border border-input bg-background py-2 pl-8 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-ring sm:w-72"
                             />
                             {search && (
@@ -419,8 +470,8 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                             className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                         >
                             <option value="all">All Statuses</option>
-                            <option value="in_stock">In Stock</option>
-                            <option value="low_stock">Low Stock</option>
+                            <option value="in_stock">In Stock (Healthy)</option>
+                            <option value="reorder">Reorder Alert (Low)</option>
                             <option value="out_of_stock">Out of Stock</option>
                         </select>
 
@@ -444,7 +495,7 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                 </div>
 
                 {/* ─── Table Card ────────────────────────────────────────── */}
-                <Card className="bmanny-workspace overflow-hidden">
+                <Card className="bmanny-workspace overflow-hidden border shadow-sm">
                     <CardContent className="p-0">
                         {error ? (
                             <div className="py-16 text-center text-destructive">
@@ -452,19 +503,19 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                 <p className="text-sm font-medium">Failed to load inventory. Please refresh.</p>
                             </div>
                         ) : sortedProducts.length === 0 ? (
-                            <div className="bmanny-empty-state py-16 text-muted-foreground">
-                                <PackageSearch className="mb-3 size-10" />
+                            <div className="bmanny-empty-state py-16 text-muted-foreground text-center">
+                                <PackageSearch className="mx-auto mb-3 size-10 opacity-70" />
                                 <h2 className="text-base font-semibold text-foreground">
-                                    {products.length === 0 ? 'No materials in inventory' : 'No matching materials found'}
+                                    {products.length === 0 ? 'No raw materials in inventory' : 'No matching materials found'}
                                 </h2>
-                                <p className="mt-1 text-sm max-w-sm">
+                                <p className="mt-1 text-sm max-w-sm mx-auto">
                                     {products.length === 0
-                                        ? 'Get started by adding your first raw material.'
-                                        : 'Try adjusting your search or filters.'}
+                                        ? 'Start tracking ingredients, extracts, and base powders by adding your first raw material.'
+                                        : 'Try adjusting your search query or filter settings.'}
                                 </p>
                                 {products.length === 0 && canManageInventory && (
                                     <Button onClick={openAddModal} className="mt-4">
-                                        <Plus className="mr-2 h-4 w-4" /> Add Material
+                                        <Plus className="mr-2 h-4 w-4" /> Add Raw Material
                                     </Button>
                                 )}
                             </div>
@@ -484,18 +535,19 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                             )}
                                             <th className="p-4 font-medium">#</th>
                                             {([
-                                                { label: 'MATERIAL', field: 'name' as SortField },
-                                                { label: 'SKU', field: 'sku' as SortField },
-                                                { label: 'TYPE', field: 'category' as SortField },
-                                                { label: 'STOCK', field: 'stock' as SortField },
-                                                { label: 'UNIT COST', field: 'price' as SortField },
+                                                { label: 'RAW MATERIAL', field: 'name' as SortField },
+                                                { label: 'SKU / CODE', field: 'sku' as SortField },
+                                                { label: 'CATEGORY', field: 'category' as SortField },
+                                                { label: 'STOCK ON HAND', field: 'stock' as SortField },
+                                                { label: 'REORDER LEVEL', field: 'reorder' as SortField },
+                                                { label: 'UNIT RATE (₱)', field: 'price' as SortField },
                                                 { label: 'STATUS', field: 'status' as SortField },
                                             ] as { label: string; field: SortField }[]).map((col) => (
                                                 <th key={col.label} className="p-4 font-medium">
                                                     <button
                                                         type="button"
                                                         onClick={() => handleSort(col.field)}
-                                                        className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                                                        className="inline-flex items-center gap-1 hover:text-foreground transition-colors font-semibold"
                                                     >
                                                         {col.label}
                                                         <ArrowUpDown className="size-3 opacity-50" />
@@ -509,15 +561,18 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                     </thead>
                                     <tbody className="divide-y divide-border/50">
                                         {paginatedProducts.map((product, idx) => {
-                                            const status = getStockStatus(Number(product.stock_quantity) || 0);
+                                            const stockNum = Number(product.stock_quantity) || 0;
+                                            const reorderNum = Number(product.reorder_level) || 0;
+                                            const status = getStockStatus(stockNum, reorderNum);
                                             const isSelected = selectedIds.includes(product.product_id);
                                             const rowNum = (currentPage - 1) * pageSize + idx + 1;
+                                            const unit = product.unit_of_measure ?? 'kg';
 
                                             return (
                                                 <tr
                                                     key={product.product_id}
-                                                    className={`transition-colors hover:bg-muted/50 ${
-                                                        isSelected ? 'bg-muted/70' : ''
+                                                    className={`transition-colors hover:bg-muted/40 ${
+                                                        isSelected ? 'bg-muted/60' : ''
                                                     }`}
                                                 >
                                                     {/* Checkbox */}
@@ -536,10 +591,10 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                                         #{rowNum}
                                                     </td>
 
-                                                    {/* Material */}
-                                                    <td className="p-4 font-medium text-foreground">
+                                                    {/* Raw Material Name */}
+                                                    <td className="p-4">
                                                         <div className="flex items-center gap-3">
-                                                            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/60 overflow-hidden">
+                                                            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/60 overflow-hidden shadow-xs">
                                                                 {product.product_image ? (
                                                                     <img
                                                                         src={product.product_image}
@@ -550,21 +605,38 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                                                         }}
                                                                     />
                                                                 ) : (
-                                                                    <Package className="size-4 text-muted-foreground" />
+                                                                    <FlaskConical className="size-4 text-primary/70" />
                                                                 )}
                                                             </div>
-                                                            <span className="font-semibold text-foreground">
-                                                                {product.name}
-                                                            </span>
+                                                            <div>
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <span className="font-semibold text-foreground">
+                                                                        {product.name}
+                                                                    </span>
+                                                                    {(product.recipes_count ?? 0) > 0 && (
+                                                                        <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[10px] font-medium bg-secondary text-secondary-foreground border">
+                                                                            <Layers className="size-2.5 mr-0.5" />
+                                                                            in {product.recipes_count} BOMs
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                {product.description && (
+                                                                    <p className="line-clamp-1 text-xs text-muted-foreground max-w-xs">
+                                                                        {product.description}
+                                                                    </p>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     </td>
 
                                                     {/* SKU */}
-                                                    <td className="p-4 font-mono text-xs text-muted-foreground">
-                                                        {product.sku}
+                                                    <td className="p-4 font-mono text-xs font-medium text-muted-foreground">
+                                                        <span className="rounded bg-muted/60 px-1.5 py-0.5">
+                                                            {product.sku}
+                                                        </span>
                                                     </td>
 
-                                                    {/* Type */}
+                                                    {/* Category */}
                                                     <td className="p-4">
                                                         {product.category?.name ? (
                                                             <span className="rounded-md bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
@@ -575,19 +647,33 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                                         )}
                                                     </td>
 
-                                                    {/* Stock */}
-                                                    <td className="p-4 font-medium text-foreground">
-                                                        {product.stock_quantity}
+                                                    {/* Stock On Hand */}
+                                                    <td className="p-4 font-mono font-semibold text-foreground">
+                                                        <span className={stockNum <= 0 ? 'text-rose-500' : ''}>
+                                                            {formatQuantity(product.stock_quantity, unit)}
+                                                        </span>
                                                     </td>
 
-                                                    {/* Price */}
+                                                    {/* Reorder Level */}
+                                                    <td className="p-4 font-mono text-xs text-muted-foreground">
+                                                        {reorderNum > 0 ? (
+                                                            formatQuantity(product.reorder_level ?? 0, unit)
+                                                        ) : (
+                                                            <span className="text-muted-foreground/60">—</span>
+                                                        )}
+                                                    </td>
+
+                                                    {/* Rate / Cost */}
                                                     <td className="p-4 text-muted-foreground font-medium">
                                                         {formatCurrency(product.price)}
+                                                        <span className="text-[11px] text-muted-foreground/70"> / {unit}</span>
                                                     </td>
 
-                                                    {/* Status */}
+                                                    {/* Status Badge */}
                                                     <td className="p-4">
-                                                        <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${status.textClass}`}>
+                                                        <span
+                                                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${status.badgeClass}`}
+                                                        >
                                                             <span className={`size-1.5 rounded-full ${status.dotClass}`} />
                                                             {status.label}
                                                         </span>
@@ -596,11 +682,12 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                                     {/* Actions */}
                                                     {canManageInventory && (
                                                         <td className="p-4 text-center">
-                                                            <div className="flex items-center justify-center gap-2">
+                                                            <div className="flex items-center justify-center gap-1.5">
                                                                 <Button
                                                                     variant="outline"
                                                                     size="sm"
                                                                     onClick={() => openEditModal(product)}
+                                                                    className="h-8 px-2.5 text-xs"
                                                                 >
                                                                     <Pencil className="mr-1 h-3.5 w-3.5" />
                                                                     Edit
@@ -609,10 +696,9 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                                                     variant="outline"
                                                                     size="sm"
                                                                     onClick={() => openDeleteModal(product)}
-                                                                    className="text-destructive hover:text-destructive"
+                                                                    className="h-8 px-2.5 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
                                                                 >
-                                                                    <Trash2 className="mr-1 h-3.5 w-3.5" />
-                                                                    Delete
+                                                                    <Trash2 className="size-3.5" />
                                                                 </Button>
                                                             </div>
                                                         </td>
@@ -698,19 +784,19 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                             <DialogHeader>
                                 <DialogTitle className="text-lg font-bold text-foreground">Add Raw Material</DialogTitle>
                                 <DialogDescription className="text-sm text-muted-foreground">
-                                    Enter material specs and initial stock levels.
+                                    Register a new formulation ingredient, powder, or botanical extract into factory inventory.
                                 </DialogDescription>
                             </DialogHeader>
                             <form onSubmit={handleCreateProduct} className="space-y-4 py-2">
                                 <div className="space-y-1.5">
                                     <Label htmlFor="create-name" className="text-xs font-semibold text-foreground">
-                                        Material Name <span className="text-rose-500">*</span>
+                                        Raw Material Name <span className="text-rose-500">*</span>
                                     </Label>
                                     <Input
                                         id="create-name"
                                         value={form.data.name}
                                         onChange={(e) => form.setData('name', e.target.value)}
-                                        placeholder="e.g. Vanilla, Hazelnut, Pouch, Bottle..."
+                                        placeholder="e.g. R-BM DEXAN, R-NDC, R-Acai Berry Extract..."
                                         required
                                         className="rounded-lg"
                                     />
@@ -719,13 +805,13 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1.5">
                                         <Label htmlFor="create-sku" className="text-xs font-semibold text-foreground">
-                                            SKU <span className="text-rose-500">*</span>
+                                            SKU / Code <span className="text-rose-500">*</span>
                                         </Label>
                                         <Input
                                             id="create-sku"
                                             value={form.data.sku}
                                             onChange={(e) => form.setData('sku', e.target.value)}
-                                            placeholder="e.g. FLV-VAN-001"
+                                            placeholder="e.g. R-DEXAN-01"
                                             required
                                             className="rounded-lg"
                                         />
@@ -733,14 +819,14 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                     </div>
                                     <div className="space-y-1.5">
                                         <Label htmlFor="create-category" className="text-xs font-semibold text-foreground">
-                                            Category / Type
+                                            Category
                                         </Label>
                                         <Select
                                             value={form.data.category_id ? String(form.data.category_id) : 'none'}
                                             onValueChange={(v) => form.setData('category_id', v === 'none' ? '' : v)}
                                         >
                                             <SelectTrigger id="create-category" className="rounded-lg">
-                                                <SelectValue placeholder="Select" />
+                                                <SelectValue placeholder="Select Category" />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="none">None</SelectItem>
@@ -753,10 +839,31 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                         </Select>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-3">
+
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="create-unit" className="text-xs font-semibold text-foreground">
+                                            Unit of Measure
+                                        </Label>
+                                        <Select
+                                            value={form.data.unit_of_measure}
+                                            onValueChange={(v) => form.setData('unit_of_measure', v)}
+                                        >
+                                            <SelectTrigger id="create-unit" className="rounded-lg">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="kg">kg (Kilograms)</SelectItem>
+                                                <SelectItem value="g">g (Grams)</SelectItem>
+                                                <SelectItem value="L">L (Liters)</SelectItem>
+                                                <SelectItem value="mL">mL (Milliliters)</SelectItem>
+                                                <SelectItem value="pcs">pcs (Pieces)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                     <div className="space-y-1.5">
                                         <Label htmlFor="create-price" className="text-xs font-semibold text-foreground">
-                                            Unit Cost (₱) <span className="text-rose-500">*</span>
+                                            Rate / Unit Cost (₱) <span className="text-rose-500">*</span>
                                         </Label>
                                         <Input
                                             id="create-price"
@@ -765,43 +872,62 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                             min="0"
                                             value={form.data.price}
                                             onChange={(e) => form.setData('price', e.target.value)}
-                                            placeholder="45.00"
+                                            placeholder="69.12"
                                             required
                                             className="rounded-lg"
                                         />
                                         {form.errors.price && <p className="text-xs text-rose-500">{form.errors.price}</p>}
                                     </div>
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="create-stock" className="text-xs font-semibold text-foreground">
-                                            Set Stock Quantity <span className="text-rose-500">*</span>
+                                        <Label htmlFor="create-reorder" className="text-xs font-semibold text-foreground">
+                                            Reorder Level
                                         </Label>
                                         <Input
-                                            id="create-stock"
+                                            id="create-reorder"
                                             type="number"
+                                            step="0.0001"
                                             min="0"
-                                            value={form.data.stock_quantity}
-                                            onChange={(e) => form.setData('stock_quantity', e.target.value)}
-                                            placeholder="150"
-                                            required
-                                            className="appearance-none rounded-lg [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                            value={form.data.reorder_level}
+                                            onChange={(e) => form.setData('reorder_level', e.target.value)}
+                                            placeholder="300.00"
+                                            className="rounded-lg"
                                         />
-                                        {form.errors.stock_quantity && (
-                                            <p className="text-xs text-rose-500">{form.errors.stock_quantity}</p>
-                                        )}
                                     </div>
                                 </div>
+
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="create-image" className="text-xs font-semibold text-foreground">
-                                        Image URL (Optional)
+                                    <Label htmlFor="create-stock" className="text-xs font-semibold text-foreground">
+                                        Initial Stock on Hand <span className="text-rose-500">*</span>
                                     </Label>
                                     <Input
-                                        id="create-image"
-                                        value={form.data.product_image}
-                                        onChange={(e) => form.setData('product_image', e.target.value)}
-                                        placeholder="https://example.com/image.jpg"
+                                        id="create-stock"
+                                        type="number"
+                                        step="0.0001"
+                                        min="0"
+                                        value={form.data.stock_quantity}
+                                        onChange={(e) => form.setData('stock_quantity', e.target.value)}
+                                        placeholder="409.52"
+                                        required
+                                        className="rounded-lg"
+                                    />
+                                    {form.errors.stock_quantity && (
+                                        <p className="text-xs text-rose-500">{form.errors.stock_quantity}</p>
+                                    )}
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="create-desc" className="text-xs font-semibold text-foreground">
+                                        Description / Specifications
+                                    </Label>
+                                    <Input
+                                        id="create-desc"
+                                        value={form.data.description}
+                                        onChange={(e) => form.setData('description', e.target.value)}
+                                        placeholder="Formulation specifications, active concentration, origin..."
                                         className="rounded-lg"
                                     />
                                 </div>
+
                                 <DialogFooter className="pt-2 gap-2">
                                     <Button
                                         type="button"
@@ -816,7 +942,7 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                         disabled={form.processing}
                                         className="rounded-lg"
                                     >
-                                        {form.processing ? 'Saving...' : 'Add Material'}
+                                        {form.processing ? 'Saving...' : 'Add Raw Material'}
                                     </Button>
                                 </DialogFooter>
                             </form>
@@ -829,13 +955,13 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                             <DialogHeader>
                                 <DialogTitle className="text-lg font-bold text-foreground">Edit Raw Material</DialogTitle>
                                 <DialogDescription className="text-sm text-muted-foreground">
-                                    Update material details, pricing, and stock quantity.
+                                    Update raw material details, unit cost rate, stock on hand, and reorder threshold.
                                 </DialogDescription>
                             </DialogHeader>
                             <form onSubmit={handleUpdateProduct} className="space-y-4 py-2">
                                 <div className="space-y-1.5">
                                     <Label htmlFor="edit-name" className="text-xs font-semibold text-foreground">
-                                        Material Name <span className="text-rose-500">*</span>
+                                        Raw Material Name <span className="text-rose-500">*</span>
                                     </Label>
                                     <Input
                                         id="edit-name"
@@ -849,7 +975,7 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1.5">
                                         <Label htmlFor="edit-sku" className="text-xs font-semibold text-foreground">
-                                            SKU <span className="text-rose-500">*</span>
+                                            SKU / Code <span className="text-rose-500">*</span>
                                         </Label>
                                         <Input
                                             id="edit-sku"
@@ -862,14 +988,14 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                     </div>
                                     <div className="space-y-1.5">
                                         <Label htmlFor="edit-category" className="text-xs font-semibold text-foreground">
-                                            Category / Type
+                                            Category
                                         </Label>
                                         <Select
                                             value={form.data.category_id ? String(form.data.category_id) : 'none'}
                                             onValueChange={(v) => form.setData('category_id', v === 'none' ? '' : v)}
                                         >
                                             <SelectTrigger id="edit-category" className="rounded-lg">
-                                                <SelectValue placeholder="Select" />
+                                                <SelectValue placeholder="Select Category" />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="none">None</SelectItem>
@@ -882,10 +1008,31 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                         </Select>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-3">
+
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="edit-unit" className="text-xs font-semibold text-foreground">
+                                            Unit of Measure
+                                        </Label>
+                                        <Select
+                                            value={form.data.unit_of_measure}
+                                            onValueChange={(v) => form.setData('unit_of_measure', v)}
+                                        >
+                                            <SelectTrigger id="edit-unit" className="rounded-lg">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="kg">kg (Kilograms)</SelectItem>
+                                                <SelectItem value="g">g (Grams)</SelectItem>
+                                                <SelectItem value="L">L (Liters)</SelectItem>
+                                                <SelectItem value="mL">mL (Milliliters)</SelectItem>
+                                                <SelectItem value="pcs">pcs (Pieces)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                     <div className="space-y-1.5">
                                         <Label htmlFor="edit-price" className="text-xs font-semibold text-foreground">
-                                            Unit Cost (₱) <span className="text-rose-500">*</span>
+                                            Rate / Unit Cost (₱) <span className="text-rose-500">*</span>
                                         </Label>
                                         <Input
                                             id="edit-price"
@@ -900,35 +1047,53 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                         {form.errors.price && <p className="text-xs text-rose-500">{form.errors.price}</p>}
                                     </div>
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="edit-stock" className="text-xs font-semibold text-foreground">
-                                            Set Stock Quantity <span className="text-rose-500">*</span>
+                                        <Label htmlFor="edit-reorder" className="text-xs font-semibold text-foreground">
+                                            Reorder Level
                                         </Label>
                                         <Input
-                                            id="edit-stock"
+                                            id="edit-reorder"
                                             type="number"
+                                            step="0.0001"
                                             min="0"
-                                            value={form.data.stock_quantity}
-                                            onChange={(e) => form.setData('stock_quantity', e.target.value)}
-                                            required
-                                            className="appearance-none rounded-lg [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                            value={form.data.reorder_level}
+                                            onChange={(e) => form.setData('reorder_level', e.target.value)}
+                                            className="rounded-lg"
                                         />
-                                        {form.errors.stock_quantity && (
-                                            <p className="text-xs text-rose-500">{form.errors.stock_quantity}</p>
-                                        )}
                                     </div>
                                 </div>
+
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="edit-image" className="text-xs font-semibold text-foreground">
-                                        Image URL (Optional)
+                                    <Label htmlFor="edit-stock" className="text-xs font-semibold text-foreground">
+                                        Stock on Hand <span className="text-rose-500">*</span>
                                     </Label>
                                     <Input
-                                        id="edit-image"
-                                        value={form.data.product_image}
-                                        onChange={(e) => form.setData('product_image', e.target.value)}
-                                        placeholder="https://example.com/image.jpg"
+                                        id="edit-stock"
+                                        type="number"
+                                        step="0.0001"
+                                        min="0"
+                                        value={form.data.stock_quantity}
+                                        onChange={(e) => form.setData('stock_quantity', e.target.value)}
+                                        required
+                                        className="rounded-lg"
+                                    />
+                                    {form.errors.stock_quantity && (
+                                        <p className="text-xs text-rose-500">{form.errors.stock_quantity}</p>
+                                    )}
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="edit-desc" className="text-xs font-semibold text-foreground">
+                                        Description / Specifications
+                                    </Label>
+                                    <Input
+                                        id="edit-desc"
+                                        value={form.data.description}
+                                        onChange={(e) => form.setData('description', e.target.value)}
+                                        placeholder="Formulation specifications, active concentration..."
                                         className="rounded-lg"
                                     />
                                 </div>
+
                                 <DialogFooter className="pt-2 gap-2">
                                     <Button
                                         type="button"

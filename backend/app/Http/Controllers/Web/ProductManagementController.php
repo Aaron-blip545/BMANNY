@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Models\Product;
+use App\Models\ProductRecipe;
 use App\Models\ProductType;
 use App\Models\ProductVariant;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -18,11 +21,30 @@ class ProductManagementController extends Controller
      */
     public function index(Request $request): Response
     {
-        $products = ProductType::orderBy('name')
+        $products = ProductType::with(['recipes.rawMaterial'])
+            ->orderBy('name')
             ->get()
             ->map(function ($product) {
+                $recipes = $product->recipes->map(function ($recipe) {
+                    return [
+                        'recipe_id'         => $recipe->recipe_id,
+                        'product_id'        => $recipe->product_id,
+                        'raw_material_name' => $recipe->rawMaterial?->name ?? 'Unknown Material',
+                        'raw_material_sku'  => $recipe->rawMaterial?->sku ?? '',
+                        'unit_of_measure'   => $recipe->rawMaterial?->unit_of_measure ?? 'kg',
+                        'product_image'     => $recipe->rawMaterial?->product_image,
+                        'quantity_per_unit' => (float) $recipe->quantity_per_unit,
+                        'rate'              => (float) $recipe->rate,
+                        'amount'            => (float) $recipe->amount,
+                        'notes'             => $recipe->notes,
+                    ];
+                });
+
+                $totalCost = $recipes->sum('amount');
+
                 return [
                     'product_type_id'    => $product->product_type_id,
+                    'product_code'       => $product->product_code ?? sprintf('FP-%04d', $product->product_type_id),
                     'name'               => $product->name,
                     'category_code'      => $product->category_code ?? 'Uncategorized',
                     'suggested_srp'      => (float) ($product->suggested_srp ?? 0),
@@ -35,6 +57,10 @@ class ProductManagementController extends Controller
                     'image_url'          => $product->image_url,
                     'is_active'          => (bool) $product->is_active,
                     'created_at'         => $product->created_at?->toISOString(),
+                    'recipes'            => $recipes,
+                    'total_recipe_cost'  => $totalCost,
+                    'formatted_recipe_cost' => '₱' . number_format($totalCost, 2),
+                    'materials_count'    => $recipes->count(),
                 ];
             });
 
@@ -54,9 +80,35 @@ class ProductManagementController extends Controller
         $categories = array_values(array_unique(array_merge($defaultCategories, $existingCategories)));
         sort($categories);
 
+        // All available raw materials for the BOM builder (strictly raw materials, no P- packaging)
+        $rawMaterials = Product::orderBy('name')
+            ->get([
+                'product_id',
+                'sku',
+                'name',
+                'price',
+                'unit_of_measure',
+                'stock_quantity',
+                'reorder_level',
+                'product_image',
+            ])
+            ->map(function ($item) {
+                return [
+                    'product_id'      => $item->product_id,
+                    'sku'             => $item->sku,
+                    'name'            => $item->name,
+                    'rate'            => (float) $item->price,
+                    'unit_of_measure' => $item->unit_of_measure ?? 'kg',
+                    'stock_quantity'  => (float) $item->stock_quantity,
+                    'reorder_level'   => (float) $item->reorder_level,
+                    'product_image'   => $item->product_image,
+                ];
+            });
+
         return Inertia::render('product-controller/products', [
-            'products'   => $products,
-            'categories' => $categories,
+            'products'     => $products,
+            'categories'   => $categories,
+            'rawMaterials' => $rawMaterials,
         ]);
     }
 
@@ -67,6 +119,7 @@ class ProductManagementController extends Controller
     {
         $data = $request->validate([
             'name'               => 'required|string|max:150|unique:product_types,name',
+            'product_code'       => 'nullable|string|max:50|unique:product_types,product_code',
             'category_code'      => 'required|string|max:50',
             'suggested_srp'      => 'required|numeric|min:0',
             'description'        => 'nullable|string|max:500',
@@ -87,6 +140,13 @@ class ProductManagementController extends Controller
         $data['is_active'] = $request->boolean('is_active', true);
 
         $productType = ProductType::create($data);
+
+        // Generate product_code if not supplied (e.g. FP-0001)
+        if (empty($productType->product_code)) {
+            $productType->update([
+                'product_code' => sprintf('FP-%04d', $productType->product_type_id),
+            ]);
+        }
 
         // Automatically create a default base variant if none exists
         $variant = ProductVariant::create([
@@ -109,6 +169,7 @@ class ProductManagementController extends Controller
 
         $data = $request->validate([
             'name'               => 'required|string|max:150|unique:product_types,name,' . $id . ',product_type_id',
+            'product_code'       => 'nullable|string|max:50|unique:product_types,product_code,' . $id . ',product_type_id',
             'category_code'      => 'required|string|max:50',
             'suggested_srp'      => 'required|numeric|min:0',
             'description'        => 'nullable|string|max:500',
@@ -126,9 +187,61 @@ class ProductManagementController extends Controller
             $data['image_url'] = '/storage/' . $path;
         }
 
+        if (empty($data['product_code'])) {
+            $data['product_code'] = sprintf('FP-%04d', $product->product_type_id);
+        }
+
         $product->update($data);
 
         return back()->with('success', 'Product updated successfully.');
+    }
+
+    /**
+     * Save Bill of Materials (BOM) / Formulation for a composite finished product.
+     */
+    public function saveBom(Request $request, int $id): RedirectResponse
+    {
+        $product = ProductType::findOrFail($id);
+
+        $request->validate([
+            'items'                       => 'present|array',
+            'items.*.product_id'          => 'required|exists:products,product_id',
+            'items.*.quantity_per_unit'   => 'required|numeric|min:0.000001',
+            'items.*.rate'                => 'nullable|numeric|min:0',
+            'items.*.notes'               => 'nullable|string|max:255',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            // Delete existing recipe rows
+            ProductRecipe::where('product_type_id', $product->product_type_id)->delete();
+
+            // Insert new recipe items
+            foreach ($request->input('items', []) as $item) {
+                $rawMaterial = Product::find($item['product_id']);
+                $rate = isset($item['rate']) && $item['rate'] !== null && $item['rate'] !== ''
+                    ? (float) $item['rate']
+                    : (float) ($rawMaterial?->price ?? 0);
+
+                $qty = (float) $item['quantity_per_unit'];
+                $amount = round($qty * $rate, 2);
+
+                ProductRecipe::create([
+                    'product_type_id'   => $product->product_type_id,
+                    'product_id'        => $item['product_id'],
+                    'quantity_per_unit' => $qty,
+                    'rate'              => $rate,
+                    'amount'            => $amount,
+                    'notes'             => $item['notes'] ?? null,
+                ]);
+            }
+
+            DB::commit();
+            return back()->with('success', "Bill of Materials (BOM) for {$product->name} saved successfully.");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return back()->withErrors(['error' => 'Failed to save Bill of Materials: ' . $e->getMessage()]);
+        }
     }
 
     /**

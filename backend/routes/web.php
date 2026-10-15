@@ -90,6 +90,8 @@ Route::middleware(['backend.auth'])->group(function () {
             ->name('product-controller.products.store');
         Route::put('product-controller/products/{id}', [ProductManagementController::class, 'update'])
             ->name('product-controller.products.update');
+        Route::post('product-controller/products/{id}/bom', [ProductManagementController::class, 'saveBom'])
+            ->name('product-controller.products.bom');
         Route::patch('product-controller/products/{id}/toggle-status', [ProductManagementController::class, 'toggleStatus'])
             ->name('product-controller.products.toggle-status');
         Route::delete('product-controller/products/{id}', [ProductManagementController::class, 'destroy'])

@@ -19,8 +19,11 @@ class ProductPageController extends Controller
             abort(403, 'Unauthorized to view raw materials inventory.');
         }
 
-        // Direct Eloquent query — eager load category relation
-        $products = Product::with('category')->orderBy('name')->get();
+        // Direct Eloquent query — eager load category relation and recipes count
+        $products = Product::with('category')
+            ->withCount('recipes')
+            ->orderBy('name')
+            ->get();
 
         return Inertia::render('products/index', [
             'products' => $products,
@@ -36,18 +39,23 @@ class ProductPageController extends Controller
         }
 
         $data = $request->validate([
-            'name'           => 'required|string|max:200',
-            'sku'            => 'required|string|max:50|unique:products,sku',
-            'category_id'    => 'nullable|exists:categories,category_id',
-            'price'          => 'required|numeric|min:0',
-            'stock_quantity' => 'required|integer|min:0',
-            'description'    => 'nullable|string',
-            'product_image'  => 'nullable|string|max:255',
+            'name'            => 'required|string|max:200',
+            'sku'             => 'required|string|max:50|unique:products,sku',
+            'category_id'     => 'nullable|exists:categories,category_id',
+            'price'           => 'required|numeric|min:0',
+            'stock_quantity'  => 'required|numeric',
+            'reorder_level'   => 'nullable|numeric|min:0',
+            'unit_of_measure' => 'nullable|string|max:20',
+            'description'     => 'nullable|string',
+            'product_image'   => 'nullable|string|max:255',
         ]);
+
+        $data['reorder_level'] = $data['reorder_level'] ?? 0;
+        $data['unit_of_measure'] = $data['unit_of_measure'] ?? 'kg';
 
         Product::create($data);
 
-        return back()->with('success', 'Product created successfully.');
+        return back()->with('success', 'Raw material added to inventory successfully.');
     }
 
     public function update(Request $request, int $id): RedirectResponse
@@ -60,18 +68,23 @@ class ProductPageController extends Controller
         $product = Product::findOrFail($id);
 
         $data = $request->validate([
-            'name'           => 'required|string|max:200',
-            'sku'            => 'required|string|max:50|unique:products,sku,' . $id . ',product_id',
-            'category_id'    => 'nullable|exists:categories,category_id',
-            'price'          => 'required|numeric|min:0',
-            'stock_quantity' => 'required|integer|min:0',
-            'description'    => 'nullable|string',
-            'product_image'  => 'nullable|string|max:255',
+            'name'            => 'required|string|max:200',
+            'sku'             => 'required|string|max:50|unique:products,sku,' . $id . ',product_id',
+            'category_id'     => 'nullable|exists:categories,category_id',
+            'price'           => 'required|numeric|min:0',
+            'stock_quantity'  => 'required|numeric',
+            'reorder_level'   => 'nullable|numeric|min:0',
+            'unit_of_measure' => 'nullable|string|max:20',
+            'description'     => 'nullable|string',
+            'product_image'   => 'nullable|string|max:255',
         ]);
+
+        $data['reorder_level'] = $data['reorder_level'] ?? 0;
+        $data['unit_of_measure'] = $data['unit_of_measure'] ?? 'kg';
 
         $product->update($data);
 
-        return back()->with('success', 'Product updated successfully.');
+        return back()->with('success', 'Raw material updated successfully.');
     }
 
     public function destroy(Request $request, int $id): RedirectResponse
@@ -84,7 +97,6 @@ class ProductPageController extends Controller
         $product = Product::findOrFail($id);
         $product->delete();
 
-        return back()->with('success', 'Product deleted successfully.');
+        return back()->with('success', 'Raw material deleted successfully.');
     }
 }
-

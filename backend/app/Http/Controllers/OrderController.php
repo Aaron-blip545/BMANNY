@@ -54,14 +54,28 @@ class OrderController extends Controller
                     'unit_price' => $item['unit_price'],
                 ]);
 
-                // Deduct stock from warehouse product table
-                $product = Product::findOrFail($item['product_id']);
-
-                if ($product->stock_quantity < $item['quantity']) {
-                    throw new \Exception("Insufficient stock for product: {$product->name}");
+                // Deduct stock: Check if item is a composite finished product with BOM recipe
+                $productType = \App\Models\ProductType::with('recipes.rawMaterial')->find($item['product_id']);
+                if ($productType && $productType->recipes->isNotEmpty()) {
+                    foreach ($productType->recipes as $recipe) {
+                        $requiredQty = (float) $recipe->quantity_per_unit * (float) $item['quantity'];
+                        $rawMaterial = $recipe->rawMaterial;
+                        if ($rawMaterial) {
+                            if ((float) $rawMaterial->stock_quantity < $requiredQty) {
+                                throw new \Exception("Insufficient stock for raw material: {$rawMaterial->name}. Needed: {$requiredQty} {$rawMaterial->unit_of_measure}, Available: {$rawMaterial->stock_quantity} {$rawMaterial->unit_of_measure}");
+                            }
+                            $rawMaterial->decrement('stock_quantity', $requiredQty);
+                        }
+                    }
+                } else {
+                    $product = Product::find($item['product_id']);
+                    if ($product) {
+                        if ($product->stock_quantity < $item['quantity']) {
+                            throw new \Exception("Insufficient stock for: {$product->name}");
+                        }
+                        $product->decrement('stock_quantity', $item['quantity']);
+                    }
                 }
-
-                $product->decrement('stock_quantity', $item['quantity']);
             }
 
             // 5. Update quotation status
