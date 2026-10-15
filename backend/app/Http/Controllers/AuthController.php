@@ -95,14 +95,10 @@ class AuthController extends Controller
             ]);
 
             $user->businessClient()->create([
-                'business_name'       => $request->business_name,
-                'business_type'       => $request->business_type,
-                'contact_person'      => $request->contact_person,
-                'business_address'    => $request->business_address,
-                // New accounts start unverified — they can browse products
-                // but cannot submit inquiries until a permit is approved.
-                'is_verified'         => false,
-                'verification_status' => 'not_submitted',
+                'business_name'    => $request->business_name,
+                'business_type'    => $request->business_type,
+                'contact_person'   => $request->contact_person,
+                'business_address' => $request->business_address,
             ]);
 
             return $user;
@@ -141,7 +137,7 @@ class AuthController extends Controller
 
         $token = $user->createToken('bmanny-auth-token')->plainTextToken;
 
-        // Load businessClient so mobile app gets is_verified & verification_status
+        // Load businessClient so mobile app gets the business profile
         // without needing a separate /user request.
         $user->load('businessClient');
 

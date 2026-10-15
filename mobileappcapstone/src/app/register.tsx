@@ -239,9 +239,9 @@ export default function RegisterScreen() {
               <Ionicons name="checkmark-circle" size={52} color="#10b981" />
             </View>
             <Text style={styles.successTitle}>Account Created!</Text>
-            <Text style={styles.successSubtitle}>Your account is ready for verification.</Text>
+            <Text style={styles.successSubtitle}>Welcome to BMANNY Partners.</Text>
             <Text style={styles.successNote2}>
-              Your account is currently <Text style={{ fontWeight: '800', color: '#f59e0b' }}>unverified</Text>. Upload your business permit from your Profile to unlock inquiries.
+              Your account has been created successfully. You can now browse products and submit inquiries.
             </Text>
             <TouchableOpacity style={styles.continueBtn} onPress={() => router.replace('/home')}>
               <Text style={styles.continueBtnText}>Continue to App</Text>

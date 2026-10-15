@@ -82,7 +82,7 @@ function RoleVisualFlowchart({ roleId }: { roleId: string }) {
                         </h3>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3 text-center">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 text-center">
                         <div className="rounded-xl border border-blue-500/20 bg-card p-3 relative shadow-xs">
                             <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 block mb-1">Step 1</span>
                             <div className="h-8 w-8 mx-auto rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center font-bold text-sm mb-1.5">💬</div>
@@ -92,27 +92,20 @@ function RoleVisualFlowchart({ roleId }: { roleId: string }) {
 
                         <div className="rounded-xl border border-blue-500/20 bg-card p-3 relative shadow-xs">
                             <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 block mb-1">Step 2</span>
-                            <div className="h-8 w-8 mx-auto rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center font-bold text-sm mb-1.5">🛡️</div>
-                            <span className="text-xs font-bold text-foreground block">Verify Permit</span>
-                            <span className="text-[10px] text-muted-foreground block mt-0.5">Approve corporate client</span>
-                        </div>
-
-                        <div className="rounded-xl border border-blue-500/20 bg-card p-3 relative shadow-xs">
-                            <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 block mb-1">Step 3</span>
                             <div className="h-8 w-8 mx-auto rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center font-bold text-sm mb-1.5">📄</div>
                             <span className="text-xs font-bold text-foreground block">Issue Quote</span>
                             <span className="text-[10px] text-muted-foreground block mt-0.5">Set items, MOQ & pricing</span>
                         </div>
 
                         <div className="rounded-xl border border-blue-500/20 bg-card p-3 relative shadow-xs">
-                            <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 block mb-1">Step 4</span>
+                            <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 block mb-1">Step 3</span>
                             <div className="h-8 w-8 mx-auto rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center font-bold text-sm mb-1.5">💳</div>
                             <span className="text-xs font-bold text-foreground block">Check Payment</span>
                             <span className="text-[10px] text-muted-foreground block mt-0.5">Inspect client bank slip</span>
                         </div>
 
-                        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.08] p-3 relative shadow-xs col-span-2 sm:col-span-1">
-                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 block mb-1">Step 5</span>
+                        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.08] p-3 relative shadow-xs">
+                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 block mb-1">Step 4</span>
                             <div className="h-8 w-8 mx-auto rounded-lg bg-emerald-500/20 text-emerald-600 flex items-center justify-center font-bold text-sm mb-1.5">🚀</div>
                             <span className="text-xs font-bold text-foreground block">To Production</span>
                             <span className="text-[10px] text-muted-foreground block mt-0.5">Order goes to factory!</span>

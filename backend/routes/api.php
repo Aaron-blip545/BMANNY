@@ -9,7 +9,6 @@ use App\Http\Controllers\FileUploadController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\VerificationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Broadcast;
 
@@ -48,26 +47,14 @@ Route::middleware(['auth:sanctum', 'active.api'])->group(function () {
         Route::patch('/admin/users/{user}/toggle-active', [UserController::class, 'toggleActive']);
     });
 
-    // Verification queue — sales agents handle permit review, approval, and rejection
-    Route::middleware('role:sales_agent,admin')->group(function () {
-        Route::get('/admin/verifications', [VerificationController::class, 'index']);
-        Route::patch('/admin/verifications/{client_id}/approve', [VerificationController::class, 'approve']);
-        Route::patch('/admin/verifications/{client_id}/reject', [VerificationController::class, 'reject']);
-    });
-
     // ── Business Client Routes ───────────────────────────────────────────────
     Route::middleware('role:customer,admin')->group(function () {
         Route::patch('/user/profile', [AuthController::class, 'updateProfile'])->middleware('role:customer');
         Route::post('/user/profile/picture', [AuthController::class, 'updateProfilePicture'])->middleware(['role:customer', 'throttle:upload']);
 
-        // Verification — customers can check status and submit a permit
-        Route::get('/user/verification/status', [VerificationController::class, 'status']);
-        Route::post('/user/verification/submit', [VerificationController::class, 'submitPermit'])->middleware('throttle:upload');
-
-        // Inquiry routes — guarded by 'verified' middleware so only approved
-        // accounts can submit. Unverified users (leads) get a 403 with context.
+        // Inquiry routes
         Route::post('/inquiries', [InquiryController::class, 'store'])
-            ->middleware(['verified', 'throttle:write']);
+            ->middleware('throttle:write');
         Route::get('/inquiries/my-inquiries', [InquiryController::class, 'myInquiries']);
         Route::post('/inquiries/{inquiry_id}/cancel', [InquiryController::class, 'cancel']);
         Route::post('/inquiries/{inquiry_id}/upload-design', [FileUploadController::class, 'uploadDesign'])->middleware('throttle:upload');
@@ -78,9 +65,9 @@ Route::middleware(['auth:sanctum', 'active.api'])->group(function () {
         Route::post('/orders/{order_id}/upload-receipt', [FileUploadController::class, 'uploadReceipt'])->middleware('throttle:upload');
         Route::get('/orders/my-orders', [OrderController::class, 'myOrders']);
 
-        // Quick-reorder also requires verification — guarded the same way
+        // Quick-reorder
         Route::post('/orders/{order_id}/reorder', [InquiryController::class, 'reorder'])
-            ->middleware(['verified', 'throttle:write']);
+            ->middleware('throttle:write');
     });
 
     // ── Sales Agent & Admin Routes ───────────────────────────────────────────
@@ -113,7 +100,7 @@ Route::middleware(['auth:sanctum', 'active.api'])->group(function () {
 
     Route::get('/user', function (Request $request) {
         // Include the businessClient profile so the mobile app can read
-        // client_id and verification status without a separate request.
+        // client_id and business profile without a separate request.
         return $request->user()->load('businessClient');
     });
 });

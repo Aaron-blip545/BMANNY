@@ -155,7 +155,7 @@ export const USER_GUIDES: Record<string, RoleGuide> = {
         badgeColor: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
         headline: 'Customer Engagement, Quotations & Client Onboarding',
         description:
-            'As a Sales Agent, you are the primary face of BMANNY. You respond to customer inquiries from the mobile app, prepare customized price quotations, verify business permits, and guide clients to payment.',
+            'As a Sales Agent, you are the primary face of BMANNY. You respond to customer inquiries from the mobile app, prepare customized price quotations, and guide clients to payment.',
         modules: [
             {
                 id: 'sales-dashboard',
@@ -177,8 +177,8 @@ export const USER_GUIDES: Record<string, RoleGuide> = {
                     },
                     {
                         number: 3,
-                        title: 'Review Verification Requests',
-                        description: 'Check how many corporate business permits are queued for validation.',
+                        title: 'Follow Up on Quotations',
+                        description: 'Check active quotations and customer replies to guide them toward order placement.',
                     },
                 ],
                 tips: [
@@ -251,34 +251,6 @@ export const USER_GUIDES: Record<string, RoleGuide> = {
                 tips: [
                     'Always check that the reference number and amount on the receipt match the quotation total exactly.',
                     'If the receipt is unclear, click "Reject Payment" with a note requesting a clearer photo.',
-                ],
-            },
-            {
-                id: 'sales-verifications',
-                title: 'Business Permit Verifications',
-                iconName: 'ShieldCheck',
-                route: '/sales/verifications',
-                summary: 'Validate business credentials submitted by corporate clients to unlock B2B pricing.',
-                whenToUse: 'When corporate clients register and submit their Mayor’s Permit, DTI, or BIR certificates.',
-                steps: [
-                    {
-                        number: 1,
-                        title: 'Browse Client List',
-                        description: 'Filter by "Pending Review" or "All Users" to see unverified and verified clients.',
-                    },
-                    {
-                        number: 2,
-                        title: 'Inspect Permit Document',
-                        description: 'Click "View Permit" to check that the business name matches and the permit is currently valid.',
-                    },
-                    {
-                        number: 3,
-                        title: 'Approve or Reject',
-                        description: 'Click "Approve" to grant Verified status, or "Reject" with specific feedback notes if invalid.',
-                    },
-                ],
-                tips: [
-                    'Verified clients receive a special Verified badge in their mobile profile and access to wholesale tiered discounts.',
                 ],
             },
         ],
