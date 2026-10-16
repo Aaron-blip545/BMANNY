@@ -137,6 +137,7 @@ class OrderController extends Controller
                 'created_at'               => $order->created_at,
                 'item_details'             => $order->quotation?->item_details,
                 'valid_until'              => $order->quotation?->valid_until,
+                'product_specification'    => $order->quotation?->product_specification,
                 'inquiry_id'               => $order->quotation?->inquiry?->inquiry_id,
                 'customizations'           => $order->quotation?->inquiry?->customizations
                     ?->map(fn ($c) => [

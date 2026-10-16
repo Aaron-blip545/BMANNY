@@ -59,7 +59,7 @@ export default function LoginScreen() {
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.content}>
-            <Image source={require('@/assets/images/homepageicon/BMANNYLOGO.png')} style={styles.logo} />
+            <Image source={require('@/assets/images/bmanny-logo-hd.png')} style={styles.logo} />
             <Text style={styles.brandName}>BMANNY</Text>
             <Text style={styles.companyName}>PARTNERS INC.</Text>
             <Text style={styles.welcomeText}>Welcome back!</Text>

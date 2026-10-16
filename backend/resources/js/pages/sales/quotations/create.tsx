@@ -57,6 +57,24 @@ interface PendingInquiry {
         user?: { email: string } | null;
     } | null;
     customizations: Customization[];
+    product_request_review?: {
+        status: string;
+        suggested_packaging?: { name: string } | null;
+        suggested_variant?: {
+            name: string;
+            sku?: string | null;
+            current_moq?: { min_quantity: number } | null;
+            product_type?: {
+                name: string;
+                net_weight?: string | null;
+                packaging_specification?: string | null;
+                label_specification?: string | null;
+                formulation_notes?: string | null;
+                suggested_srp?: number | null;
+                lead_time_days?: number | null;
+            } | null;
+        } | null;
+    } | null;
 }
 
 interface Props {
@@ -297,6 +315,28 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId }:
                                                         </div>
                                                     )}
                                                 </div>
+
+                                                {selected.product_request_review?.suggested_variant?.product_type && (
+                                                    <div className="space-y-2 border-t border-border/60 pt-3">
+                                                        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Approved Product Specification</p>
+                                                        <div className="space-y-1 rounded-md border border-primary/20 bg-primary/5 p-3 text-xs">
+                                                            {(() => {
+                                                                const variant = selected.product_request_review!.suggested_variant!;
+                                                                const product = variant.product_type!;
+                                                                return <>
+                                                                    <p className="font-semibold text-foreground">{product.name}{variant.name ? ` — ${variant.name}` : ''}</p>
+                                                                    {product.net_weight && <p><span className="font-medium">Net content:</span> {product.net_weight}</p>}
+                                                                    {(selected.product_request_review?.suggested_packaging?.name || product.packaging_specification) && <p><span className="font-medium">Packaging:</span> {selected.product_request_review?.suggested_packaging?.name ?? product.packaging_specification}</p>}
+                                                                    {product.label_specification && <p><span className="font-medium">Label:</span> {product.label_specification}</p>}
+                                                                    {product.formulation_notes && <p><span className="font-medium">Ingredients:</span> {product.formulation_notes}</p>}
+                                                                    {variant.current_moq?.min_quantity && <p><span className="font-medium">MOQ:</span> {variant.current_moq.min_quantity}</p>}
+                                                                    <p><span className="font-medium">Reference price:</span> ₱{Number(product.suggested_srp ?? 0).toFixed(2)} · <span className="font-medium">Lead time:</span> {product.lead_time_days ?? 'Not set'} days</p>
+                                                                </>;
+                                                            })()}
+                                                        </div>
+                                                        <p className="text-xs text-muted-foreground">This approved specification will be saved with the quotation when it is sent.</p>
+                                                    </div>
+                                                )}
 
                                                 <div className="space-y-3 border-t border-border/60 pt-3">
                                                     <div className="flex items-center justify-between">

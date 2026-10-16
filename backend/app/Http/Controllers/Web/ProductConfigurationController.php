@@ -32,11 +32,21 @@ class ProductConfigurationController extends Controller
             'packaging_ids.*' => 'integer|exists:packaging_options,packaging_id',
             'customization_ids' => 'array',
             'customization_ids.*' => 'integer|exists:customization_catalog,customization_id',
+            'net_weight' => 'nullable|string|max:100',
+            'packaging_specification' => 'nullable|string|max:2000',
+            'label_specification' => 'nullable|string|max:2000',
+            'formulation_notes' => 'nullable|string|max:2000',
         ]);
 
         $product->packagingOptions()->sync($data['packaging_ids'] ?? []);
         $product->customizationOptions()->sync($data['customization_ids'] ?? []);
+        $product->update([
+            'net_weight' => $data['net_weight'] ?? null,
+            'packaging_specification' => $data['packaging_specification'] ?? null,
+            'label_specification' => $data['label_specification'] ?? null,
+            'formulation_notes' => $data['formulation_notes'] ?? null,
+        ]);
 
-        return back()->with('success', 'Allowed product options updated.');
+        return back()->with('success', 'Product options and commercial specification updated.');
     }
 }

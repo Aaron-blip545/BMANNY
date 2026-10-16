@@ -21,6 +21,9 @@ class ProductType extends Model
         'lead_time_days',
         'suggested_srp',
         'formulation_notes',
+        'net_weight',
+        'packaging_specification',
+        'label_specification',
         'image_url',
         'is_active',
     ];

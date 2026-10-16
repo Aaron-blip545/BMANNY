@@ -8,6 +8,7 @@ use App\Models\ConversationArchive;
 use App\Models\Order;
 use App\Models\Quotation;
 use App\Services\NotificationService;
+use App\Services\QuotationSpecificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -71,7 +72,7 @@ class SalesAgentController extends Controller
     {
         // Pass the list of pending/reviewed inquiries that don't yet have
         // a quotation, so the sales agent can pick one from a dropdown.
-        $pendingInquiries = Inquiry::with(['client.user', 'customizations', 'productRequestReview.suggestedVariant.productType', 'productRequestReview.suggestedPackaging'])
+        $pendingInquiries = Inquiry::with(['client.user', 'customizations', 'productRequestReview.suggestedVariant.productType', 'productRequestReview.suggestedVariant.currentMoq', 'productRequestReview.suggestedPackaging'])
             ->whereIn('status', ['pending', 'reviewed'])
             ->whereDoesntHave('quotation')
             ->orderByDesc('created_at')
@@ -95,16 +96,18 @@ class SalesAgentController extends Controller
             'item_details' => 'nullable|string',
         ]);
 
+        $inquiry = Inquiry::with('client.user')->findOrFail($validated['inquiry_id']);
+
         $quotation = Quotation::create([
             'inquiry_id'   => $validated['inquiry_id'],
             'total_amount' => $validated['total_amount'],
             'valid_until'  => $validated['valid_until'] ?? null,
             'item_details' => $validated['item_details'] ?? null,
+            'product_specification' => QuotationSpecificationService::forInquiry($inquiry),
             'status'       => 'sent',
         ]);
 
         // Mark the inquiry as responded now that a quote has been sent.
-        $inquiry = Inquiry::with('client.user')->find($validated['inquiry_id']);
         if ($inquiry) {
             $inquiry->update(['status' => 'responded']);
 

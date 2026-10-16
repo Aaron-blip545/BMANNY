@@ -102,7 +102,7 @@ export default function RegisterScreen() {
           <View style={styles.content}>
 
             {/* Logo */}
-            <Image source={require('@/assets/images/homepageicon/BMANNYLOGO.png')} style={styles.logo} />
+            <Image source={require('@/assets/images/bmanny-logo-hd.png')} style={styles.logo} />
             <Text style={styles.brandName}>BMANNY</Text>
             <Text style={styles.companyName}>PARTNERS INC.</Text>
             <Text style={styles.welcomeText}>Create Account</Text>
