@@ -4,7 +4,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, Sid
 import { type NavItem } from '@/types';
 import { roleDashboardHref } from '@/lib/role-dashboard';
 import { Link, usePage } from '@inertiajs/react';
-import { BarChart3, Bell, BookOpen, Box, CircleHelp, ClipboardCheck, FileText, House, Package, PackageCheck, PackageMinus, Settings, SlidersHorizontal, Users as UsersIcon } from 'lucide-react';
+import { BarChart3, Bell, BookOpen, CircleHelp, ClipboardCheck, FileText, House, Package, PackageCheck, PackageMinus, Settings, SlidersHorizontal, Users as UsersIcon } from 'lucide-react';
 import AppLogo from './app-logo';
 
 export function AppSidebar() {
@@ -56,10 +56,6 @@ export function AppSidebar() {
         { title: 'Inventory', url: '/products', icon: PackageMinus },
         { title: 'Product Management', url: '/product-controller/products', icon: Package },
         { title: 'Product Requests', url: '/product-controller/requests', icon: ClipboardCheck },
-        { title: 'Product Options', url: '/product-controller/configurations', icon: SlidersHorizontal },
-        { title: 'Packaging Management', url: '/product-controller/packaging', icon: Box },
-        { title: 'MOQ Management', url: '/product-controller/moq', icon: SlidersHorizontal },
-        { title: 'Customization Options', url: '/product-controller/customization', icon: CircleHelp },
         { title: 'Notifications', url: '/notifications/page', icon: Bell },
         { title: 'User Guide', url: '/user-guide', icon: BookOpen },
         { title: 'Profile', url: '/settings/profile', icon: Settings },

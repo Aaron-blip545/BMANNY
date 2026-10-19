@@ -347,7 +347,7 @@ export const USER_GUIDES: Record<string, RoleGuide> = {
                 id: 'pc-packaging',
                 title: 'Packaging Management',
                 iconName: 'Box',
-                route: '/product-controller/packaging',
+                route: '/product-controller/products?tab=packaging',
                 summary: 'Configure packaging options (Gift Box, Bulk Carton, Shrink Wrap, Eco Bag).',
                 whenToUse: 'To add or edit packaging options and their associated additional costs.',
                 steps: [
@@ -393,7 +393,7 @@ export const USER_GUIDES: Record<string, RoleGuide> = {
                 id: 'pc-customization',
                 title: 'Customization Options',
                 iconName: 'CircleHelp',
-                route: '/product-controller/customization',
+                route: '/product-controller/products?tab=customization',
                 summary: 'Define available branding and finishing methods (Engraving, Silk Screen, UV Print).',
                 whenToUse: 'To configure branding techniques, setup fees, and additional lead times.',
                 steps: [

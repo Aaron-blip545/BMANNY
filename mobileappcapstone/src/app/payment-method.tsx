@@ -14,20 +14,14 @@ const paymentMethods: PaymentMethod[] = [
   {
     id: 'gcash',
     name: 'GCash',
-    description: 'Pay using your GCash wallet',
+    description: 'Pay via GCash app or QR (0917 500 2815)',
     icon: require('@/assets/images/paymentmethodimage/gcash.png'),
   },
   {
-    id: 'card',
-    name: 'Credit / Debit Card',
-    description: 'Support Visa, Mastercard, and other cards',
+    id: 'bank_transfer',
+    name: 'Bank Transfer (BDO)',
+    description: 'BDO UNIBANK Savings Acnt #: 010050028154',
     icon: require('@/assets/images/paymentmethodimage/mastercard.png'),
-  },
-  {
-    id: 'cod',
-    name: 'Cash on Delivery (COD)',
-    description: 'Pay in cash when the order is received',
-    icon: require('@/assets/images/paymentmethodimage/cod.png'),
   },
 ];
 

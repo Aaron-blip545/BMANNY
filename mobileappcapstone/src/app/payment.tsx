@@ -102,13 +102,42 @@ export default function PaymentScreen() {
           <View style={styles.summaryRow}>
             <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Payment Method</Text>
             <Text style={[styles.summaryValue, { color: colors.text }]}>
-              {method === 'gcash' ? 'GCash' : method === 'card' ? 'Credit/Debit Card' : 'Cash on Delivery'}
+              {method === 'gcash' ? 'GCash' : method === 'bank_transfer' ? 'Bank Transfer (BDO)' : method === 'card' ? 'Credit/Debit Card' : 'Cash on Delivery'}
             </Text>
           </View>
           <View style={[styles.summaryRow, styles.totalRow]}>
             <Text style={[styles.totalLabel, { color: colors.text }]}>Total Amount</Text>
             <Text style={[styles.totalValue, { color: '#2196F3' }]}>₱{totalAmount.toLocaleString()}</Text>
           </View>
+        </View>
+
+        {/* Bank or GCash Account Details Card */}
+        <View style={[styles.totalSection, { backgroundColor: colors.card, borderColor: colors.border, marginTop: -4 }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            {method === 'bank_transfer' ? 'BDO Bank Account Details' : 'GCash Account Details'}
+          </Text>
+          {method === 'bank_transfer' ? (
+            <View style={{ gap: 4, marginTop: 4 }}>
+              <Text style={{ fontSize: 13, color: colors.textSecondary }}>
+                Bank: <Text style={{ fontWeight: '700', color: colors.text }}>BDO UNIBANK</Text>
+              </Text>
+              <Text style={{ fontSize: 13, color: colors.textSecondary }}>
+                Savings Acnt #: <Text style={{ fontWeight: '800', color: '#dc2626' }}>010050028154</Text>
+              </Text>
+              <Text style={{ fontSize: 13, color: colors.textSecondary }}>
+                Account Name: <Text style={{ fontWeight: '700', color: colors.text, fontStyle: 'italic' }}>BManny Partners Inc.</Text>
+              </Text>
+            </View>
+          ) : (
+            <View style={{ gap: 4, marginTop: 4 }}>
+              <Text style={{ fontSize: 13, color: colors.textSecondary }}>
+                GCash Mobile #: <Text style={{ fontWeight: '800', color: '#dc2626' }}>0917 500 2815</Text>
+              </Text>
+              <Text style={{ fontSize: 13, color: colors.textSecondary }}>
+                Account Name: <Text style={{ fontWeight: '700', color: colors.text, fontStyle: 'italic' }}>BManny Partners Inc.</Text>
+              </Text>
+            </View>
+          )}
         </View>
 
         {method === 'cod' ? (
@@ -122,12 +151,14 @@ export default function PaymentScreen() {
           <View style={[styles.qrSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Scan QR Code to Pay</Text>
             <Image
-              source={qrCodeSource}
+              source={method === 'bank_transfer' || method === 'card' ? require('@/assets/images/paymentmethodimage/debit qr.png') : require('@/assets/images/paymentmethodimage/gcash qr.png')}
               style={styles.qrCode}
               resizeMode="contain"
             />
             <Text style={[styles.qrInstruction, { color: colors.textSecondary }]}>
-              Scan this QR code using your {method === 'card' ? 'banking app' : 'GCash app'} to complete the payment
+              {method === 'bank_transfer'
+                ? 'Scan this QR code with your BDO or banking app, or transfer directly to BDO Acnt # 010050028154'
+                : 'Scan this QR code using your GCash app or send directly to 0917 500 2815'}
             </Text>
           </View>
         )}

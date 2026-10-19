@@ -3,6 +3,9 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Models\CustomizationCatalog;
+use App\Models\MoqRule;
+use App\Models\PackagingOption;
 use App\Models\Product;
 use App\Models\ProductRecipe;
 use App\Models\ProductType;
@@ -21,7 +24,12 @@ class ProductManagementController extends Controller
      */
     public function index(Request $request): Response
     {
-        $products = ProductType::with(['recipes.rawMaterial'])
+        $products = ProductType::with([
+            'recipes.rawMaterial',
+            'packagingOptions',
+            'customizationOptions',
+            'variants.currentMoq',
+        ])
             ->orderBy('name')
             ->get()
             ->map(function ($product) {
@@ -41,26 +49,36 @@ class ProductManagementController extends Controller
                 });
 
                 $totalCost = $recipes->sum('amount');
+                $firstVariant = $product->variants->first();
+                $currentMoq = $firstVariant?->currentMoq;
 
                 return [
-                    'product_type_id'    => $product->product_type_id,
-                    'product_code'       => $product->product_code ?? sprintf('FP-%04d', $product->product_type_id),
-                    'name'               => $product->name,
-                    'category_code'      => $product->category_code ?? 'Uncategorized',
-                    'suggested_srp'      => (float) ($product->suggested_srp ?? 0),
-                    'formatted_price'    => '₱' . number_format((float) ($product->suggested_srp ?? 0), 2),
-                    'description'        => $product->description,
-                    'shelf_life'         => $product->shelf_life,
-                    'storage_conditions' => $product->storage_conditions,
-                    'lead_time_days'     => $product->lead_time_days,
-                    'formulation_notes'  => $product->formulation_notes,
-                    'image_url'          => $product->image_url,
-                    'is_active'          => (bool) $product->is_active,
-                    'created_at'         => $product->created_at?->toISOString(),
-                    'recipes'            => $recipes,
-                    'total_recipe_cost'  => $totalCost,
-                    'formatted_recipe_cost' => '₱' . number_format($totalCost, 2),
-                    'materials_count'    => $recipes->count(),
+                    'product_type_id'         => $product->product_type_id,
+                    'product_code'            => $product->product_code ?? sprintf('FP-%04d', $product->product_type_id),
+                    'name'                    => $product->name,
+                    'category_code'           => $product->category_code ?? 'Uncategorized',
+                    'suggested_srp'           => (float) ($product->suggested_srp ?? 0),
+                    'formatted_price'         => '₱' . number_format((float) ($product->suggested_srp ?? 0), 2),
+                    'description'             => $product->description,
+                    'shelf_life'              => $product->shelf_life,
+                    'storage_conditions'      => $product->storage_conditions,
+                    'lead_time_days'          => $product->lead_time_days,
+                    'formulation_notes'       => $product->formulation_notes,
+                    'net_weight'              => $product->net_weight,
+                    'packaging_specification' => $product->packaging_specification,
+                    'label_specification'     => $product->label_specification,
+                    'packaging_ids'           => $product->packagingOptions->pluck('packaging_id')->values()->all(),
+                    'customization_ids'       => $product->customizationOptions->pluck('customization_id')->values()->all(),
+                    'min_quantity'            => $currentMoq?->min_quantity ? (int) $currentMoq->min_quantity : null,
+                    'moq_notes'               => $currentMoq?->notes,
+                    'variant_id'              => $firstVariant?->variant_id,
+                    'image_url'               => $product->image_url,
+                    'is_active'               => (bool) $product->is_active,
+                    'created_at'              => $product->created_at?->toISOString(),
+                    'recipes'                 => $recipes,
+                    'total_recipe_cost'       => $totalCost,
+                    'formatted_recipe_cost'   => '₱' . number_format($totalCost, 2),
+                    'materials_count'         => $recipes->count(),
                 ];
             });
 
@@ -105,10 +123,15 @@ class ProductManagementController extends Controller
                 ];
             });
 
+        $packagingOptions = PackagingOption::orderBy('category')->orderBy('name')->get();
+        $customizationOptions = CustomizationCatalog::orderBy('name')->get();
+
         return Inertia::render('product-controller/products', [
-            'products'     => $products,
-            'categories'   => $categories,
-            'rawMaterials' => $rawMaterials,
+            'products'             => $products,
+            'categories'           => $categories,
+            'rawMaterials'         => $rawMaterials,
+            'packagingOptions'     => $packagingOptions,
+            'customizationOptions' => $customizationOptions,
         ]);
     }
 
@@ -117,19 +140,35 @@ class ProductManagementController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        if ($request->has('packaging_ids') && is_string($request->packaging_ids)) {
+            $request->merge(['packaging_ids' => json_decode($request->packaging_ids, true) ?? []]);
+        }
+        if ($request->has('customization_ids') && is_string($request->customization_ids)) {
+            $request->merge(['customization_ids' => json_decode($request->customization_ids, true) ?? []]);
+        }
+
         $data = $request->validate([
-            'name'               => 'required|string|max:150|unique:product_types,name',
-            'product_code'       => 'nullable|string|max:50|unique:product_types,product_code',
-            'category_code'      => 'required|string|max:50',
-            'suggested_srp'      => 'required|numeric|min:0',
-            'description'        => 'nullable|string|max:500',
-            'shelf_life'         => 'nullable|string|max:100',
-            'storage_conditions' => 'nullable|string|max:200',
-            'lead_time_days'     => 'nullable|integer|min:1|max:365',
-            'formulation_notes'  => 'nullable|string|max:1000',
-            'image'              => 'nullable|image|mimes:jpeg,png,jpg,webp,gif|max:5120',
-            'image_url'          => 'nullable|string|max:500',
-            'is_active'          => 'boolean',
+            'name'                    => 'required|string|max:150|unique:product_types,name',
+            'product_code'            => 'nullable|string|max:50|unique:product_types,product_code',
+            'category_code'           => 'required|string|max:50',
+            'suggested_srp'           => 'required|numeric|min:0',
+            'description'             => 'nullable|string|max:500',
+            'shelf_life'              => 'nullable|string|max:100',
+            'storage_conditions'      => 'nullable|string|max:200',
+            'lead_time_days'          => 'nullable|integer|min:1|max:365',
+            'formulation_notes'       => 'nullable|string|max:2000',
+            'net_weight'              => 'nullable|string|max:100',
+            'packaging_specification' => 'nullable|string|max:2000',
+            'label_specification'     => 'nullable|string|max:2000',
+            'min_quantity'            => 'nullable|integer|min:1',
+            'moq_notes'               => 'nullable|string|max:500',
+            'packaging_ids'           => 'nullable|array',
+            'packaging_ids.*'         => 'integer|exists:packaging_options,packaging_id',
+            'customization_ids'       => 'nullable|array',
+            'customization_ids.*'     => 'integer|exists:customization_catalog,customization_id',
+            'image'                   => 'nullable|image|mimes:jpeg,png,jpg,webp,gif|max:5120',
+            'image_url'               => 'nullable|string|max:500',
+            'is_active'               => 'boolean',
         ]);
 
         if ($request->hasFile('image')) {
@@ -139,6 +178,12 @@ class ProductManagementController extends Controller
 
         $data['is_active'] = $request->boolean('is_active', true);
 
+        $packagingIds = $data['packaging_ids'] ?? [];
+        $customizationIds = $data['customization_ids'] ?? [];
+        $minQuantity = $data['min_quantity'] ?? null;
+        $moqNotes = $data['moq_notes'] ?? null;
+        unset($data['packaging_ids'], $data['customization_ids'], $data['min_quantity'], $data['moq_notes'], $data['image']);
+
         $productType = ProductType::create($data);
 
         // Generate product_code if not supplied (e.g. FP-0001)
@@ -146,6 +191,13 @@ class ProductManagementController extends Controller
             $productType->update([
                 'product_code' => sprintf('FP-%04d', $productType->product_type_id),
             ]);
+        }
+
+        if (!empty($packagingIds)) {
+            $productType->packagingOptions()->sync($packagingIds);
+        }
+        if (!empty($customizationIds)) {
+            $productType->customizationOptions()->sync($customizationIds);
         }
 
         // Automatically create a default base variant if none exists
@@ -157,6 +209,16 @@ class ProductManagementController extends Controller
         ]);
         $variant->update(['sku' => sprintf('BMN-%04d-%04d', $productType->product_type_id, $variant->variant_id)]);
 
+        if ($minQuantity) {
+            MoqRule::create([
+                'variant_id'     => $variant->variant_id,
+                'min_quantity'   => (int) $minQuantity,
+                'effective_date' => now()->toDateString(),
+                'notes'          => $moqNotes ?: 'Initial MOQ set via Product Management',
+                'created_by'     => $request->user('web')?->user_id ?? $request->user()?->user_id,
+            ]);
+        }
+
         return back()->with('success', 'Product added successfully and is now active in the catalog.');
     }
 
@@ -167,19 +229,35 @@ class ProductManagementController extends Controller
     {
         $product = ProductType::findOrFail($id);
 
+        if ($request->has('packaging_ids') && is_string($request->packaging_ids)) {
+            $request->merge(['packaging_ids' => json_decode($request->packaging_ids, true) ?? []]);
+        }
+        if ($request->has('customization_ids') && is_string($request->customization_ids)) {
+            $request->merge(['customization_ids' => json_decode($request->customization_ids, true) ?? []]);
+        }
+
         $data = $request->validate([
-            'name'               => 'required|string|max:150|unique:product_types,name,' . $id . ',product_type_id',
-            'product_code'       => 'nullable|string|max:50|unique:product_types,product_code,' . $id . ',product_type_id',
-            'category_code'      => 'required|string|max:50',
-            'suggested_srp'      => 'required|numeric|min:0',
-            'description'        => 'nullable|string|max:500',
-            'shelf_life'         => 'nullable|string|max:100',
-            'storage_conditions' => 'nullable|string|max:200',
-            'lead_time_days'     => 'nullable|integer|min:1|max:365',
-            'formulation_notes'  => 'nullable|string|max:1000',
-            'image'              => 'nullable|image|mimes:jpeg,png,jpg,webp,gif|max:5120',
-            'image_url'          => 'nullable|string|max:500',
-            'is_active'          => 'boolean',
+            'name'                    => 'required|string|max:150|unique:product_types,name,' . $id . ',product_type_id',
+            'product_code'            => 'nullable|string|max:50|unique:product_types,product_code,' . $id . ',product_type_id',
+            'category_code'           => 'required|string|max:50',
+            'suggested_srp'           => 'required|numeric|min:0',
+            'description'             => 'nullable|string|max:500',
+            'shelf_life'              => 'nullable|string|max:100',
+            'storage_conditions'      => 'nullable|string|max:200',
+            'lead_time_days'          => 'nullable|integer|min:1|max:365',
+            'formulation_notes'       => 'nullable|string|max:2000',
+            'net_weight'              => 'nullable|string|max:100',
+            'packaging_specification' => 'nullable|string|max:2000',
+            'label_specification'     => 'nullable|string|max:2000',
+            'min_quantity'            => 'nullable|integer|min:1',
+            'moq_notes'               => 'nullable|string|max:500',
+            'packaging_ids'           => 'nullable|array',
+            'packaging_ids.*'         => 'integer|exists:packaging_options,packaging_id',
+            'customization_ids'       => 'nullable|array',
+            'customization_ids.*'     => 'integer|exists:customization_catalog,customization_id',
+            'image'                   => 'nullable|image|mimes:jpeg,png,jpg,webp,gif|max:5120',
+            'image_url'               => 'nullable|string|max:500',
+            'is_active'               => 'boolean',
         ]);
 
         if ($request->hasFile('image')) {
@@ -190,6 +268,36 @@ class ProductManagementController extends Controller
         if (empty($data['product_code'])) {
             $data['product_code'] = sprintf('FP-%04d', $product->product_type_id);
         }
+
+        if ($request->has('packaging_ids')) {
+            $product->packagingOptions()->sync($data['packaging_ids'] ?? []);
+        }
+        if ($request->has('customization_ids')) {
+            $product->customizationOptions()->sync($data['customization_ids'] ?? []);
+        }
+
+        if ($request->has('min_quantity') && $request->filled('min_quantity')) {
+            $variant = $product->variants()->first();
+            if (!$variant) {
+                $variant = ProductVariant::create([
+                    'product_type_id' => $product->product_type_id,
+                    'name'            => 'Standard',
+                    'is_available'    => true,
+                    'is_published'    => true,
+                ]);
+                $variant->update(['sku' => sprintf('BMN-%04d-%04d', $product->product_type_id, $variant->variant_id)]);
+            }
+
+            MoqRule::create([
+                'variant_id'     => $variant->variant_id,
+                'min_quantity'   => (int) $request->input('min_quantity'),
+                'effective_date' => now()->toDateString(),
+                'notes'          => $request->input('moq_notes') ?: 'Updated via Product Management',
+                'created_by'     => $request->user('web')?->user_id ?? $request->user()?->user_id,
+            ]);
+        }
+
+        unset($data['packaging_ids'], $data['customization_ids'], $data['min_quantity'], $data['moq_notes'], $data['image']);
 
         $product->update($data);
 

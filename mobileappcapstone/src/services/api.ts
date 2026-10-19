@@ -83,9 +83,12 @@ export async function getProductCategories(): Promise<string[]> {
 }
 
 export async function getCustomizationMaterials(): Promise<{
-    all: Array<{ product_id: number; name: string; sku: string; category: string; stock_quantity: number; in_stock: boolean }>;
-    flavors: Array<{ product_id: number; name: string; sku: string; category: string; stock_quantity: number; in_stock: boolean }>;
-    packaging: Array<{ product_id: number; name: string; sku: string; category: string; stock_quantity: number; in_stock: boolean }>;
+    all: Array<{ product_id: number; name: string; sku: string; category: string; price: number; rate?: number; unit_of_measure?: string; stock_quantity: number; in_stock: boolean }>;
+    raw_materials?: Array<{ product_id: number; name: string; sku: string; category: string; price: number; rate?: number; unit_of_measure?: string; stock_quantity: number; in_stock: boolean }>;
+    flavors: Array<{ product_id: number; name: string; sku: string; category: string; price: number; stock_quantity: number; in_stock: boolean }>;
+    packaging: Array<{ product_id: number; name: string; sku: string; category: string; price: number; stock_quantity: number; in_stock: boolean }>;
+    packaging_options?: Array<{ packaging_id: number; name: string; category: string; description: string | null; is_available: boolean }>;
+    customization_options?: Array<{ customization_id: number; name: string; customization_type: string | null; description: string | null; is_available: boolean }>;
 }> {
     return request('/customization-materials');
 }
@@ -279,9 +282,11 @@ export async function uploadMyProfilePicture(imageUri: string) {
 export async function submitInquiry(
     clientId: number,
     customizations: {
+        customization_type?: string;
         packaging_type: string;
         packaging_finish?: string;
         serving_size?: string;
+        formulation_notes?: string;
         client_notes?: string;
     }[]
 ) {
@@ -351,7 +356,7 @@ export async function getMyQuotations() {
  */
 export async function submitQuotationPayment(
     quotationId: number,
-    paymentMethod: 'gcash' | 'card' | 'cod',
+    paymentMethod: 'gcash' | 'bank_transfer' | 'card' | 'cod' | string,
     proofImageUri?: string | null,
 ) {
     const token = await getToken();

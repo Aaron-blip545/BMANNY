@@ -472,8 +472,14 @@ export default function ProductDetailScreen() {
     router.push({
       pathname: '/product-customization',
       params: {
+        id: String(product.id || params.id || ''),
         name: product.name,
+        product_code: (product as any).product_code || '',
         category: product.category || '',
+        price: product.price || '',
+        moq: product.moq || '100 units',
+        description: product.description || '',
+        image: typeof product.image === 'string' ? product.image : ((product as any).image_url || ''),
       },
     } as any);
   };

@@ -28,7 +28,7 @@ import {
     Sparkles,
     User,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Inquiries', href: '/inquiries' },
@@ -90,16 +90,195 @@ function formatDate(iso: string) {
     });
 }
 
+export interface StarterPackageSheetData {
+    companyName: string;
+    contactPerson: string;
+    brand: string;
+    productName: string;
+    primary: string;
+    printing: string;
+    netWeight: string;
+    ingredients: string;
+    moq: string;
+    priceUnit: string;
+    priceTotal: string;
+    date: string;
+    isGcash: boolean;
+}
+
+export function parseCustomizationSheet(c?: Customization | null, inq?: PendingInquiry | null): StarterPackageSheetData {
+    const rawNotes = c?.client_notes || '';
+
+    function getVal(key: string, fallback: string = ''): string {
+        const regex = new RegExp(`(?:^|\\|\\s*)${key}\\s*:\\s*([^|]+)`, 'i');
+        const match = rawNotes.match(regex);
+        return match ? match[1].trim() : fallback;
+    }
+
+    const companyName = getVal('Company Name', inq?.client?.business_name || 'BManny Client');
+    const contactPerson = getVal('Contact Person', inq?.client?.contact_person || 'Client Representative');
+    const brand = getVal('Brand', 'YOUR BRAND');
+
+    let productName = getVal('Finished Product');
+    if (!productName && inq?.product_request_review?.suggested_variant?.product_type?.name) {
+        productName = inq.product_request_review.suggested_variant.product_type.name;
+    }
+    if (!productName) {
+        productName = 'AshigoPlus Coffee Drink Mix';
+    }
+    const cleanedProductName = productName.replace(/\s*\([^)]*\)$/, '').trim();
+
+    const primary = getVal('Packaging', c?.packaging_type || 'POUCH 12X20CM');
+    const printing = getVal('Printing', c?.packaging_finish || 'STICKER LABEL');
+    const netWeight = getVal('Net Weight', c?.serving_size?.split('x')[0]?.trim() || '120g');
+
+    // Ingredients
+    let ingredients = '';
+    if (c?.formulation_notes) {
+        const rmMatches = Array.from(c.formulation_notes.matchAll(/\d+\.\s*([^(:;]+)/g)).map((m) => m[1].trim());
+        if (rmMatches.length > 0) {
+            ingredients = `${cleanedProductName.toUpperCase()} with ${rmMatches.slice(0, 3).join(' & ')}`;
+        }
+    }
+    if (!ingredients) {
+        ingredients = `${cleanedProductName.toUpperCase()} with NATURAL EXTRACTS`;
+    }
+
+    const moqVal = getVal('Batch Quantity', c?.serving_size?.split('x')[1]?.replace(/units?/i, '')?.trim() || '100');
+    const moqFormatted = `${moqVal.replace(/[^0-9]/g, '') || '100'} ${primary.toLowerCase().includes('pouch') ? 'pouch' : 'units'}`;
+
+    let priceUnit = getVal('Price / Unit', '₱450.00');
+    if (!priceUnit.startsWith('₱')) priceUnit = `₱${priceUnit}`;
+
+    let priceTotal = getVal('Total Price', '');
+    if (!priceTotal) {
+        const numUnit = parseFloat(priceUnit.replace(/[^0-9.]/g, '')) || 0;
+        const numQty = parseInt(moqVal.replace(/[^0-9]/g, ''), 10) || 100;
+        priceTotal = `₱ ${(numUnit * numQty).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    } else if (!priceTotal.startsWith('₱')) {
+        priceTotal = `₱ ${priceTotal}`;
+    }
+
+    const paymentMethod = getVal('Payment Method', '');
+    const isGcash = paymentMethod.toLowerCase().includes('gcash');
+
+    const formattedDate = inq?.created_at
+        ? formatDate(inq.created_at)
+        : new Date().toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+
+    return {
+        companyName,
+        contactPerson,
+        brand,
+        productName: cleanedProductName,
+        primary,
+        printing,
+        netWeight,
+        ingredients,
+        moq: moqFormatted,
+        priceUnit,
+        priceTotal,
+        date: formattedDate,
+        isGcash,
+    };
+}
+
+export function calculateInquiryTotal(inq?: PendingInquiry | null): string {
+    if (!inq?.customizations?.length) return '';
+    let total = 0;
+    for (const c of inq.customizations) {
+        const sheet = parseCustomizationSheet(c, inq);
+        const rawTotalStr = sheet.priceTotal.replace(/[^0-9.]/g, '');
+        const rawTotal = parseFloat(rawTotalStr);
+        if (!isNaN(rawTotal) && rawTotal > 0) {
+            total += rawTotal;
+        } else {
+            const unit = parseFloat(sheet.priceUnit.replace(/[^0-9.]/g, '')) || 0;
+            const qty = parseInt(sheet.moq.replace(/[^0-9]/g, ''), 10) || 100;
+            total += unit * qty;
+        }
+    }
+    return total > 0 ? total.toFixed(2) : '';
+}
+
+export function buildAutoItemDetails(inq?: PendingInquiry | null): string {
+    if (!inq) return '';
+    const customizations = inq.customizations || [];
+    if (customizations.length === 0) {
+        return [
+            'Item: Custom OEM/ODM Starter Package',
+            '• Quantity: 100 units',
+            '• Terms: 50% Downpayment before production, 50% balance before shipment',
+            '• Accepted Payment Methods: GCash or Bank Transfer (BDO)',
+            '• Order Lead Time: 10-15 business days upon proof of downpayment',
+            '• Freight: FOB CDO | VAT: Exclusive',
+        ].join('\n');
+    }
+
+    const items = customizations.map((c, index) => {
+        const sheet = parseCustomizationSheet(c, inq);
+        const header = customizations.length > 1
+            ? `${index + 1}. ${sheet.productName} Starter Package`
+            : `Item: ${sheet.productName} Starter Package`;
+
+        const lines = [
+            header,
+            `  • Brand: ${sheet.brand || inq.client?.business_name || 'Client Brand'}`,
+            `  • Packaging: ${sheet.primary} (${sheet.printing})`,
+            `  • Net Weight: ${sheet.netWeight}`,
+            `  • Batch Quantity / MOQ: ${sheet.moq}`,
+            `  • Unit Price: ${sheet.priceUnit}`,
+            `  • Total Amount: ${sheet.priceTotal}`,
+        ];
+
+        if (sheet.ingredients) {
+            lines.push(`  • Formulation Recipe: ${sheet.ingredients}`);
+        }
+
+        return lines.join('\n');
+    });
+
+    const commercialTerms = [
+        'Commercial Terms & Conditions:',
+        '• 50% Downpayment before production, 50% balance before shipment',
+        '• Accepted Payment Methods: GCash or Bank Transfer (BDO)',
+        '• Order Lead Time: 10-15 business days upon proof of downpayment',
+        '• Freight: FOB CDO | VAT: Exclusive',
+    ].join('\n');
+
+    return `${items.join('\n\n')}\n\n${commercialTerms}`;
+}
+
 export default function QuotationCreate({ pendingInquiries, selectedInquiryId }: Props) {
+    const initialInq = pendingInquiries.find((i) => String(i.inquiry_id) === String(selectedInquiryId));
+    const initialTotal = initialInq ? calculateInquiryTotal(initialInq) : '';
+    const initialDetails = initialInq ? buildAutoItemDetails(initialInq) : '';
+
     const { data, setData, post, processing, errors } = useForm({
         inquiry_id:   selectedInquiryId ? String(selectedInquiryId) : '',
-        total_amount: '',
+        total_amount: initialTotal,
         valid_until:  '',
-        item_details: '',
+        item_details: initialDetails,
     });
 
     const [validUntilOpen, setValidUntilOpen] = useState(false);
     const [viewCustomizationsOpen, setViewCustomizationsOpen] = useState(false);
+
+    // Auto-populate item details and total when inquiry_id is selected/changed
+    useEffect(() => {
+        if (data.inquiry_id && !data.item_details) {
+            const inq = pendingInquiries.find((i) => String(i.inquiry_id) === String(data.inquiry_id));
+            if (inq) {
+                const autoDetails = buildAutoItemDetails(inq);
+                const autoTotal = calculateInquiryTotal(inq);
+                setData((prev) => ({
+                    ...prev,
+                    total_amount: prev.total_amount || autoTotal,
+                    item_details: prev.item_details || autoDetails,
+                }));
+            }
+        }
+    }, [data.inquiry_id, pendingInquiries]);
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -127,7 +306,7 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId }:
                     <p className="bmanny-page-eyebrow">Sales Workspace</p>
                     <h1 className="mb-1 text-2xl font-semibold tracking-tight">New Quotation</h1>
                     <p className="mb-6 text-sm text-muted-foreground">
-                        Select an inquiry, enter the price, and send the quote to the client.
+                        Select an inquiry, review or adjust the item details and price, and send the quote to the client.
                     </p>
 
                     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -147,7 +326,27 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId }:
                                         <select
                                             id="inquiry_id"
                                             value={data.inquiry_id}
-                                            onChange={(e) => setData('inquiry_id', e.target.value)}
+                                            onChange={(e) => {
+                                                const inqId = e.target.value;
+                                                const inq = pendingInquiries.find((i) => String(i.inquiry_id) === inqId);
+                                                if (inq) {
+                                                    const autoTotal = calculateInquiryTotal(inq);
+                                                    const autoDetails = buildAutoItemDetails(inq);
+                                                    setData((prev) => ({
+                                                        ...prev,
+                                                        inquiry_id: inqId,
+                                                        total_amount: autoTotal || prev.total_amount,
+                                                        item_details: autoDetails,
+                                                    }));
+                                                } else {
+                                                    setData((prev) => ({
+                                                        ...prev,
+                                                        inquiry_id: '',
+                                                        total_amount: '',
+                                                        item_details: '',
+                                                    }));
+                                                }
+                                            }}
                                             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                                         >
                                             <option value="">— Choose an inquiry —</option>
@@ -228,16 +427,42 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId }:
                                     </div>
 
                                     <div>
-                                        <label htmlFor="item_details" className="mb-1 block text-sm font-medium">
-                                            Item Details / Notes
-                                        </label>
+                                        <div className="mb-1 flex items-center justify-between">
+                                            <label htmlFor="item_details" className="text-sm font-medium">
+                                                Item Details / Notes
+                                            </label>
+                                            {selected && (
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-7 px-2 text-xs text-primary hover:text-primary/90"
+                                                    onClick={() => {
+                                                        const autoDetails = buildAutoItemDetails(selected);
+                                                        const autoTotal = calculateInquiryTotal(selected);
+                                                        setData((prev) => ({
+                                                            ...prev,
+                                                            total_amount: autoTotal || prev.total_amount,
+                                                            item_details: autoDetails,
+                                                        }));
+                                                    }}
+                                                    title="Re-populate item details from the selected inquiry"
+                                                >
+                                                    <Sparkles className="mr-1 h-3 w-3" />
+                                                    Auto-fill from Inquiry
+                                                </Button>
+                                            )}
+                                        </div>
+                                        <p className="mb-2 text-xs text-muted-foreground">
+                                            Automatically listed from the inquiry. You can freely edit or customize any item names, quantities, unit prices, or notes below.
+                                        </p>
                                         <textarea
                                             id="item_details"
-                                            rows={4}
+                                            rows={8}
                                             placeholder="List the items, unit prices, quantities, or any notes for the client…"
                                             value={data.item_details}
                                             onChange={(e) => setData('item_details', e.target.value)}
-                                            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                                            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring"
                                         />
                                         {errors.item_details && (
                                             <p className="mt-1 text-xs text-destructive">{errors.item_details}</p>
@@ -343,58 +568,44 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId }:
                                                         <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
                                                             Requested Customizations
                                                         </p>
-                                                        {(selected.customizations ?? []).length > 0 && (
-                                                            <Button
-                                                                type="button"
-                                                                variant="outline"
-                                                                size="sm"
-                                                                className="h-6 px-2.5 text-xs font-medium gap-1 text-primary border-primary/30 hover:bg-primary hover:text-white transition-all cursor-pointer shadow-2xs rounded-md"
-                                                                onClick={() => setViewCustomizationsOpen(true)}
-                                                            >
-                                                                <Eye className="h-3.5 w-3.5" />
-                                                                View
-                                                            </Button>
-                                                        )}
                                                     </div>
                                                     {(selected.customizations ?? []).length === 0 ? (
                                                         <p className="text-xs text-muted-foreground">No customization details provided.</p>
                                                     ) : (
-                                                        (selected.customizations ?? []).map((c, idx) => (
-                                                            <div
-                                                                key={c.customization_id || idx}
-                                                                className="space-y-1 rounded-md border border-border/60 bg-muted/40 p-3"
-                                                            >
-                                                                {c.packaging_type && (
-                                                                    <p className="font-medium text-foreground text-sm">{c.packaging_type}</p>
-                                                                )}
-                                                                <dl className="space-y-1 text-xs text-muted-foreground">
-                                                                    {c.packaging_finish && (
-                                                                        <div className="flex gap-1">
-                                                                            <dt className="shrink-0 font-medium text-foreground/80">Finish:</dt>
-                                                                            <dd>{c.packaging_finish}</dd>
-                                                                        </div>
-                                                                    )}
-                                                                    {c.serving_size && (
-                                                                        <div className="flex gap-1">
-                                                                            <dt className="shrink-0 font-medium text-foreground/80">Serving Size:</dt>
-                                                                            <dd>{c.serving_size}</dd>
-                                                                        </div>
-                                                                    )}
-                                                                    {c.formulation_notes && (
-                                                                        <div className="flex gap-1">
-                                                                            <dt className="shrink-0 font-medium text-foreground/80">Formulation:</dt>
-                                                                            <dd className="line-clamp-2">{c.formulation_notes}</dd>
-                                                                        </div>
-                                                                    )}
-                                                                    {c.client_notes && (
-                                                                        <div className="flex gap-1">
-                                                                            <dt className="shrink-0 font-medium text-foreground/80">Client Notes:</dt>
-                                                                            <dd className="line-clamp-2">{c.client_notes}</dd>
-                                                                        </div>
-                                                                    )}
-                                                                </dl>
-                                                            </div>
-                                                        ))
+                                                        (selected.customizations ?? []).map((c, idx) => {
+                                                            const sheet = parseCustomizationSheet(c, selected);
+                                                            return (
+                                                                <div
+                                                                    key={c.customization_id || idx}
+                                                                    className="space-y-2 rounded-lg border border-border/70 bg-card p-3 shadow-2xs"
+                                                                >
+                                                                    <div className="flex items-center justify-between">
+                                                                        <span className="font-semibold text-foreground text-sm">
+                                                                            {sheet.productName}
+                                                                        </span>
+                                                                        <span className="text-[11px] font-bold text-red-600 bg-red-50 dark:bg-red-950/40 px-2 py-0.5 rounded border border-red-200 dark:border-red-900">
+                                                                            {sheet.priceUnit}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="grid grid-cols-2 gap-1.5 text-xs text-muted-foreground">
+                                                                        <p><span className="font-medium text-foreground">Package:</span> {sheet.primary}</p>
+                                                                        <p><span className="font-medium text-foreground">Finish:</span> {sheet.printing}</p>
+                                                                        <p><span className="font-medium text-foreground">Net Wt:</span> {sheet.netWeight}</p>
+                                                                        <p><span className="font-medium text-foreground">MOQ:</span> {sheet.moq}</p>
+                                                                    </div>
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        className="w-full h-7 text-xs font-medium gap-1.5 text-primary border-primary/30 hover:bg-primary hover:text-white transition-all cursor-pointer"
+                                                                        onClick={() => setViewCustomizationsOpen(true)}
+                                                                    >
+                                                                        <FileText className="h-3.5 w-3.5" />
+                                                                        View Starter Package Sheet
+                                                                    </Button>
+                                                                </div>
+                                                            );
+                                                        })
                                                     )}
                                                 </div>
                                             </div>
@@ -407,17 +618,20 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId }:
                 </div>
             </main>
 
-            {/* ── Requested Customizations Full View Modal ── */}
+            {/* ── Requested Customizations / Starter Package Specification Sheet Modal ── */}
             <Dialog open={viewCustomizationsOpen} onOpenChange={setViewCustomizationsOpen}>
-                <DialogContent className="max-w-2xl border-border bg-card text-card-foreground shadow-2xl p-6">
+                <DialogContent className="max-w-4xl border-border bg-card text-card-foreground shadow-2xl p-6">
                     <DialogHeader className="space-y-1 border-b border-border/70 pb-4 text-left">
                         <div className="flex items-center gap-2.5">
                             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
                                 <Package className="h-5 w-5" />
                             </span>
                             <div>
-                                <DialogTitle className="text-lg font-bold text-foreground">
+                                <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
                                     Requested Customization Details
+                                    <span className="rounded-md bg-primary/10 text-primary px-2 py-0.5 text-xs font-semibold">
+                                        Starter Package Sheet
+                                    </span>
                                 </DialogTitle>
                                 <DialogDescription className="text-xs text-muted-foreground mt-0.5">
                                     Inquiry #{selected?.inquiry_id} &bull; {selected?.client?.business_name ?? 'Client'}
@@ -427,87 +641,195 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId }:
                         </div>
                     </DialogHeader>
 
-                    <div className="max-h-[68vh] overflow-y-auto space-y-4 py-2 pr-1">
+                    <div className="max-h-[75vh] overflow-y-auto py-2 pr-1">
                         {(selected?.customizations ?? []).length === 0 ? (
                             <div className="py-8 text-center text-muted-foreground">
                                 <Package className="mx-auto h-8 w-8 opacity-40 mb-2" />
                                 <p className="text-sm">No customization specs found for this inquiry.</p>
                             </div>
                         ) : (
-                            (selected?.customizations ?? []).map((c, idx) => (
-                                <div
-                                    key={c.customization_id || idx}
-                                    className="rounded-xl border border-border/80 bg-background/80 p-5 space-y-4 shadow-2xs"
-                                >
-                                    {/* Packaging Header & ID */}
-                                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
-                                        <div className="flex items-center gap-2">
-                                            <span className="inline-flex items-center rounded-md bg-primary/10 px-2.5 py-1 text-sm font-semibold text-primary">
-                                                <Package className="mr-1.5 h-3.5 w-3.5" />
-                                                {c.packaging_type || 'Custom Packaging'}
-                                            </span>
-                                            {c.customization_type && (
-                                                <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                                                    {c.customization_type}
+                            (selected?.customizations ?? []).map((c, idx) => {
+                                const sheet = parseCustomizationSheet(c, selected);
+                                return (
+                                    <div key={c.customization_id || idx} className="space-y-4 mb-6">
+                                        <div className="overflow-x-auto rounded-lg border-2 border-slate-700 bg-white shadow-md text-slate-900">
+                                            {/* Row 1: Pink Header COMPANY INFO */}
+                                            <div className="bg-[#fce8ee] border-b border-slate-700 py-1.5 px-4 text-center">
+                                                <span className="text-xs font-black tracking-wider text-slate-900 uppercase">
+                                                    COMPANY INFO
                                                 </span>
-                                            )}
-                                        </div>
-                                        <span className="font-mono text-xs text-muted-foreground bg-muted/60 px-2 py-0.5 rounded">
-                                            Item #{idx + 1}
-                                        </span>
-                                    </div>
+                                            </div>
 
-                                    {/* Quick Spec Badges Grid */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
-                                            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground mb-1">
-                                                Packaging Finish
-                                            </p>
-                                            <p className="text-sm font-semibold text-foreground">
-                                                {c.packaging_finish || '—'}
-                                            </p>
-                                        </div>
-                                        <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
-                                            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground mb-1">
-                                                Serving Size & Quantity
-                                            </p>
-                                            <p className="text-sm font-semibold text-foreground">
-                                                {c.serving_size || '—'}
-                                            </p>
-                                        </div>
-                                    </div>
+                                            {/* Row 2: Company Info 2-Column Grid */}
+                                            <div className="grid grid-cols-1 md:grid-cols-2 border-b border-slate-700 divide-y md:divide-y-0 md:divide-x divide-slate-700 text-xs">
+                                                <div className="p-2.5 space-y-1">
+                                                    <div className="flex items-center">
+                                                        <span className="w-28 font-bold text-slate-800 shrink-0">Company Name:</span>
+                                                        <span className="font-semibold text-slate-900">{sheet.companyName}</span>
+                                                    </div>
+                                                    <div className="flex items-center">
+                                                        <span className="w-28 font-bold text-slate-800 shrink-0">Contact Person:</span>
+                                                        <span className="font-semibold text-slate-900">{sheet.contactPerson}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="p-2.5 space-y-1">
+                                                    <div className="flex items-center">
+                                                        <span className="w-32 font-bold text-slate-800 shrink-0">Date:</span>
+                                                        <span className="font-medium text-slate-900">{sheet.date}</span>
+                                                    </div>
+                                                    <div className="flex items-center">
+                                                        <span className="w-32 font-bold text-slate-800 shrink-0">Customer Support:</span>
+                                                        <span className="font-medium text-slate-900">BManny Partners Inc.</span>
+                                                    </div>
+                                                </div>
+                                            </div>
 
-                                    {/* Formulation Notes */}
-                                    {c.formulation_notes && (
-                                        <div className="rounded-lg border border-border/60 bg-muted/30 p-3.5 space-y-1.5">
-                                            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                                                <FileText className="h-3.5 w-3.5 text-primary" />
-                                                Formulation & Ingredients Notes
-                                            </p>
-                                            <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-                                                {c.formulation_notes}
-                                            </p>
-                                        </div>
-                                    )}
+                                            {/* Row 3: Yellow Banner [PRODUCT] STARTER PACKAGE */}
+                                            <div className="bg-[#fef08a] border-b border-slate-700 py-2 px-4 text-center">
+                                                <span className="text-xs sm:text-sm font-black tracking-wider text-slate-900 uppercase">
+                                                    {sheet.productName} STARTER PACKAGE
+                                                </span>
+                                            </div>
 
-                                    {/* Client Notes */}
-                                    {c.client_notes && (
-                                        <div className="rounded-lg border border-border/60 bg-muted/30 p-3.5 space-y-1.5">
-                                            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                                                <FileText className="h-3.5 w-3.5 text-amber-500" />
-                                                Client Notes & Breakdown
-                                            </p>
-                                            <div className="text-sm text-foreground leading-relaxed bg-card rounded-md p-3 border border-border/60">
-                                                {c.client_notes}
+                                            {/* Row 4 & 5: Main Specification Table */}
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full border-collapse text-xs">
+                                                    <thead>
+                                                        <tr className="border-b border-slate-700 bg-slate-50 text-slate-900 font-black">
+                                                            <th className="border-r border-slate-700 p-2.5 text-left w-5/12 uppercase tracking-wide">
+                                                                PACKAGING DETAILS
+                                                            </th>
+                                                            <th className="border-r border-slate-700 p-2.5 text-center w-2/12 uppercase tracking-wide">
+                                                                MOQ
+                                                            </th>
+                                                            <th className="border-r border-slate-700 p-2.5 text-center w-2/12 uppercase tracking-wide">
+                                                                PRICE/UNIT
+                                                            </th>
+                                                            <th className="p-2.5 text-center w-3/12 uppercase tracking-wide">
+                                                                PRICE / TOTAL
+                                                            </th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr className="border-b border-slate-700 align-top">
+                                                            <td className="border-r border-slate-700 p-3 space-y-2 leading-tight">
+                                                                <div>
+                                                                    <span className="font-bold text-slate-800 block text-[11px]">PRODUCT NAME:</span>
+                                                                    <span className="font-black text-red-600 uppercase text-xs">{sheet.productName}</span>
+                                                                </div>
+                                                                <div>
+                                                                    <span className="font-bold text-slate-800 block text-[11px]">PRIMARY:</span>
+                                                                    <span className="font-black text-red-600 uppercase text-xs">{sheet.primary}</span>
+                                                                </div>
+                                                                <div>
+                                                                    <span className="font-bold text-slate-800 block text-[11px]">PRINTING:</span>
+                                                                    <span className="font-black text-red-600 uppercase text-xs">{sheet.printing}</span>
+                                                                </div>
+                                                                <div>
+                                                                    <span className="font-bold text-slate-800 block text-[11px]">NET WT.:</span>
+                                                                    <span className="font-black text-red-600 uppercase text-xs">{sheet.netWeight}</span>
+                                                                </div>
+                                                                <div>
+                                                                    <span className="font-bold text-slate-800 block text-[11px]">INGREDIENTS:</span>
+                                                                    <span className="font-bold text-red-600 italic text-[11px] leading-snug block">
+                                                                        {sheet.ingredients}
+                                                                    </span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="border-r border-slate-700 p-3 text-center align-middle">
+                                                                <span className="font-black text-red-600 text-sm block">
+                                                                    {sheet.moq}
+                                                                </span>
+                                                            </td>
+                                                            <td className="border-r border-slate-700 p-3 text-center align-middle">
+                                                                <span className="font-black text-red-600 text-sm block">
+                                                                    {sheet.priceUnit}
+                                                                </span>
+                                                            </td>
+                                                            <td className="p-3 text-center align-middle">
+                                                                <span className="font-black text-red-600 text-sm block">
+                                                                    {sheet.priceTotal || sheet.priceUnit}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+
+                                            {/* Row 6: Payment Terms Details */}
+                                            <div className="border-b border-slate-700 p-2.5 bg-white flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-2">
+                                                <div className="font-bold text-slate-800 shrink-0 w-32 uppercase text-[11px]">
+                                                    PAYMENT TERMS
+                                                </div>
+                                                <div className="flex-1 space-y-0.5">
+                                                    <p className="font-semibold text-slate-900">a) 50% DP before production</p>
+                                                    <p className="font-semibold text-slate-900">b) 50% balance before shipment</p>
+                                                </div>
+                                                <div className="shrink-0 text-slate-900 font-semibold">
+                                                    c) Order Lead Time 10-15 days
+                                                </div>
+                                            </div>
+
+                                            {/* Row 7: Pink Header PAYMENT TERMS */}
+                                            <div className="bg-[#fce8ee] border-b border-slate-700 py-1.5 px-4 text-center">
+                                                <span className="text-xs font-black tracking-wider text-slate-900 uppercase">
+                                                    PAYMENT TERMS
+                                                </span>
+                                            </div>
+
+                                            {/* Row 8: FOB & VAT */}
+                                            <div className="border-b border-slate-700 p-2.5 bg-white flex items-center gap-8 text-xs font-bold">
+                                                <div>
+                                                    <span className="text-slate-800 mr-2">FOB:</span>
+                                                    <span className="text-red-600 font-black">CDO</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-slate-800 mr-2">VAT:</span>
+                                                    <span className="text-red-600 font-black">VAT EXCLUSIVE</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Row 9: Pink Header Account Details */}
+                                            <div className="bg-[#fce8ee] border-b border-slate-700 py-1.5 px-4 text-center">
+                                                <span className="text-xs font-black tracking-wider text-slate-900 uppercase">
+                                                    {sheet.isGcash ? 'COMPANY GCASH ACCOUNT DETAILS' : 'COMPANY BANK ACCOUNT DETAILS'}
+                                                </span>
+                                            </div>
+
+                                            {/* Row 10: Account Details */}
+                                            <div className="p-3 bg-white text-center space-y-0.5">
+                                                <p className="font-black text-red-600 text-xs sm:text-sm">
+                                                    {sheet.isGcash ? 'GCash Account #: 0917 500 2815' : 'BDO UNIBANK Savings Acnt #: 010050028154'}
+                                                </p>
+                                                <p className="font-bold italic text-red-600 text-xs">
+                                                    Account Name: BManny Partners Inc.
+                                                </p>
                                             </div>
                                         </div>
-                                    )}
-                                </div>
-                            ))
+                                    </div>
+                                );
+                            })
                         )}
                     </div>
 
-                    <DialogFooter className="border-t border-border/70 pt-3 sm:justify-end">
+                    <DialogFooter className="border-t border-border/70 pt-3 flex items-center justify-between sm:justify-between">
+                        {selected?.customizations?.[0] && (
+                            <Button
+                                type="button"
+                                variant="default"
+                                size="sm"
+                                onClick={() => {
+                                    const autoTotal = calculateInquiryTotal(selected);
+                                    const autoDetails = buildAutoItemDetails(selected);
+                                    if (autoTotal) setData('total_amount', autoTotal);
+                                    if (autoDetails) setData('item_details', autoDetails);
+                                    setViewCustomizationsOpen(false);
+                                }}
+                            >
+                                <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                                Apply to Quotation
+                            </Button>
+                        )}
                         <Button
                             type="button"
                             variant="secondary"

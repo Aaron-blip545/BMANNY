@@ -48,9 +48,10 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
-    gcash: 'GCash',
-    card:  'Card',
-    cod:   'Cash on Delivery',
+    gcash:         'GCash',
+    bank_transfer: 'Bank Transfer (BDO)',
+    card:          'Card',
+    cod:           'Cash on Delivery',
 };
 
 // Virtual filter categories - finer-grained than the raw `status` column,

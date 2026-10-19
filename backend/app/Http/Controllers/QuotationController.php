@@ -114,7 +114,7 @@ class QuotationController extends Controller
         }
 
         $validated = $request->validate([
-            'payment_method' => 'required|in:gcash,card,cod',
+            'payment_method' => 'required|in:gcash,bank_transfer,card,cod',
             // Cash on Delivery doesn't need a proof screenshot - every
             // other method does.
             'proof' => 'required_unless:payment_method,cod|image|max:5120',

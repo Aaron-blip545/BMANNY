@@ -11,7 +11,6 @@ use App\Http\Controllers\Web\ProductControllerDashboardController;
 use App\Http\Controllers\Web\ProductManagementController;
 use App\Http\Controllers\Web\ProductVariantsController;
 use App\Http\Controllers\Web\ProductPageController;
-use App\Http\Controllers\Web\ProductConfigurationController;
 use App\Http\Controllers\Web\ProductRequestReviewController;
 use App\Http\Controllers\Web\SalesAgentController;
 use App\Http\Controllers\Web\SalesDashboardController;
@@ -115,19 +114,12 @@ Route::middleware(['backend.auth'])->group(function () {
         Route::patch('product-controller/variants/{id}/restore', [ProductVariantsController::class, 'restore'])
             ->name('product-controller.variants.restore');
 
-        Route::get('product-controller/configurations', [ProductConfigurationController::class, 'index'])
-            ->name('product-controller.configurations.index');
-        Route::put('product-controller/configurations/{id}', [ProductConfigurationController::class, 'update'])
-            ->name('product-controller.configurations.update');
-
         Route::get('product-controller/requests', [ProductRequestReviewController::class, 'index'])
             ->name('product-controller.requests.index');
         Route::patch('product-controller/requests/{id}', [ProductRequestReviewController::class, 'review'])
             ->name('product-controller.requests.review');
 
-        // Packaging
-        Route::get('product-controller/packaging', [PackagingController::class, 'index'])
-            ->name('product-controller.packaging.index');
+        // Packaging CRUD (store, update, destroy) - UI is now integrated into Product Management tabs
         Route::post('product-controller/packaging', [PackagingController::class, 'store'])
             ->name('product-controller.packaging.store');
         Route::put('product-controller/packaging/{id}', [PackagingController::class, 'update'])
@@ -145,9 +137,7 @@ Route::middleware(['backend.auth'])->group(function () {
         Route::delete('product-controller/moq/{id}', [MoqController::class, 'destroy'])
             ->name('product-controller.moq.destroy');
 
-        // Customization
-        Route::get('product-controller/customization', [CustomizationController::class, 'index'])
-            ->name('product-controller.customization.index');
+        // Customization CRUD (store, update, destroy) - UI is now integrated into Product Management tabs
         Route::post('product-controller/customization', [CustomizationController::class, 'store'])
             ->name('product-controller.customization.store');
         Route::put('product-controller/customization/{id}', [CustomizationController::class, 'update'])
