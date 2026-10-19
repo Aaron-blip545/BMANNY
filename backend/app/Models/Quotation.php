@@ -17,6 +17,7 @@ class Quotation extends Model
         'inquiry_id',
         'total_amount',
         'item_details',
+        'product_specification',
         'status',
         'valid_until',
         'payment_method',
@@ -26,6 +27,7 @@ class Quotation extends Model
 
     protected $casts = [
         'payment_submitted_at' => 'datetime',
+        'product_specification' => 'array',
     ];
 
     // Always include the resolved proof-of-payment URL when this model is

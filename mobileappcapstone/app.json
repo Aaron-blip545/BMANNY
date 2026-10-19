@@ -1,24 +1,39 @@
 {
   "expo": {
-    "name": "mobileappcapstone",
+    "name": "BMANNY",
     "slug": "mobileappcapstone",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "mobileappcapstone",
     "userInterfaceStyle": "automatic",
-    "ios": {
-      "icon": "./assets/expo.icon"
+    "backgroundColor": "#ffffff",
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
     },
     "android": {
+      "backgroundColor": "#ffffff",
+      "splash": {
+        "backgroundColor": "#ffffff",
+        "image": "./assets/images/splash-icon.png",
+        "resizeMode": "contain"
+      },
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#ffffff",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundImage": "./assets/images/android-icon-background.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.mobileappcapstone"
+    },
+    "ios": {
+      "splash": {
+        "backgroundColor": "#ffffff",
+        "image": "./assets/images/splash-icon.png",
+        "resizeMode": "contain"
+      }
     },
     "web": {
       "output": "static",
@@ -29,9 +44,9 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#ffffff",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 160
         }
       ],
       "expo-secure-store",

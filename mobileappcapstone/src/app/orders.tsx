@@ -57,6 +57,18 @@ interface Inquiry {
   quotation_id: number | null;
   quotation_amount: string | null;
   quotation_status: string | null;
+  product_specification?: {
+    product_name?: string | null;
+    variant_name?: string | null;
+    net_weight?: string | null;
+    packaging_details?: string | null;
+    selected_packaging?: string | null;
+    label_details?: string | null;
+    ingredients?: string | null;
+    minimum_order_quantity?: number | null;
+    lead_time_days?: number | null;
+    presentation_image?: string | null;
+  } | null;
   payment_submitted_at: string | null;
   cancelled_at: string | null;
   customizations: { packaging_type: string; serving_size: string | null; client_notes: string | null }[];
@@ -93,6 +105,17 @@ function getBrandTitle(
   return fallback;
 }
 
+function DetailRow({ label, value, colors }: { label: string; value?: string | null; colors: any }) {
+  if (!value) return null;
+
+  return (
+    <View style={[styles.detailRow, { borderBottomColor: colors.border }]}>
+      <Text style={[styles.detailRowLabel, { color: colors.textSecondary }]}>{label}</Text>
+      <Text style={[styles.detailRowValue, { color: colors.text }]}>{value}</Text>
+    </View>
+  );
+}
+
 export default function OrdersScreen() {
   const { colors } = useTheme();
   const { source, tab } = useLocalSearchParams<{
@@ -105,6 +128,7 @@ export default function OrdersScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('approved');
+  const [quotationDetails, setQuotationDetails] = useState<Inquiry | null>(null);
 
   // Cancel-with-reason modal state
   const [cancelModal, setCancelModal] = useState<{
@@ -339,7 +363,25 @@ export default function OrdersScreen() {
                         {inq.has_quotation ? `₱${parseFloat(inq.quotation_amount!).toLocaleString()}` : 'Awaiting quote...'}
                       </Text>
                     </View>
+                    {inq.product_specification && (
+                      <View style={styles.row}>
+                        <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Approved:</Text>
+                        <Text style={[styles.rowValue, styles.approvedProductValue, { color: colors.text }]} numberOfLines={1}>
+                          {inq.product_specification.product_name ?? 'Approved product'}
+                          {inq.product_specification.variant_name ? ` — ${inq.product_specification.variant_name}` : ''}
+                        </Text>
+                      </View>
+                    )}
                   </View>
+
+                  {inq.product_specification && (
+                    <TouchableOpacity
+                      style={[styles.detailsBtn, { borderColor: '#2196F3' }]}
+                      onPress={() => setQuotationDetails(inq)}
+                    >
+                      <Text style={styles.detailsBtnText}>View Full Details</Text>
+                    </TouchableOpacity>
+                  )}
 
                   {inq.has_quotation && inq.quotation_status === 'sent' && !inq.payment_submitted_at ? (
                     <TouchableOpacity
@@ -679,6 +721,48 @@ export default function OrdersScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* CUSTOMER QUOTATION DETAILS */}
+      <Modal
+        visible={quotationDetails !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setQuotationDetails(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.detailsSheet, { backgroundColor: colors.card }]}>
+            <View style={[styles.modalHandle, { backgroundColor: colors.border }]} />
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.detailsScroll}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Quotation Details</Text>
+              <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>Review the approved product specification before payment.</Text>
+
+              <View style={[styles.detailsTotal, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                <Text style={[styles.detailsLabel, { color: colors.textSecondary }]}>Quotation total</Text>
+                <Text style={styles.detailsAmount}>₱{quotationDetails?.quotation_amount ? parseFloat(quotationDetails.quotation_amount).toLocaleString() : '0.00'}</Text>
+              </View>
+
+              {quotationDetails?.product_specification && (
+                <View style={styles.detailsSection}>
+                  <Text style={[styles.detailsSectionTitle, { color: colors.text }]}>Approved Product</Text>
+                  <DetailRow label="Product" value={quotationDetails.product_specification.product_name} colors={colors} />
+                  <DetailRow label="Variant" value={quotationDetails.product_specification.variant_name} colors={colors} />
+                  <DetailRow label="Net content" value={quotationDetails.product_specification.net_weight} colors={colors} />
+                  <DetailRow label="Packaging" value={quotationDetails.product_specification.selected_packaging ?? quotationDetails.product_specification.packaging_details} colors={colors} />
+                  <DetailRow label="Packaging details" value={quotationDetails.product_specification.packaging_details} colors={colors} />
+                  <DetailRow label="Label / printing" value={quotationDetails.product_specification.label_details} colors={colors} />
+                  <DetailRow label="Ingredients" value={quotationDetails.product_specification.ingredients} colors={colors} />
+                  <DetailRow label="Minimum order" value={quotationDetails.product_specification.minimum_order_quantity ? String(quotationDetails.product_specification.minimum_order_quantity) : null} colors={colors} />
+                  <DetailRow label="Lead time" value={quotationDetails.product_specification.lead_time_days ? `${quotationDetails.product_specification.lead_time_days} days` : null} colors={colors} />
+                </View>
+              )}
+
+              <TouchableOpacity style={styles.closeDetailsBtn} onPress={() => setQuotationDetails(null)}>
+                <Text style={styles.viewBtnText}>Close</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -811,6 +895,22 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
   rowLabel: { fontSize: 13, fontWeight: '500' },
   rowValue: { fontSize: 13, fontWeight: '700' },
+  approvedProductValue: { flex: 1, marginLeft: 12, textAlign: 'right' },
+  detailsBtn: { borderWidth: 1.5, borderRadius: 10, paddingVertical: 10, alignItems: 'center', marginBottom: 8 },
+  detailsBtnText: { color: '#2196F3', fontSize: 14, fontWeight: '700' },
+
+  /* CUSTOMER QUOTATION DETAILS */
+  detailsSheet: { maxHeight: '88%', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 22, paddingBottom: 28 },
+  detailsScroll: { paddingBottom: 4 },
+  detailsTotal: { borderWidth: 1, borderRadius: 12, padding: 14, marginVertical: 14 },
+  detailsLabel: { fontSize: 12, fontWeight: '600' },
+  detailsAmount: { color: '#2196F3', fontSize: 26, fontWeight: '800', marginTop: 3 },
+  detailsSection: { gap: 10 },
+  detailsSectionTitle: { fontSize: 16, fontWeight: '800', marginBottom: 2 },
+  detailRow: { borderBottomWidth: 1, paddingBottom: 9 },
+  detailRowLabel: { fontSize: 12, fontWeight: '600', marginBottom: 2 },
+  detailRowValue: { fontSize: 14, lineHeight: 20 },
+  closeDetailsBtn: { backgroundColor: '#2196F3', borderRadius: 10, alignItems: 'center', paddingVertical: 12, marginTop: 20 },
 
   /* VIEW BUTTON */
   viewBtn: {

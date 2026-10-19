@@ -126,6 +126,7 @@ class InquiryController extends Controller
                     'quotation_id'         => $inquiry->quotation?->quotation_id,
                     'quotation_amount'     => $inquiry->quotation?->total_amount,
                     'quotation_status'     => $inquiry->quotation?->status,
+                    'product_specification'=> $inquiry->quotation?->product_specification,
                     'payment_submitted_at' => $inquiry->quotation?->payment_submitted_at,
                     'cancelled_at'         => $inquiry->cancelled_at,
                 ];

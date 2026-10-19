@@ -6,17 +6,28 @@ use Illuminate\Http\Request;
 use App\Models\Quotation;
 use App\Models\Inquiry;
 use App\Services\NotificationService;
+use App\Services\QuotationSpecificationService;
 
 class QuotationController extends Controller
 {
     // 1. Admin generates the formal quote (Web Portal)
     public function store(Request $request)
     {
+        $validated = $request->validate([
+            'inquiry_id' => 'required|exists:inquiries,inquiry_id',
+            'total_amount' => 'required|numeric|min:0',
+            'valid_until' => 'nullable|date',
+            'item_details' => 'nullable|string',
+        ]);
+        $inquiry = Inquiry::with('client.user')->findOrFail($validated['inquiry_id']);
+
         // Create the quotation
         $quotation = Quotation::create([
-            'inquiry_id' => $request->inquiry_id,
-            'total_amount' => $request->total_amount,
-            'valid_until' => $request->valid_until,
+            'inquiry_id' => $validated['inquiry_id'],
+            'total_amount' => $validated['total_amount'],
+            'valid_until' => $validated['valid_until'] ?? null,
+            'item_details' => $validated['item_details'] ?? null,
+            'product_specification' => QuotationSpecificationService::forInquiry($inquiry),
             // FIXED: 'Pending Approval' isn't in the quotations.status enum
             // (draft, sent, accepted, rejected). 'sent' matches the actual
             // meaning here: the quote has just gone out to the client.
@@ -27,7 +38,6 @@ class QuotationController extends Controller
         // FIXED: 'Quoted' isn't in the inquiries.status enum (pending,
         // reviewed, responded, closed). 'responded' is the closest valid
         // match - the sales agent has now responded with a price.
-        $inquiry = Inquiry::with('client.user')->find($request->inquiry_id);
         if ($inquiry) {
             $inquiry->update(['status' => 'responded']);
 
