@@ -42,6 +42,7 @@ class MoqRule extends Model
     {
         return $query->where('effective_date', '<=', now()->toDateString())
             ->orderByDesc('effective_date')
+            ->orderByDesc('moq_rule_id')
             ->limit(1);
     }
 }

@@ -40,14 +40,17 @@ class ProductVariant extends Model
     public function moqRules()
     {
         return $this->hasMany(MoqRule::class, 'variant_id', 'variant_id')
-            ->orderByDesc('effective_date');
+            ->orderByDesc('effective_date')
+            ->orderByDesc('moq_rule_id');
     }
 
     // The single active/current MOQ rule (latest effective date)
     public function currentMoq()
     {
         return $this->hasOne(MoqRule::class, 'variant_id', 'variant_id')
+            ->where('effective_date', '<=', now()->toDateString())
             ->orderByDesc('effective_date')
+            ->orderByDesc('moq_rule_id')
             ->limit(1);
     }
 

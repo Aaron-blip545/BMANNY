@@ -149,7 +149,6 @@ class ProductManagementController extends Controller
 
         $data = $request->validate([
             'name'                    => 'required|string|max:150|unique:product_types,name',
-            'product_code'            => 'nullable|string|max:50|unique:product_types,product_code',
             'category_code'           => 'required|string|max:50',
             'suggested_srp'           => 'required|numeric|min:0',
             'description'             => 'nullable|string|max:500',
@@ -186,12 +185,10 @@ class ProductManagementController extends Controller
 
         $productType = ProductType::create($data);
 
-        // Generate product_code if not supplied (e.g. FP-0001)
-        if (empty($productType->product_code)) {
-            $productType->update([
-                'product_code' => sprintf('FP-%04d', $productType->product_type_id),
-            ]);
-        }
+        // The catalog Item Code is system-generated from the auto-increment ID.
+        $productType->update([
+            'product_code' => sprintf('FP-%04d', $productType->product_type_id),
+        ]);
 
         if (!empty($packagingIds)) {
             $productType->packagingOptions()->sync($packagingIds);
@@ -238,7 +235,6 @@ class ProductManagementController extends Controller
 
         $data = $request->validate([
             'name'                    => 'required|string|max:150|unique:product_types,name,' . $id . ',product_type_id',
-            'product_code'            => 'nullable|string|max:50|unique:product_types,product_code,' . $id . ',product_type_id',
             'category_code'           => 'required|string|max:50',
             'suggested_srp'           => 'required|numeric|min:0',
             'description'             => 'nullable|string|max:500',
@@ -265,9 +261,9 @@ class ProductManagementController extends Controller
             $data['image_url'] = '/storage/' . $path;
         }
 
-        if (empty($data['product_code'])) {
-            $data['product_code'] = sprintf('FP-%04d', $product->product_type_id);
-        }
+        // Preserve an existing Item Code. Backfill the standard generated code only
+        // for older records that do not have one yet.
+        $data['product_code'] = $product->product_code ?: sprintf('FP-%04d', $product->product_type_id);
 
         if ($request->has('packaging_ids')) {
             $product->packagingOptions()->sync($data['packaging_ids'] ?? []);

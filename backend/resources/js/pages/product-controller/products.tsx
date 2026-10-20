@@ -176,7 +176,6 @@ export default function ProductsPage({
     // Product Form fields (including Packaging, Customization, and MOQ)
     const [formData, setFormData] = useState({
         name: '',
-        product_code: '',
         category_code: 'Health & Wellness',
         suggested_srp: '',
         description: '',
@@ -223,7 +222,6 @@ export default function ProductsPage({
         setEditingProduct(null);
         setFormData({
             name: '',
-            product_code: '',
             category_code: categories.includes('Health & Wellness') ? 'Health & Wellness' : (categories[0] || ''),
             suggested_srp: '',
             description: '',
@@ -251,7 +249,6 @@ export default function ProductsPage({
         setEditingProduct(product);
         setFormData({
             name: product.name,
-            product_code: product.product_code || `FP-${String(product.product_type_id).padStart(4, '0')}`,
             category_code: product.category_code || 'Health & Wellness',
             suggested_srp: product.suggested_srp.toString(),
             description: product.description || '',
@@ -290,7 +287,6 @@ export default function ProductsPage({
 
         const data = new FormData();
         data.append('name', formData.name);
-        if (formData.product_code) data.append('product_code', formData.product_code);
         data.append('category_code', formData.category_code);
         data.append('suggested_srp', formData.suggested_srp);
         data.append('description', formData.description);
@@ -1079,16 +1075,13 @@ export default function ProductsPage({
                                     </div>
 
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="prod-code" className="text-xs font-semibold text-foreground">
-                                            Item Code (FP-xxxx)
+                                        <Label className="text-xs font-semibold text-foreground">
+                                            Item Code
                                         </Label>
-                                        <Input
-                                            id="prod-code"
-                                            value={formData.product_code}
-                                            onChange={(e) => setFormData({ ...formData, product_code: e.target.value })}
-                                            placeholder="e.g. FP-0001 (auto-generated if empty)"
-                                            className="rounded-lg font-mono text-xs bg-background border-input text-foreground"
-                                        />
+                                        <div className="rounded-lg border border-input bg-muted/50 px-3 py-2 font-mono text-xs text-muted-foreground">
+                                            {editingProduct?.product_code ?? 'Generated automatically when the product is saved'}
+                                        </div>
+                                        <p className="text-[11px] text-muted-foreground">System-generated and cannot be edited.</p>
                                     </div>
 
                                     <div className="space-y-1.5">
