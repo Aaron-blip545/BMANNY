@@ -19,9 +19,11 @@ class InquiryController extends Controller
             'client_id' => 'required|exists:business_clients,client_id',
             'customizations' => 'required|array',
             'customizations.*.packaging_type' => 'required|string', // Sachet, Pouch, Bottle, Box
+            'customizations.*.selected_package' => 'nullable|string|max:40',
             'customizations.*.packaging_finish' => 'nullable|string', // Matte, Glossy, Foil
             'customizations.*.serving_size' => 'nullable|string',
             'customizations.*.formulation_notes' => 'nullable|string',
+            'customizations.*.requested_ingredient_note' => 'nullable|string|max:2000',
             'customizations.*.client_notes' => 'nullable|string',
         ]);
 
@@ -42,10 +44,12 @@ class InquiryController extends Controller
                 InquiryCustomization::create([
                     'inquiry_id' => $inquiry->inquiry_id,
                     'customization_type' => $cust['customization_type'] ?? 'Custom Rebrand & Packaging',
+                    'selected_package' => $cust['selected_package'] ?? null,
                     'packaging_type' => $cust['packaging_type'],
                     'packaging_finish' => $cust['packaging_finish'] ?? null,
                     'serving_size' => $cust['serving_size'] ?? null,
                     'formulation_notes' => $cust['formulation_notes'] ?? null,
+                    'requested_ingredient_note' => $cust['requested_ingredient_note'] ?? null,
                     'client_notes' => $cust['client_notes'] ?? null,
                 ]);
             }
@@ -96,7 +100,12 @@ class InquiryController extends Controller
         // Compute a per-client sequential number using a window function so
         // the customer always sees Inquiry #1, #2, #3 — not the global IDs
         // (which include every other customer's inquiries in the sequence).
-        $inquiries = Inquiry::with(['customizations', 'quotation.order'])
+        $inquiries = Inquiry::with([
+            'customizations',
+            'quotation.order',
+            'productRequestReview.suggestedVariant.productType',
+            'productRequestReview.suggestedPackaging',
+        ])
             ->where('client_id', $client->client_id)
             ->orderBy('created_at')
             ->get()
@@ -117,17 +126,40 @@ class InquiryController extends Controller
                     'status'               => $inquiry->status,
                     'created_at'           => $inquiry->created_at,
                     'customizations'       => $inquiry->customizations->map(fn ($c) => [
+                        'customization_id' => $c->customization_id,
+                        'selected_package' => $c->selected_package,
                         'packaging_type' => $c->packaging_type,
                         'serving_size'   => $c->serving_size,
+                        'requested_ingredient_note' => $c->requested_ingredient_note,
+                        'design_file_path' => $c->design_file_path ? asset('storage/' . $c->design_file_path) : null,
                         'client_notes'   => $c->client_notes,
                     ])->values(),
                     'has_quotation'        => $inquiry->quotation !== null,
                     'has_order'            => $inquiry->quotation?->order !== null,
                     'quotation_id'         => $inquiry->quotation?->quotation_id,
                     'quotation_amount'     => $inquiry->quotation?->total_amount,
+                    'quotation_payment_due_amount' => $inquiry->quotation?->total_amount
+                        ? ((float) $inquiry->quotation->total_amount / 2)
+                        : null,
                     'quotation_status'     => $inquiry->quotation?->status,
+                    'quotation_item_details' => $inquiry->quotation?->item_details,
+                    'quotation_valid_until' => $inquiry->quotation?->valid_until,
+                    'quotation_payment_method' => $inquiry->quotation?->payment_method,
+                    'quotation_created_at' => $inquiry->quotation?->created_at,
                     'product_specification'=> $inquiry->quotation?->product_specification,
                     'payment_submitted_at' => $inquiry->quotation?->payment_submitted_at,
+                    'manufacturing_review' => $inquiry->productRequestReview ? [
+                        'status' => $inquiry->productRequestReview->status,
+                        'response_notes' => $inquiry->productRequestReview->response_notes,
+                        'reviewed_at' => $inquiry->productRequestReview->reviewed_at,
+                        'suggested_variant' => $inquiry->productRequestReview->suggestedVariant ? [
+                            'name' => $inquiry->productRequestReview->suggestedVariant->name,
+                            'product_name' => $inquiry->productRequestReview->suggestedVariant->productType?->name,
+                        ] : null,
+                        'suggested_packaging' => $inquiry->productRequestReview->suggestedPackaging ? [
+                            'name' => $inquiry->productRequestReview->suggestedPackaging->name,
+                        ] : null,
+                    ] : null,
                     'cancelled_at'         => $inquiry->cancelled_at,
                 ];
             })

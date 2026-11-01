@@ -26,7 +26,6 @@ class OrderManagerController extends Controller
 
         return Inertia::render('order-manager/dashboard', [
             'stats' => [
-                'pending'     => $statusCounts['pending']     ?? 0,
                 'approved'    => $statusCounts['approved']    ?? 0,
                 'inProduction'=> ($statusCounts['in_production'] ?? 0) + ($statusCounts['packed'] ?? 0),
                 'forDelivery' => ($statusCounts['for_delivery'] ?? 0) + ($statusCounts['delivered'] ?? 0),
@@ -66,12 +65,16 @@ class OrderManagerController extends Controller
     {
         $validated = $request->validate([
             // Matches Figure 6.3 exactly
-            'status' => 'required|in:pending,approved,in_production,packed,for_delivery,delivered,completed,cancelled',
+            'status' => 'required|in:approved,in_production,packed,ready_for_pickup,completed,cancelled',
         ]);
 
         $order = Order::with(['client.user', 'items.product', 'quotation.inquiry.customizations'])->findOrFail($id);
         $previousStatus = $order->status;
         $targetStatus = $validated['status'];
+
+        if ($targetStatus === 'completed' && ! $order->balance_payment_verified_at) {
+            return redirect()->route('orders.index')->withErrors(['error' => 'Verify the balance payment before marking this order complete.']);
+        }
 
         try {
             DB::transaction(function () use ($order, $previousStatus, $targetStatus) {

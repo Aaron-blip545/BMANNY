@@ -53,7 +53,7 @@ function StatCard({ label, value, description }: StatCardProps) {
     const metric = label.includes('Available')
         ? { icon: CircleCheck, accent: 'green' as const }
         : label.includes('Unavailable')
-            ? { icon: PackageCheck, accent: 'navy' as const }
+            ? { icon: PackageCheck, accent: 'red' as const }
             : label.includes('MOQ')
                 ? { icon: AlertCircle, accent: 'gold' as const }
                 : label.includes('Updated')

@@ -24,6 +24,10 @@ Route::get('/customization-materials', [ProductController::class, 'customization
 // Protected Routes (Must be authenticated via Sanctum)
 Route::middleware(['auth:sanctum', 'active.api'])->group(function () {
 
+    Route::get('/payment-accounts', fn () => response()->json([
+        'accounts' => config('payment.accounts'),
+    ]));
+
     // The mobile app authenticates private Reverb channels with its Sanctum
     // bearer token. This exposes no secret; the channel policy still limits
     // each account to its own user.{id} channel.
@@ -63,6 +67,7 @@ Route::middleware(['auth:sanctum', 'active.api'])->group(function () {
         Route::post('/quotations/{quotation_id}/pay', [QuotationController::class, 'submitPayment'])->middleware('throttle:write');
 
         Route::post('/orders/{order_id}/upload-receipt', [FileUploadController::class, 'uploadReceipt'])->middleware('throttle:upload');
+        Route::post('/orders/{order_id}/balance-payment', [OrderController::class, 'submitBalancePayment'])->middleware('throttle:write');
         Route::get('/orders/my-orders', [OrderController::class, 'myOrders']);
 
         // Quick-reorder
@@ -86,6 +91,7 @@ Route::middleware(['auth:sanctum', 'active.api'])->group(function () {
     });
 
     // ── Shared Routes (All Authenticated Users) ──────────────────────────────
+    Route::get('/sales-agents', [ChatController::class, 'salesAgents'])->middleware('role:customer');
     Route::get('/conversations', [ChatController::class, 'conversations']);
     Route::post('/messages', [ChatController::class, 'sendMessage'])->middleware('throttle:chat');
     Route::get('/messages/{other_user_id}', [ChatController::class, 'getConversation']);

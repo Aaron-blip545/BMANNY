@@ -18,7 +18,8 @@ class ChatController extends Controller
      */
     public function conversations(Request $request)
     {
-        $userId = $request->user()->user_id;
+        $viewer = $request->user();
+        $userId = $viewer->user_id;
 
         $messages = Message::where('sender_id', $userId)
             ->orWhere('receiver_id', $userId)
@@ -35,7 +36,7 @@ class ChatController extends Controller
                     : $message->sender_id;
                 return $otherId;
             })
-            ->map(function ($group) use ($userId) {
+            ->map(function ($group) use ($userId, $viewer) {
                 $latest = $group->first(); // newest-first, so first = latest
 
                 // Resolve the other user's name from the relationship
@@ -44,6 +45,11 @@ class ChatController extends Controller
                     : $latest->sender;
 
                 if (! $other) {
+                    return null;
+                }
+
+                // A customer's mobile inbox may contain Sales Agent chats only.
+                if ($viewer->role === 'customer' && $other->role !== 'sales_agent') {
                     return null;
                 }
 
@@ -75,12 +81,28 @@ class ChatController extends Controller
         return response()->json($conversations);
     }
 
+    /** List active Sales Agents for the mobile client's New chat screen. */
+    public function salesAgents(Request $request)
+    {
+        abort_unless($request->user()->role === 'customer', 403);
+
+        return response()->json(
+            User::query()
+                ->where('role', 'sales_agent')
+                ->where('is_active', true)
+                ->orderBy('full_name')
+                ->get(['user_id', 'full_name'])
+        );
+    }
+
     /**
      * Return all messages between the authenticated user and one other person.
      */
     public function getConversation(Request $request, $other_user_id)
     {
-        $userId = $request->user()->user_id;
+        $viewer = $request->user();
+        $userId = $viewer->user_id;
+        $this->ensureAllowedConversationPartner($viewer, (int) $other_user_id);
         $closure = $this->closureForParticipants($userId, (int) $other_user_id);
 
         $messages = Message::where(function ($q) use ($userId, $other_user_id) {
@@ -121,6 +143,7 @@ class ChatController extends Controller
         }
 
         $sender = $request->user();
+        $this->ensureAllowedConversationPartner($sender, (int) $validated['receiver_id']);
 
         if ($this->closureForParticipants($sender->user_id, (int) $validated['receiver_id'])) {
             return response()->json([
@@ -178,12 +201,38 @@ class ChatController extends Controller
             : null;
     }
 
+    /** Enforce the client-to-Sales-Agent-only chat rule on the server. */
+    private function ensureAllowedConversationPartner(User $viewer, int $otherUserId): User
+    {
+        $other = User::findOrFail($otherUserId);
+
+        if ($viewer->role === 'customer') {
+            abort_unless(
+                $other->role === 'sales_agent' && $other->is_active,
+                403,
+                'Customers can communicate only with active Sales Agents.'
+            );
+        }
+
+        if ($other->role === 'customer') {
+            abort_unless(
+                $viewer->role === 'sales_agent' && $viewer->is_active,
+                403,
+                'Only active Sales Agents can communicate with customers.'
+            );
+        }
+
+        return $other;
+    }
+
     /**
      * Mark all messages from one specific person as read - called when the
      * customer/agent actually opens that conversation.
      */
     public function markAsRead(Request $request, $other_user_id)
     {
+        $this->ensureAllowedConversationPartner($request->user(), (int) $other_user_id);
+
         Message::where('sender_id', $other_user_id)
             ->where('receiver_id', $request->user()->user_id)
             ->update(['is_read' => true]);

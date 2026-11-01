@@ -2,12 +2,12 @@ import { RoleDashboard } from '@/components/role-dashboard';
 import { PackageCheck, PackageMinus } from 'lucide-react';
 
 interface Props {
-    stats?: { pending: number; approved: number; inProduction: number; forDelivery: number };
+    stats?: { approved: number; inProduction: number; forDelivery: number };
     recentOrders?: Array<{ order_id: number; status: string; created_at: string; client: { business_name: string } | null }>;
 }
 
 export default function OrderManagerDashboard({
-    stats = { pending: 0, approved: 0, inProduction: 0, forDelivery: 0 },
+    stats = { approved: 0, inProduction: 0, forDelivery: 0 },
     recentOrders = [],
 }: Props) {
     return (
@@ -15,7 +15,6 @@ export default function OrderManagerDashboard({
             title="Order Manager"
             description="Overview of order fulfillment and delivery work."
             summaryItems={[
-                { label: 'Pending',       value: stats.pending,      description: 'Awaiting production start' },
                 { label: 'Approved',      value: stats.approved,     description: 'Ready for production' },
                 { label: 'In Production', value: stats.inProduction, description: 'Being made / packed' },
                 { label: 'For Delivery',  value: stats.forDelivery,  description: 'Out for / delivered' },

@@ -67,6 +67,11 @@ class ProductType extends Model
         return $this->hasMany(ProductRecipe::class, 'product_type_id', 'product_type_id');
     }
 
+    public function packages()
+    {
+        return $this->hasMany(ProductPackage::class, 'product_type_id', 'product_type_id')->where('is_active', true);
+    }
+
     /**
      * Raw materials used in this product's formulation.
      */

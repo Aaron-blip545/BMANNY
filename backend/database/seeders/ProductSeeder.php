@@ -202,57 +202,14 @@ class ProductSeeder extends Seeder
             );
         }
 
-        // 3. Catalog Products (Product Management / Mobile App Customization Catalog)
-        $catalogProducts = [
-            [
-                'name'               => 'Daily Collagen Blend',
-                'category_code'      => 'Supplement',
-                'suggested_srp'      => 210.00,
-                'description'        => 'Powdered supplement, unflavored base',
-                'shelf_life'         => '24 Months',
-                'storage_conditions' => 'Cool, dry place away from sunlight',
-                'lead_time_days'     => 10,
-                'formulation_notes'  => 'Hydrolyzed bovine collagen peptides type I & III.',
-                'image_url'          => null,
-                'is_active'          => true,
-            ],
-            [
-                'name'               => 'Matte Lip Balm',
-                'category_code'      => 'Cosmetic',
-                'suggested_srp'      => 65.00,
-                'description'        => 'Tinted base, tube packaging',
-                'shelf_life'         => '18 Months',
-                'storage_conditions' => 'Room temperature (below 30°C)',
-                'lead_time_days'     => 7,
-                'formulation_notes'  => 'Beeswax and shea butter hydrating base.',
-                'image_url'          => null,
-                'is_active'          => false,
-            ],
-            [
-                'name'               => 'Sparkling Botanical Water',
-                'category_code'      => 'Beverage',
-                'suggested_srp'      => 55.00,
-                'description'        => '250ml carbonated base',
-                'shelf_life'         => '12 Months',
-                'storage_conditions' => 'Keep cool',
-                'lead_time_days'     => 14,
-                'formulation_notes'  => 'Infused sparkling botanical base, zero sugar.',
-                'image_url'          => null,
-                'is_active'          => true,
-            ],
-        ];
+        // Finished-product catalog entries are maintained by BmannyCatalogSeeder.
 
-        foreach ($catalogProducts as $cp) {
-            $type = \App\Models\ProductType::updateOrCreate(
-                ['name' => $cp['name']],
-                $cp
-            );
-
-            \App\Models\ProductVariant::firstOrCreate(
-                ['product_type_id' => $type->product_type_id, 'name' => 'Standard'],
-                ['is_available' => true, 'is_published' => true]
-            );
-        }
+        // Remove generic demo records that do not have official BMANNY images.
+        \App\Models\ProductType::whereIn('name', [
+            'Daily Collagen Blend',
+            'Matte Lip Balm',
+            'Sparkling Botanical Water',
+        ])->delete();
     }
 }
 

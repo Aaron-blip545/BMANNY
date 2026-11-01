@@ -304,7 +304,7 @@ class AdminDashboardController extends Controller
         if (! is_numeric($row['amount']) || (float) $row['amount'] < 0) {
             throw ValidationException::withMessages(['file' => "Order for quotation #{$row['quotation_id']} has an invalid total amount."]);
         }
-        if (! in_array($status, ['pending', 'processing', 'completed', 'cancelled'], true)) {
+        if (! in_array($status, ['approved', 'in_production', 'packed', 'for_delivery', 'delivered', 'completed', 'cancelled'], true)) {
             throw ValidationException::withMessages(['file' => "Order status '{$row['status']}' is invalid."]);
         }
         if (Order::where('quotation_id', $quotation->quotation_id)->exists()) {

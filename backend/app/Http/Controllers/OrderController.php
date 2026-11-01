@@ -11,6 +11,36 @@ use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
+    public function submitBalancePayment(Request $request, $order_id)
+    {
+        $client = $request->user()->businessClient;
+        $order = Order::findOrFail($order_id);
+
+        if (! $client || (int) $order->client_id !== (int) $client->client_id) {
+            return response()->json(['message' => 'This order does not belong to you.'], 403);
+        }
+        if ($order->status !== 'ready_for_pickup') {
+            return response()->json(['message' => 'The balance can only be paid once the order is ready for pickup.'], 422);
+        }
+        if ($order->balance_payment_verified_at) {
+            return response()->json(['message' => 'The balance payment has already been verified.'], 422);
+        }
+
+        $validated = $request->validate([
+            'payment_method' => 'required|in:bank_transfer',
+            'proof' => 'required|image|max:5120',
+        ]);
+
+        $order->update([
+            'balance_payment_method' => $validated['payment_method'],
+            'balance_payment_proof_path' => $request->file('proof')->store('balance-payment-proofs', 'public'),
+            'balance_payment_submitted_at' => now(),
+        ]);
+
+        \App\Services\NotificationService::sendToRoles(['sales_agent', 'admin'], 'payment', 'Balance Payment Submitted', "Balance proof was submitted for Order #{$order->order_id}.", ['order_id' => $order->order_id]);
+
+        return response()->json(['message' => 'Balance payment proof submitted for Sales verification.', 'order' => $order->fresh()]);
+    }
     public function store(Request $request)
     {
         // 1. Validate incoming approval payload
@@ -39,9 +69,9 @@ class OrderController extends Controller
                 'client_id' => $request->client_id,
                 'quotation_id' => $quotation->quotation_id,
                 'total_amount' => $quotation->total_amount,
-                // FIXED: 'Processing' isn't in the orders.status enum
-                // (pending, processing, completed, cancelled) - lowercase.
-                'status' => 'processing',
+                // Orders begin only after payment approval, so the first
+                // fulfillment stage is Approved.
+                'status' => 'approved',
             ]);
 
             // 4. Process items and update warehouse stock
@@ -133,6 +163,17 @@ class OrderController extends Controller
                 'brand_name'               => $brandName,
                 'status'                   => $order->status,
                 'total_amount'             => $order->total_amount,
+                'initial_payment_amount'   => $order->initial_payment_amount,
+                'balance_payment_amount'   => $order->balance_payment_amount,
+                'balance_payment_submitted_at' => $order->balance_payment_submitted_at,
+                'balance_payment_verified_at' => $order->balance_payment_verified_at,
+                'timeline' => array_values(array_filter([
+                    $order->initial_payment_verified_at ? ['label' => 'Initial payment verified', 'at' => $order->initial_payment_verified_at] : null,
+                    $order->status === 'in_production' || $order->status === 'ready_for_pickup' || $order->status === 'for_delivery' || $order->status === 'delivered' || $order->status === 'completed' ? ['label' => 'In production', 'at' => $order->updated_at] : null,
+                    in_array($order->status, ['ready_for_pickup', 'for_delivery', 'delivered', 'completed'], true) ? ['label' => 'Ready for pickup', 'at' => $order->updated_at] : null,
+                    $order->balance_payment_verified_at ? ['label' => 'Balance payment verified', 'at' => $order->balance_payment_verified_at] : null,
+                    in_array($order->status, ['for_delivery', 'delivered', 'completed'], true) ? ['label' => 'Released / dispatched', 'at' => $order->updated_at] : null,
+                ])),
                 'internal_tracking_number' => $order->internal_tracking_number,
                 'created_at'               => $order->created_at,
                 'item_details'             => $order->quotation?->item_details,

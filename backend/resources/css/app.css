@@ -337,8 +337,8 @@
     .bmanny-status-approved,
     .bmanny-status-completed,
     .bmanny-status-delivered { @apply bg-emerald-50 text-emerald-800 dark:bg-emerald-950/35 dark:text-emerald-300; }
-    .bmanny-status-production { @apply bg-indigo-50 text-indigo-800 dark:bg-indigo-950/35 dark:text-indigo-300; }
-    .bmanny-status-delivery { @apply bg-sky-50 text-sky-800 dark:bg-sky-950/35 dark:text-sky-300; }
+    .bmanny-status-production,
+    .bmanny-status-delivery { @apply bg-blue-50 text-blue-800 dark:bg-blue-950/35 dark:text-blue-300; }
     .bmanny-status-closed,
     .bmanny-status-declined,
     .bmanny-status-cancelled { @apply bg-rose-50 text-rose-800 dark:bg-rose-950/35 dark:text-rose-300; }

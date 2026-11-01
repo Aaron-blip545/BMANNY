@@ -67,10 +67,6 @@ class ProductRequestReviewController extends Controller
             'response_notes' => 'required|string|max:2000',
         ]);
 
-        if ($data['status'] === 'alternative' && ! $data['suggested_variant_id'] && ! $data['suggested_packaging_id']) {
-            return back()->withErrors(['status' => 'Choose at least one suggested variant or packaging option for an alternative.']);
-        }
-
         $review->update([
             ...$data,
             'reviewed_by' => $request->user('web')->user_id,

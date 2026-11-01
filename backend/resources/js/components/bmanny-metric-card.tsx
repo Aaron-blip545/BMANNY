@@ -7,7 +7,7 @@ interface BmannyMetricCardProps {
     value: string | number;
     description: string;
     icon: LucideIcon;
-    accent?: 'blue' | 'gold' | 'navy' | 'green';
+    accent?: 'blue' | 'gold' | 'navy' | 'green' | 'red';
 }
 
 const accentStyles = {
@@ -15,6 +15,7 @@ const accentStyles = {
     gold: { bar: 'bg-[#d4a72c]', surface: 'bg-[#fffaf0] dark:bg-card', icon: 'text-[#a86f00] dark:text-amber-300' },
     navy: { bar: 'bg-violet-600 dark:bg-violet-500', surface: 'bg-[#f8f6ff] dark:bg-card', icon: 'text-violet-700 dark:text-violet-300' },
     green: { bar: 'bg-emerald-600 dark:bg-emerald-500', surface: 'bg-[#f4fbf7] dark:bg-card', icon: 'text-emerald-700 dark:text-emerald-300' },
+    red: { bar: 'bg-rose-600 dark:bg-rose-500', surface: 'bg-[#fff7f7] dark:bg-card', icon: 'text-rose-700 dark:text-rose-300' },
 };
 
 export function BmannyMetricCard({ label, value, description, icon: Icon, accent = 'blue' }: BmannyMetricCardProps) {

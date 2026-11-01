@@ -4,6 +4,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\Web\AdminDashboardController;
 use App\Http\Controllers\Web\ChatController;
 use App\Http\Controllers\Web\OrderManagerController;
+use App\Http\Controllers\Web\PaymentReceiptController;
 use App\Http\Controllers\Web\CustomizationController;
 use App\Http\Controllers\Web\MoqController;
 use App\Http\Controllers\Web\PackagingController;
@@ -154,6 +155,8 @@ Route::middleware(['backend.auth'])->group(function () {
         Route::post('quotations', [SalesAgentController::class, 'storeQuotation'])->name('quotations.store');
         Route::post('quotations/{id}/accept', [SalesAgentController::class, 'acceptQuotation'])->name('quotations.accept');
         Route::post('quotations/{id}/reject-payment', [SalesAgentController::class, 'rejectPayment'])->name('quotations.reject-payment');
+        Route::post('orders/{id}/verify-balance-payment', [SalesAgentController::class, 'verifyBalancePayment'])->name('orders.verify-balance-payment');
+        Route::get('orders/{id}/payment-receipt/{milestone}', [PaymentReceiptController::class, 'show'])->name('orders.payment-receipt');
         Route::post('inquiries/{inquiry_id}/product-request', [ProductRequestReviewController::class, 'submit'])
             ->name('inquiries.product-request.submit');
 

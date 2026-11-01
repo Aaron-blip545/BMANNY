@@ -71,9 +71,9 @@ class ProductController extends Controller
         $products = ProductType::where('is_active', true)
             ->with([
                 'activeVariants.currentMoq',
-                'recipes.rawMaterial',
                 'packagingOptions',
                 'customizationOptions',
+                'packages',
             ])
             ->orderBy('name')
             ->get()
@@ -84,6 +84,7 @@ class ProductController extends Controller
                 $variant = $product->activeVariants->first();
                 $minQty = $variant?->currentMoq?->min_quantity ?? 100;
 
+                /* Internal formulas are intentionally not exposed by the public API.
                 $recipes = $product->recipes->map(function ($r) {
                     $mat = $r->rawMaterial;
                     $rate = (float) ($r->rate ?? $mat?->price ?? 0);
@@ -100,7 +101,8 @@ class ProductController extends Controller
                         'amount'            => $amount,
                         'notes'             => $r->notes,
                     ];
-                })->values();
+                })->values(); */
+                $recipes = collect();
 
                 $totalCost = (float) $recipes->sum('amount');
 
@@ -117,7 +119,7 @@ class ProductController extends Controller
                     'shelf_life'              => $product->shelf_life ?? '12 Months',
                     'storage_conditions'      => $product->storage_conditions ?? 'Cool, dry place',
                     'lead_time_days'          => $product->lead_time_days ?? 14,
-                    'formulation_notes'       => $product->formulation_notes,
+                    // Formula/BOM notes are internal Product Control information.
                     'packaging_specification' => $product->packaging_specification,
                     'label_specification'     => $product->label_specification,
                     'net_weight'              => $product->net_weight,
@@ -129,6 +131,22 @@ class ProductController extends Controller
                     'recipes'                 => $recipes,
                     'total_recipe_cost'       => $totalCost,
                     'formatted_recipe_cost'   => '₱' . number_format($totalCost, 2),
+                    'packages'                => $product->packages->map(fn ($package) => [
+                        'slug' => $package->slug,
+                        'name' => $package->name,
+                        'description' => $package->description,
+                        'minimum_quantity' => $package->minimum_quantity,
+                        'packaging_details' => $package->packaging_details,
+                        'label_details' => $package->label_details,
+                        'net_weight' => $package->net_weight,
+                        'lead_time_text' => $package->lead_time_text,
+                        'initial_price' => (float) $package->initial_price,
+                        'payment_terms' => $package->payment_terms,
+                        'public_ingredients' => $package->public_ingredients,
+                        'cost_breakdown' => $package->cost_breakdown,
+                        'package_notes' => $package->package_notes,
+                        'allows_ingredient_request' => $package->allows_ingredient_request,
+                    ])->values(),
                     'packaging_options'       => $product->packagingOptions->map(fn($p) => [
                         'packaging_id' => $p->packaging_id,
                         'name'         => $p->name,

@@ -39,6 +39,10 @@ interface Order {
   brand_name?: string | null;
   status: string;
   total_amount: string;
+  balance_payment_amount?: string | null;
+  balance_payment_submitted_at?: string | null;
+  balance_payment_verified_at?: string | null;
+  timeline?: { label: string; at: string }[];
   internal_tracking_number: string | null;
   created_at: string;
   item_details: string | null;
@@ -56,7 +60,12 @@ interface Inquiry {
   has_order: boolean;
   quotation_id: number | null;
   quotation_amount: string | null;
+  quotation_payment_due_amount?: string | number | null;
   quotation_status: string | null;
+  quotation_item_details?: string | null;
+  quotation_valid_until?: string | null;
+  quotation_payment_method?: string | null;
+  quotation_created_at?: string | null;
   product_specification?: {
     product_name?: string | null;
     variant_name?: string | null;
@@ -71,7 +80,14 @@ interface Inquiry {
   } | null;
   payment_submitted_at: string | null;
   cancelled_at: string | null;
-  customizations: { packaging_type: string; serving_size: string | null; client_notes: string | null }[];
+  manufacturing_review?: {
+    status: 'pending' | 'available' | 'alternative' | 'unavailable';
+    response_notes: string | null;
+    reviewed_at: string | null;
+    suggested_variant: { name: string | null; product_name: string | null } | null;
+    suggested_packaging: { name: string | null } | null;
+  } | null;
+  customizations: { packaging_type: string; serving_size: string | null; client_notes: string | null; selected_package?: string | null; requested_ingredient_note?: string | null; design_file_path?: string | null }[];
 }
 
 function getBrandTitle(
@@ -127,8 +143,9 @@ export default function OrdersScreen() {
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState('approved');
+  const [activeTab, setActiveTab] = useState('all');
   const [quotationDetails, setQuotationDetails] = useState<Inquiry | null>(null);
+  const [manufacturingReviewDetails, setManufacturingReviewDetails] = useState<Inquiry | null>(null);
 
   // Cancel-with-reason modal state
   const [cancelModal, setCancelModal] = useState<{
@@ -140,13 +157,12 @@ export default function OrdersScreen() {
   }>({ visible: false, inquiryId: null, title: '', reason: '', submitting: false });
 
   const statusTabs = [
+    { id: 'all', label: 'All Orders' },
     { id: 'approved', label: 'Approved' },
     { id: 'in_production', label: 'In Production' },
-    { id: 'for_delivery', label: 'For Delivery' },
-    { id: 'delivered', label: 'Delivered' },
+    { id: 'ready_for_pickup', label: 'Ready for Pickup' },
     { id: 'completed', label: 'Completed' },
     { id: 'cancelled', label: 'Cancelled' },
-    { id: 'pending', label: 'Pending' },
   ];
 
   useEffect(() => {
@@ -154,7 +170,7 @@ export default function OrdersScreen() {
       setView('orders');
     }
 
-    if (tab && ['approved', 'in_production', 'for_delivery', 'delivered', 'completed', 'cancelled', 'pending'].includes(tab)) {
+    if (tab && ['all', 'approved', 'in_production', 'ready_for_pickup', 'completed', 'cancelled'].includes(tab)) {
       setActiveTab(tab);
     }
   }, [source, tab]);
@@ -190,7 +206,7 @@ export default function OrdersScreen() {
     // Order, quotation, and inquiry notifications mean the server has
     // changed data that this screen presents, so refresh it immediately.
     return subscribeToRealtime((event) => {
-      if (event.type === 'notification.created' && ['order', 'quotation', 'inquiry'].includes(event.payload.type)) {
+      if (event.type === 'notification.created' && ['order', 'quotation', 'inquiry', 'product_request'].includes(event.payload.type)) {
         loadAll();
       }
     });
@@ -201,8 +217,7 @@ export default function OrdersScreen() {
       case 'pending': return styles.pending;
       case 'approved': return styles.approved;
       case 'in_production': return styles.in_production;
-      case 'for_delivery': return styles.for_delivery;
-      case 'delivered': return styles.delivered;
+      case 'ready_for_pickup': return styles.ready_for_pickup;
       case 'completed': return styles.completed;
       case 'cancelled': return styles.cancelled;
       default: return styles.pending;
@@ -212,7 +227,7 @@ export default function OrdersScreen() {
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'in_production': return 'In Production';
-      case 'for_delivery': return 'For Delivery';
+      case 'ready_for_pickup': return 'Ready for Pickup';
       default: return status.charAt(0).toUpperCase() + status.slice(1);
     }
   };
@@ -227,6 +242,15 @@ export default function OrdersScreen() {
   const inquiryStatusLabel = (inq: Inquiry) => {
     if (inq.cancelled_at) return 'Cancelled';
     return inq.status.charAt(0).toUpperCase() + inq.status.slice(1);
+  };
+
+  const manufacturingReviewMeta = (inq: Inquiry) => {
+    switch (inq.manufacturing_review?.status) {
+      case 'available': return { title: 'Can be manufactured', color: '#4CAF50' };
+      case 'alternative': return { title: 'Alternative suggested', color: '#F59E0B' };
+      case 'unavailable': return { title: 'Cannot be manufactured', color: '#E53935' };
+      default: return null;
+    }
   };
 
   /** Whether an inquiry is currently eligible for cancellation */
@@ -261,7 +285,9 @@ export default function OrdersScreen() {
     }
   };
 
-  const filteredOrders = orders.filter(o => o.status === activeTab);
+  const filteredOrders = activeTab === 'all'
+    ? orders
+    : orders.filter(o => o.status === activeTab);
   // Active inquiries: not yet converted to an order, not cancelled
   const activeInquiries = inquiries.filter(inq => !inq.has_order && !inq.cancelled_at);
   // All inquiries for history tab (already sorted newest-first by backend)
@@ -332,10 +358,11 @@ export default function OrdersScreen() {
           ) : (
             activeInquiries.map((inq) => {
               const inqTitle = getBrandTitle(inq, `Inquiry #${inq.client_inquiry_number ?? inq.inquiry_id}`);
+              const reviewMeta = manufacturingReviewMeta(inq);
               return (
                 <View key={inq.inquiry_id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
                   <View style={styles.cardHeader}>
-                    <Text style={[styles.cardTitle, { color: colors.text }]}>
+                    <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={2}>
                       {inqTitle}
                       {inq.customizations?.[0]?.packaging_type ? ` — ${inq.customizations[0].packaging_type}` : ''}
                     </Text>
@@ -348,15 +375,33 @@ export default function OrdersScreen() {
                     {inq.customizations?.[0]?.serving_size ? (
                       <View style={styles.row}>
                         <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Specs:</Text>
-                        <Text style={[styles.rowValue, { color: colors.text }]}>{inq.customizations[0].serving_size}</Text>
+                        <Text style={[styles.rowValue, { color: colors.text }]} numberOfLines={2}>{inq.customizations[0].serving_size}</Text>
                       </View>
                     ) : null}
                     {inq.customizations?.[0]?.client_notes ? (
-                      <View style={styles.row}>
-                        <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Notes:</Text>
-                        <Text style={[styles.rowValue, { color: colors.text }]} numberOfLines={2}>{inq.customizations[0].client_notes}</Text>
+                      <View style={styles.notesBlock}>
+                        <Text style={[styles.notesLabel, { color: colors.textSecondary }]}>Your request</Text>
+                        <Text style={[styles.notesValue, { color: colors.text }]} numberOfLines={2}>
+                          {inq.customizations[0].client_notes}
+                        </Text>
                       </View>
                     ) : null}
+                    {reviewMeta && (
+                      <View style={[styles.manufacturingReview, { borderColor: reviewMeta.color }]}>
+                        <View style={styles.manufacturingReviewHeader}>
+                          <Text style={[styles.manufacturingReviewLabel, { color: reviewMeta.color }]}>MANUFACTURING REVIEW</Text>
+                          <View style={[styles.reviewPill, { backgroundColor: reviewMeta.color }]}>
+                            <Text style={styles.reviewPillText}>{reviewMeta.title}</Text>
+                          </View>
+                        </View>
+                        <TouchableOpacity
+                          style={[styles.reviewDetailsBtn, { borderColor: reviewMeta.color }]}
+                          onPress={() => setManufacturingReviewDetails(inq)}
+                        >
+                          <Text style={[styles.reviewDetailsBtnText, { color: reviewMeta.color }]}>View Inquiry Details</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
                     <View style={styles.row}>
                       <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Quotation:</Text>
                       <Text style={[styles.rowValue, { color: inq.has_quotation ? '#4CAF50' : colors.textSecondary }]}>
@@ -374,7 +419,7 @@ export default function OrdersScreen() {
                     )}
                   </View>
 
-                  {inq.product_specification && (
+                  {inq.product_specification && !reviewMeta && (
                     <TouchableOpacity
                       style={[styles.detailsBtn, { borderColor: '#2196F3' }]}
                       onPress={() => setQuotationDetails(inq)}
@@ -383,14 +428,14 @@ export default function OrdersScreen() {
                     </TouchableOpacity>
                   )}
 
-                  {inq.has_quotation && inq.quotation_status === 'sent' && !inq.payment_submitted_at ? (
+                  {inq.has_quotation && inq.quotation_status === 'sent' && !inq.payment_submitted_at && inq.manufacturing_review?.status !== 'unavailable' ? (
                     <TouchableOpacity
                       style={styles.viewBtn}
                       onPress={() => router.push({
                         pathname: '/payment-method',
                         params: {
                           quotationId: String(inq.quotation_id),
-                          amount: String(inq.quotation_amount),
+                          amount: String(inq.quotation_payment_due_amount ?? inq.quotation_amount),
                         },
                       })}
                     >
@@ -563,7 +608,9 @@ export default function OrdersScreen() {
                 <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
                   {orders.length === 0
                     ? 'Orders appear here after your inquiry is processed.'
-                    : `No "${statusTabs.find(t => t.id === activeTab)?.label}" orders.`}
+                    : activeTab === 'all'
+                      ? 'Your orders will appear here once a quotation is accepted.'
+                      : `No "${statusTabs.find(t => t.id === activeTab)?.label}" orders.`}
                 </Text>
               </View>
             ) : (
@@ -598,6 +645,7 @@ export default function OrdersScreen() {
                           <Text style={[styles.rowValue, { color: colors.text }]}>{order.internal_tracking_number}</Text>
                         </View>
                       ) : null}
+                      {order.timeline?.length ? <View style={[styles.timeline, { borderTopColor: colors.border }]}><Text style={[styles.timelineTitle, { color: colors.textSecondary }]}>ORDER TIMELINE</Text>{order.timeline.map((event, index) => <Text key={`${event.label}-${index}`} style={[styles.timelineItem, { color: colors.text }]}>{index === order.timeline!.length - 1 ? '●' : '○'} {event.label}</Text>)}</View> : null}
                     </View>
 
                     <TouchableOpacity
@@ -630,6 +678,17 @@ export default function OrdersScreen() {
                     >
                       <Text style={styles.viewBtnText}>View Details</Text>
                     </TouchableOpacity>
+
+                    {order.status === 'ready_for_pickup' && !order.balance_payment_submitted_at && !order.balance_payment_verified_at && order.balance_payment_amount ? (
+                      <TouchableOpacity
+                        style={styles.balanceBtn}
+                        onPress={() => router.push({ pathname: '/payment', params: { orderId: String(order.order_id), amount: String(order.balance_payment_amount), paymentMethod: 'bank_transfer' } })}
+                      >
+                        <Text style={styles.balanceBtnText}>Pay Balance ₱{Number(order.balance_payment_amount).toLocaleString('en-PH')}</Text>
+                      </TouchableOpacity>
+                    ) : order.status === 'ready_for_pickup' && order.balance_payment_submitted_at && !order.balance_payment_verified_at ? (
+                      <Text style={[styles.balanceNotice, { color: colors.textSecondary }]}>Balance proof submitted â€” awaiting Sales verification.</Text>
+                    ) : null}
 
                     {/* Reorder button is inside the order detail screen */}
 
@@ -763,6 +822,113 @@ export default function OrdersScreen() {
         </View>
       </Modal>
 
+      {/* PRODUCT CONTROLLER MANUFACTURING REVIEW */}
+      <Modal
+        visible={manufacturingReviewDetails !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setManufacturingReviewDetails(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.detailsSheet, { backgroundColor: colors.card }]}>
+            <View style={[styles.modalHandle, { backgroundColor: colors.border }]} />
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.detailsScroll}>
+              {(() => {
+                const review = manufacturingReviewDetails?.manufacturing_review;
+                const meta = manufacturingReviewDetails ? manufacturingReviewMeta(manufacturingReviewDetails) : null;
+                const suggestedOption = [
+                  review?.suggested_variant?.product_name,
+                  review?.suggested_variant?.name,
+                  review?.suggested_packaging?.name,
+                ].filter(Boolean).join(' — ');
+
+                return (
+                  <>
+                    <Text style={[styles.modalTitle, { color: colors.text }]}>Inquiry Details</Text>
+                    <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>Product Controller response and quotation</Text>
+
+                    {manufacturingReviewDetails?.customizations?.[0]?.selected_package && (
+                      <View style={[styles.reviewSuggestionBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                        <Text style={[styles.detailsLabel, { color: colors.textSecondary }]}>SELECTED PACKAGE</Text>
+                        <Text style={[styles.reviewSuggestionText, { color: colors.text }]}>{manufacturingReviewDetails.customizations[0].selected_package}</Text>
+                        {manufacturingReviewDetails.customizations[0].requested_ingredient_note && <Text style={[styles.reviewResponseText, { color: colors.textSecondary }]}>{manufacturingReviewDetails.customizations[0].requested_ingredient_note}</Text>}
+                      </View>
+                    )}
+
+                    {meta && (
+                      <View style={[styles.reviewStatusBanner, { borderColor: meta.color }]}>
+                        <Text style={[styles.reviewStatusTitle, { color: meta.color }]}>{meta.title}</Text>
+                        <Text style={[styles.reviewStatusSubtitle, { color: colors.textSecondary }]}>BMANNY product review</Text>
+                      </View>
+                    )}
+
+                    <View style={styles.detailsSection}>
+                      <Text style={[styles.detailsSectionTitle, { color: colors.text }]}>Response</Text>
+                      <Text style={[styles.reviewResponseText, { color: colors.text }]}>
+                        {review?.response_notes || 'No additional notes were provided.'}
+                      </Text>
+                    </View>
+
+                    {review?.status === 'alternative' && (
+                      <View style={[styles.reviewSuggestionBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                        <Text style={[styles.detailsLabel, { color: colors.textSecondary }]}>SUGGESTED ALTERNATIVE</Text>
+                        <Text style={[styles.reviewSuggestionText, { color: colors.text }]}>
+                          {suggestedOption || 'Please contact Sales for the suggested option.'}
+                        </Text>
+                      </View>
+                    )}
+
+                    {review?.reviewed_at && (
+                      <Text style={[styles.reviewedDate, { color: colors.textSecondary }]}>
+                        Reviewed {new Date(review.reviewed_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
+                      </Text>
+                    )}
+
+                    {manufacturingReviewDetails?.has_quotation && (
+                      <View style={styles.quotationDetailsSection}>
+                        <Text style={[styles.detailsSectionTitle, { color: colors.text }]}>Quotation</Text>
+                        <View style={[styles.detailsTotal, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                          <Text style={[styles.detailsLabel, { color: colors.textSecondary }]}>Quotation total</Text>
+                          <Text style={styles.detailsAmount}>
+                            ₱{manufacturingReviewDetails.quotation_amount ? parseFloat(manufacturingReviewDetails.quotation_amount).toLocaleString() : '0.00'}
+                          </Text>
+                        </View>
+
+                        <View style={styles.detailsSection}>
+                          <DetailRow label="Quotation status" value={manufacturingReviewDetails.quotation_status ? manufacturingReviewDetails.quotation_status.charAt(0).toUpperCase() + manufacturingReviewDetails.quotation_status.slice(1) : null} colors={colors} />
+                          <DetailRow label="Valid until" value={manufacturingReviewDetails.quotation_valid_until ? new Date(manufacturingReviewDetails.quotation_valid_until).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) : null} colors={colors} />
+                          <DetailRow label="Payment method" value={manufacturingReviewDetails.quotation_payment_method ? manufacturingReviewDetails.quotation_payment_method.replace(/_/g, ' ') : null} colors={colors} />
+                          <DetailRow label="Quotation notes" value={manufacturingReviewDetails.quotation_item_details} colors={colors} />
+                        </View>
+
+                        {manufacturingReviewDetails.product_specification && (
+                          <View style={styles.detailsSection}>
+                            <Text style={[styles.detailsSectionTitle, { color: colors.text }]}>Approved Product</Text>
+                            <DetailRow label="Product" value={manufacturingReviewDetails.product_specification.product_name} colors={colors} />
+                            <DetailRow label="Variant" value={manufacturingReviewDetails.product_specification.variant_name} colors={colors} />
+                            <DetailRow label="Net content" value={manufacturingReviewDetails.product_specification.net_weight} colors={colors} />
+                            <DetailRow label="Packaging" value={manufacturingReviewDetails.product_specification.selected_packaging ?? manufacturingReviewDetails.product_specification.packaging_details} colors={colors} />
+                            <DetailRow label="Packaging details" value={manufacturingReviewDetails.product_specification.packaging_details} colors={colors} />
+                            <DetailRow label="Label / printing" value={manufacturingReviewDetails.product_specification.label_details} colors={colors} />
+                            <DetailRow label="Ingredients" value={manufacturingReviewDetails.product_specification.ingredients} colors={colors} />
+                            <DetailRow label="Minimum order" value={manufacturingReviewDetails.product_specification.minimum_order_quantity ? String(manufacturingReviewDetails.product_specification.minimum_order_quantity) : null} colors={colors} />
+                            <DetailRow label="Lead time" value={manufacturingReviewDetails.product_specification.lead_time_days ? `${manufacturingReviewDetails.product_specification.lead_time_days} days` : null} colors={colors} />
+                          </View>
+                        )}
+                      </View>
+                    )}
+                  </>
+                );
+              })()}
+
+              <TouchableOpacity style={styles.closeDetailsBtn} onPress={() => setManufacturingReviewDetails(null)}>
+                <Text style={styles.viewBtnText}>Close</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -873,10 +1039,11 @@ const styles = StyleSheet.create({
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 12,
+    gap: 10,
   },
-  cardTitle: { fontSize: 15, fontWeight: '700', flex: 1, marginRight: 8 },
+  cardTitle: { fontSize: 15, fontWeight: '700', flex: 1, flexShrink: 1, lineHeight: 21 },
   cardBody: { marginBottom: 10 },
   cardDate: { fontSize: 11, marginTop: 6 },
 
@@ -886,16 +1053,35 @@ const styles = StyleSheet.create({
   pending: { backgroundColor: '#78909C' },
   approved: { backgroundColor: '#4CAF50' },
   in_production: { backgroundColor: '#FF9800' },
-  for_delivery: { backgroundColor: '#9C27B0' },
-  delivered: { backgroundColor: '#00BCD4' },
+  ready_for_pickup: { backgroundColor: '#2196F3' },
   completed: { backgroundColor: '#4CAF50' },
   cancelled: { backgroundColor: '#E53935' },
 
   /* ROWS */
-  row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  rowLabel: { fontSize: 13, fontWeight: '500' },
-  rowValue: { fontSize: 13, fontWeight: '700' },
+  row: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8, gap: 12 },
+  rowLabel: { fontSize: 13, fontWeight: '500', flexShrink: 0 },
+  rowValue: { fontSize: 13, fontWeight: '700', flex: 1, flexShrink: 1, textAlign: 'right', lineHeight: 19 },
   approvedProductValue: { flex: 1, marginLeft: 12, textAlign: 'right' },
+  notesBlock: { marginBottom: 12 },
+  notesLabel: { fontSize: 12, fontWeight: '700', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
+  notesValue: { fontSize: 13, fontWeight: '600', lineHeight: 19 },
+  manufacturingReview: { borderWidth: 1, borderRadius: 10, padding: 12, marginBottom: 12 },
+  manufacturingReviewHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 },
+  manufacturingReviewLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 0.8, flex: 1 },
+  reviewPill: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4, flexShrink: 1 },
+  reviewPillText: { color: '#ffffff', fontSize: 10, fontWeight: '800', textAlign: 'center' },
+  manufacturingReviewText: { fontSize: 13, fontWeight: '600', lineHeight: 19 },
+  suggestionText: { fontSize: 12, fontWeight: '600', lineHeight: 18, marginTop: 8 },
+  reviewDetailsBtn: { borderWidth: 1, borderRadius: 8, paddingVertical: 9, alignItems: 'center' },
+  reviewDetailsBtnText: { fontSize: 13, fontWeight: '800' },
+  reviewStatusBanner: { borderWidth: 1, borderRadius: 12, padding: 14, marginVertical: 14 },
+  reviewStatusTitle: { fontSize: 18, fontWeight: '800' },
+  reviewStatusSubtitle: { fontSize: 12, fontWeight: '600', marginTop: 3 },
+  reviewResponseText: { fontSize: 14, fontWeight: '500', lineHeight: 21 },
+  reviewSuggestionBox: { borderWidth: 1, borderRadius: 12, padding: 14, marginTop: 18 },
+  reviewSuggestionText: { fontSize: 15, fontWeight: '700', lineHeight: 21, marginTop: 5 },
+  reviewedDate: { fontSize: 12, marginTop: 16 },
+  quotationDetailsSection: { marginTop: 22, paddingTop: 20, borderTopWidth: 1, borderTopColor: '#2A3854' },
   detailsBtn: { borderWidth: 1.5, borderRadius: 10, paddingVertical: 10, alignItems: 'center', marginBottom: 8 },
   detailsBtnText: { color: '#2196F3', fontSize: 14, fontWeight: '700' },
 
@@ -921,6 +1107,12 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   viewBtnText: { color: '#ffffff', fontSize: 14, fontWeight: '700' },
+  balanceBtn: { backgroundColor: '#2196F3', borderRadius: 10, paddingVertical: 11, alignItems: 'center', marginTop: 9 },
+  balanceBtnText: { color: '#ffffff', fontSize: 14, fontWeight: '800' },
+  balanceNotice: { fontSize: 12.5, fontWeight: '600', textAlign: 'center', marginTop: 11 },
+  timeline: { borderTopWidth: 1, marginTop: 12, paddingTop: 10, gap: 4 },
+  timelineTitle: { fontSize: 10.5, fontWeight: '800', letterSpacing: .7, marginBottom: 2 },
+  timelineItem: { fontSize: 12.5, lineHeight: 18 },
 
   /* CANCEL INQUIRY BUTTON */
   cancelInquiryBtn: {

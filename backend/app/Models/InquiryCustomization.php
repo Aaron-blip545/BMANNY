@@ -14,10 +14,13 @@ class InquiryCustomization extends Model
     protected $fillable = [
         'inquiry_id',
         'customization_type',
+        'selected_package',
         'packaging_type',
         'packaging_finish',
         'serving_size',
         'formulation_notes',
+        'requested_ingredient_note',
+        'design_file_path',
         'client_notes',
     ];
 

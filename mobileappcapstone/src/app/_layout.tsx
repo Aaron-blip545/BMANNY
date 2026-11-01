@@ -2,6 +2,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';
 import { Stack } from 'expo-router';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { ThemeProvider as CustomThemeProvider } from '../contexts/ThemeContext';
@@ -11,10 +12,11 @@ SplashScreen.preventAutoHideAsync();
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <CustomThemeProvider>
-        <AnimatedSplashOverlay />
-        <Stack screenOptions={{ headerShown: false }}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <CustomThemeProvider>
+          <AnimatedSplashOverlay />
+          <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="login" />
           <Stack.Screen name="register" />
@@ -27,13 +29,15 @@ export default function TabLayout() {
           <Stack.Screen name="order-detail" />
           <Stack.Screen name="edit-profile" />
           <Stack.Screen name="chat-detail" />
+          <Stack.Screen name="new-chat" />
           <Stack.Screen name="orders" />
           <Stack.Screen name="messages" />
           <Stack.Screen name="profile" />
           <Stack.Screen name="settings" />
           <Stack.Screen name="explore" />
-        </Stack>
-      </CustomThemeProvider>
-    </ThemeProvider>
+          </Stack>
+        </CustomThemeProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }

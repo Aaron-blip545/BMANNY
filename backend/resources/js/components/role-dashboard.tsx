@@ -30,7 +30,7 @@ export function RoleDashboard({ title, description, summaryItems, activityTitle,
         if (normalized.includes('inquir') || normalized.includes('quotation')) return { icon: CircleHelp, accent: 'gold' as const };
         if (normalized.includes('order')) return { icon: PackageCheck, accent: 'green' as const };
         if (normalized.includes('user') || normalized.includes('client')) return { icon: Users, accent: 'blue' as const };
-        return { icon: Boxes, accent: 'navy' as const };
+        return { icon: Boxes, accent: 'blue' as const };
     };
 
     return (

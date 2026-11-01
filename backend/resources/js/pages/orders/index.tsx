@@ -32,7 +32,7 @@ interface Props {
     orders: Order[];
 }
 
-const ORDER_STATUSES = ['pending', 'approved', 'in_production', 'for_delivery', 'delivered', 'completed', 'cancelled'] as const;
+const ORDER_STATUSES = ['approved', 'in_production', 'ready_for_pickup', 'completed', 'cancelled'] as const;
 type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 // The dropdown is only for progressing an order through its normal
@@ -44,22 +44,18 @@ const STATUS_FILTER_OPTIONS = ['all', ...ORDER_STATUSES] as const;
 type StatusFilter = (typeof STATUS_FILTER_OPTIONS)[number];
 
 const STATUS_STYLES: Record<OrderStatus, string> = {
-    pending: 'bg-amber-50 text-amber-800 dark:bg-amber-950/35 dark:text-amber-300',
-    approved: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/35 dark:text-emerald-300',
-    in_production: 'bg-indigo-50 text-indigo-800 dark:bg-indigo-950/35 dark:text-indigo-300',
-    for_delivery: 'bg-sky-50 text-sky-800 dark:bg-sky-950/35 dark:text-sky-300',
-    delivered: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/35 dark:text-emerald-300',
+    approved: 'bg-blue-50 text-blue-800 dark:bg-blue-950/35 dark:text-blue-300',
+    in_production: 'bg-blue-50 text-blue-800 dark:bg-blue-950/35 dark:text-blue-300',
+    ready_for_pickup: 'bg-amber-50 text-amber-800 dark:bg-amber-950/35 dark:text-amber-300',
     completed: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/35 dark:text-emerald-300',
     cancelled: 'bg-rose-50 text-rose-800 dark:bg-rose-950/35 dark:text-rose-300',
 };
 
 const STATUS_ACCENTS: Record<OrderStatus, string> = {
-    pending: 'bg-amber-500',
-    approved: 'bg-emerald-600',
-    in_production: 'bg-indigo-600',
-    for_delivery: 'bg-sky-600',
-    delivered: 'bg-teal-600',
-    completed: 'bg-green-700',
+    approved: 'bg-[#1547c0]',
+    in_production: 'bg-[#1547c0]',
+    ready_for_pickup: 'bg-amber-500',
+    completed: 'bg-emerald-600',
     cancelled: 'bg-rose-600',
 };
 
@@ -112,7 +108,7 @@ function OrderRow({ order, updatingId, onUpdateStatus, onRequestCancel, onTracki
             <td className="p-4 font-medium">{formatAmount(order.total_amount)}</td>
             <td className="p-4 text-muted-foreground text-xs">{formatDate(order.created_at)}</td>
             <td className="p-4">
-                <span className={`bmanny-status bmanny-status-${order.status === 'in_production' ? 'production' : order.status === 'for_delivery' ? 'delivery' : order.status} capitalize ${STATUS_STYLES[order.status] ?? ''}`}>
+                <span className={`bmanny-status bmanny-status-${order.status === 'in_production' ? 'production' : order.status} capitalize ${STATUS_STYLES[order.status] ?? ''}`}>
                     {order.status}
                 </span>
             </td>

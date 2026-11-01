@@ -13,6 +13,9 @@ interface Customization {
     customization_id: number;
     packaging_type: string;
     packaging_finish: string | null;
+    selected_package: string | null;
+    requested_ingredient_note: string | null;
+    design_file_path: string | null;
     serving_size: string | null;
     client_notes: string | null;
 }
@@ -122,7 +125,7 @@ export default function InquiriesPage({ inquiries }: Props) {
                         { label: 'Responded', value: responded },
                         { label: 'Closed', value: inquiries.filter((i) => i.status === 'closed').length },
                     ].map((s) => (
-                        <BmannyMetricCard key={s.label} label={s.label} value={s.value} description={s.label === 'Pending' ? 'Awaiting review' : s.label === 'Responded' ? 'Quotation sent' : s.label === 'Closed' ? 'Completed or declined' : 'All customer inquiries'} icon={s.label === 'Pending' ? Clock3 : s.label === 'Responded' ? CircleCheck : s.label === 'Closed' ? CircleX : ClipboardList} accent={s.label === 'Pending' ? 'gold' : s.label === 'Responded' ? 'green' : s.label === 'Closed' ? 'navy' : 'blue'} />
+                        <BmannyMetricCard key={s.label} label={s.label} value={s.value} description={s.label === 'Pending' ? 'Awaiting review' : s.label === 'Responded' ? 'Quotation sent' : s.label === 'Closed' ? 'Completed or declined' : 'All customer inquiries'} icon={s.label === 'Pending' ? Clock3 : s.label === 'Responded' ? CircleCheck : s.label === 'Closed' ? CircleX : ClipboardList} accent={s.label === 'Pending' ? 'gold' : s.label === 'Responded' ? 'green' : s.label === 'Closed' ? 'red' : 'blue'} />
                     ))}
                 </div>
 
@@ -175,7 +178,7 @@ export default function InquiriesPage({ inquiries }: Props) {
                                             <th className="p-4 font-medium">#</th>
                                             <th className="p-4 font-medium">Business</th>
                                             <th className="p-4 font-medium">Contact</th>
-                                            <th className="p-4 font-medium">Packaging Types</th>
+                                            <th className="p-4 font-medium">Package</th>
                                             <th className="p-4 font-medium">Product review</th>
                                             <th className="p-4 font-medium">Status</th>
                                             <th className="p-4 font-medium">Date</th>
@@ -200,6 +203,7 @@ export default function InquiriesPage({ inquiries }: Props) {
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="flex flex-wrap gap-1">
+                                                        {inquiry.customizations.map((c) => c.selected_package && <span key={`${c.customization_id}-package`} className="rounded-full bg-primary/10 px-2 py-1 text-xs font-medium capitalize text-primary">{c.selected_package}</span>)}
                                                         {inquiry.customizations.length === 0 ? (
                                                             <span className="text-muted-foreground">—</span>
                                                         ) : (

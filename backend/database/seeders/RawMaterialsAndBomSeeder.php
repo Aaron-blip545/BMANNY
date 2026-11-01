@@ -748,6 +748,7 @@ class RawMaterialsAndBomSeeder extends Seeder
             'storage_conditions' => 'Cool dry place below 30°C',
             'lead_time_days'     => 14,
             'formulation_notes'  => 'Standard composite drink mix formulation. Net weight 21g per sachet.',
+            'image_url'          => '/images/products/ashigo-plus.jpg',
             'is_active'          => true,
         ]);
         $ashigo->save();

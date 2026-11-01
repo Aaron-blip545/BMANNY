@@ -42,6 +42,9 @@ interface Customization {
     packaging_finish: string | null;
     serving_size: string | null;
     formulation_notes: string | null;
+    selected_package?: string | null;
+    requested_ingredient_note?: string | null;
+    design_file_path?: string | null;
     client_notes: string | null;
 }
 
@@ -80,6 +83,19 @@ interface PendingInquiry {
 interface Props {
     pendingInquiries: PendingInquiry[];
     selectedInquiryId: number | null;
+    packageCatalog: PackageCatalogItem[];
+}
+
+interface PackageCatalogItem {
+    slug: string;
+    name: string;
+    minimum_quantity: number;
+    packaging_details: string;
+    label_details: string;
+    net_weight: string;
+    lead_time_text: string;
+    initial_price: string | number;
+    payment_terms: string;
 }
 
 function formatDate(iso: string) {
@@ -106,7 +122,7 @@ export interface StarterPackageSheetData {
     isGcash: boolean;
 }
 
-export function parseCustomizationSheet(c?: Customization | null, inq?: PendingInquiry | null): StarterPackageSheetData {
+export function parseCustomizationSheet(c?: Customization | null, inq?: PendingInquiry | null, packageItem?: PackageCatalogItem | null): StarterPackageSheetData {
     const rawNotes = c?.client_notes || '';
 
     function getVal(key: string, fallback: string = ''): string {
@@ -171,19 +187,26 @@ export function parseCustomizationSheet(c?: Customization | null, inq?: PendingI
         contactPerson,
         brand,
         productName: cleanedProductName,
-        primary,
-        printing,
-        netWeight,
+        primary: packageItem?.packaging_details ?? primary,
+        printing: packageItem?.label_details ?? printing,
+        netWeight: packageItem?.net_weight ?? netWeight,
         ingredients,
-        moq: moqFormatted,
-        priceUnit,
-        priceTotal,
+        moq: packageItem ? `${Number(packageItem.minimum_quantity).toLocaleString()} pouch` : moqFormatted,
+        priceUnit: packageItem ? 'Package price' : priceUnit,
+        priceTotal: packageItem ? `₱ ${Number(packageItem.initial_price).toLocaleString('en-PH', { minimumFractionDigits: 2 })}` : priceTotal,
         date: formattedDate,
         isGcash,
     };
 }
 
-export function calculateInquiryTotal(inq?: PendingInquiry | null): string {
+function selectedPackage(inq?: PendingInquiry | null, catalog: PackageCatalogItem[] = []): PackageCatalogItem | null {
+    const slug = inq?.customizations?.[0]?.selected_package;
+    return slug ? catalog.find((item) => item.slug === slug) ?? null : null;
+}
+
+export function calculateInquiryTotal(inq?: PendingInquiry | null, catalog: PackageCatalogItem[] = []): string {
+    const packageItem = selectedPackage(inq, catalog);
+    if (packageItem) return Number(packageItem.initial_price).toFixed(2);
     if (!inq?.customizations?.length) return '';
     let total = 0;
     for (const c of inq.customizations) {
@@ -201,8 +224,26 @@ export function calculateInquiryTotal(inq?: PendingInquiry | null): string {
     return total > 0 ? total.toFixed(2) : '';
 }
 
-export function buildAutoItemDetails(inq?: PendingInquiry | null): string {
+export function buildAutoItemDetails(inq?: PendingInquiry | null, catalog: PackageCatalogItem[] = []): string {
     if (!inq) return '';
+    const packageItem = selectedPackage(inq, catalog);
+    if (packageItem) {
+        const customerRequest = inq.customizations[0]?.requested_ingredient_note;
+        return [
+            `Item: ${packageItem.name}`,
+            `• MOQ: ${Number(packageItem.minimum_quantity).toLocaleString()} pouches`,
+            `• Packaging: ${packageItem.packaging_details} (${packageItem.label_details})`,
+            `• Net Weight: ${packageItem.net_weight}`,
+            `• Package Amount: ₱${Number(packageItem.initial_price).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
+            `• Lead Time: ${packageItem.lead_time_text}`,
+            customerRequest ? `• Customer request: ${customerRequest}` : null,
+            '',
+            'Commercial Terms & Conditions:',
+            `• ${packageItem.payment_terms}`,
+            '• Payment by bank transfer; payment instructions will be provided by Sales.',
+            '• Freight: FOB CDO | VAT: Exclusive',
+        ].filter(Boolean).join('\n');
+    }
     const customizations = inq.customizations || [];
     if (customizations.length === 0) {
         return [
@@ -249,10 +290,10 @@ export function buildAutoItemDetails(inq?: PendingInquiry | null): string {
     return `${items.join('\n\n')}\n\n${commercialTerms}`;
 }
 
-export default function QuotationCreate({ pendingInquiries, selectedInquiryId }: Props) {
+export default function QuotationCreate({ pendingInquiries, selectedInquiryId, packageCatalog }: Props) {
     const initialInq = pendingInquiries.find((i) => String(i.inquiry_id) === String(selectedInquiryId));
-    const initialTotal = initialInq ? calculateInquiryTotal(initialInq) : '';
-    const initialDetails = initialInq ? buildAutoItemDetails(initialInq) : '';
+    const initialTotal = initialInq ? calculateInquiryTotal(initialInq, packageCatalog) : '';
+    const initialDetails = initialInq ? buildAutoItemDetails(initialInq, packageCatalog) : '';
 
     const { data, setData, post, processing, errors } = useForm({
         inquiry_id:   selectedInquiryId ? String(selectedInquiryId) : '',
@@ -269,8 +310,8 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId }:
         if (data.inquiry_id && !data.item_details) {
             const inq = pendingInquiries.find((i) => String(i.inquiry_id) === String(data.inquiry_id));
             if (inq) {
-                const autoDetails = buildAutoItemDetails(inq);
-                const autoTotal = calculateInquiryTotal(inq);
+                const autoDetails = buildAutoItemDetails(inq, packageCatalog);
+                const autoTotal = calculateInquiryTotal(inq, packageCatalog);
                 setData((prev) => ({
                     ...prev,
                     total_amount: prev.total_amount || autoTotal,
@@ -330,8 +371,8 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId }:
                                                 const inqId = e.target.value;
                                                 const inq = pendingInquiries.find((i) => String(i.inquiry_id) === inqId);
                                                 if (inq) {
-                                                    const autoTotal = calculateInquiryTotal(inq);
-                                                    const autoDetails = buildAutoItemDetails(inq);
+                                                    const autoTotal = calculateInquiryTotal(inq, packageCatalog);
+                                                    const autoDetails = buildAutoItemDetails(inq, packageCatalog);
                                                     setData((prev) => ({
                                                         ...prev,
                                                         inquiry_id: inqId,
@@ -438,8 +479,8 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId }:
                                                     size="sm"
                                                     className="h-7 px-2 text-xs text-primary hover:text-primary/90"
                                                     onClick={() => {
-                                                        const autoDetails = buildAutoItemDetails(selected);
-                                                        const autoTotal = calculateInquiryTotal(selected);
+                                                        const autoDetails = buildAutoItemDetails(selected, packageCatalog);
+                                                        const autoTotal = calculateInquiryTotal(selected, packageCatalog);
                                                         setData((prev) => ({
                                                             ...prev,
                                                             total_amount: autoTotal || prev.total_amount,
@@ -573,7 +614,7 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId }:
                                                         <p className="text-xs text-muted-foreground">No customization details provided.</p>
                                                     ) : (
                                                         (selected.customizations ?? []).map((c, idx) => {
-                                                            const sheet = parseCustomizationSheet(c, selected);
+                                                            const sheet = parseCustomizationSheet(c, selected, selectedPackage(selected, packageCatalog));
                                                             return (
                                                                 <div
                                                                     key={c.customization_id || idx}
@@ -601,7 +642,7 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId }:
                                                                         onClick={() => setViewCustomizationsOpen(true)}
                                                                     >
                                                                         <FileText className="h-3.5 w-3.5" />
-                                                                        View Starter Package Sheet
+                                                                        View {selectedPackage(selected, packageCatalog)?.name ?? 'Package'} Sheet
                                                                     </Button>
                                                                 </div>
                                                             );
@@ -630,7 +671,7 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId }:
                                 <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
                                     Requested Customization Details
                                     <span className="rounded-md bg-primary/10 text-primary px-2 py-0.5 text-xs font-semibold">
-                                        Starter Package Sheet
+                                        {selectedPackage(selected, packageCatalog)?.name ?? 'Package'} Sheet
                                     </span>
                                 </DialogTitle>
                                 <DialogDescription className="text-xs text-muted-foreground mt-0.5">
@@ -649,7 +690,8 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId }:
                             </div>
                         ) : (
                             (selected?.customizations ?? []).map((c, idx) => {
-                                const sheet = parseCustomizationSheet(c, selected);
+                                const packageItem = selectedPackage(selected, packageCatalog);
+                                const sheet = parseCustomizationSheet(c, selected, packageItem);
                                 return (
                                     <div key={c.customization_id || idx} className="space-y-4 mb-6">
                                         <div className="overflow-x-auto rounded-lg border-2 border-slate-700 bg-white shadow-md text-slate-900">
@@ -687,7 +729,7 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId }:
                                             {/* Row 3: Yellow Banner [PRODUCT] STARTER PACKAGE */}
                                             <div className="bg-[#fef08a] border-b border-slate-700 py-2 px-4 text-center">
                                                 <span className="text-xs sm:text-sm font-black tracking-wider text-slate-900 uppercase">
-                                                    {sheet.productName} STARTER PACKAGE
+                                                    {sheet.productName} {packageItem?.name?.replace(' Package', '') ?? 'Starter'} PACKAGE
                                                 </span>
                                             </div>
 
@@ -762,11 +804,10 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId }:
                                                     PAYMENT TERMS
                                                 </div>
                                                 <div className="flex-1 space-y-0.5">
-                                                    <p className="font-semibold text-slate-900">a) 50% DP before production</p>
-                                                    <p className="font-semibold text-slate-900">b) 50% balance before shipment</p>
+                                                    <p className="font-semibold text-slate-900">{packageItem?.payment_terms ?? '50% DP before production; 50% balance before pickup'}</p>
                                                 </div>
                                                 <div className="shrink-0 text-slate-900 font-semibold">
-                                                    c) Order Lead Time 10-15 days
+                                                    c) Order Lead Time {packageItem?.lead_time_text ?? '10-15 days'}
                                                 </div>
                                             </div>
 
@@ -819,8 +860,8 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId }:
                                 variant="default"
                                 size="sm"
                                 onClick={() => {
-                                    const autoTotal = calculateInquiryTotal(selected);
-                                    const autoDetails = buildAutoItemDetails(selected);
+                                    const autoTotal = calculateInquiryTotal(selected, packageCatalog);
+                                    const autoDetails = buildAutoItemDetails(selected, packageCatalog);
                                     if (autoTotal) setData('total_amount', autoTotal);
                                     if (autoDetails) setData('item_details', autoDetails);
                                     setViewCustomizationsOpen(false);

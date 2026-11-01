@@ -7,6 +7,7 @@ use App\Models\Inquiry;
 use App\Models\ConversationArchive;
 use App\Models\Order;
 use App\Models\Quotation;
+use App\Models\ProductPackage;
 use App\Services\NotificationService;
 use App\Services\QuotationSpecificationService;
 use Illuminate\Http\Request;
@@ -81,6 +82,7 @@ class SalesAgentController extends Controller
         return Inertia::render('sales/quotations/create', [
             'pendingInquiries'    => $pendingInquiries,
             'selectedInquiryId'   => $request->integer('inquiry_id') ?: null,
+            'packageCatalog'      => ProductPackage::where('is_active', true)->orderBy('product_type_id')->orderBy('name')->get(),
         ]);
     }
 
@@ -135,13 +137,27 @@ class SalesAgentController extends Controller
      */
     public function quotations(): Response
     {
-        $quotations = Quotation::with(['inquiry.client.user'])
+        $quotations = Quotation::with(['inquiry.client.user', 'order'])
             ->orderByDesc('created_at')
             ->get();
 
         return Inertia::render('sales/quotations/index', [
             'quotations' => $quotations,
         ]);
+    }
+
+    public function verifyBalancePayment($id)
+    {
+        $order = Order::with('client.user')->findOrFail($id);
+        if ($order->status !== 'ready_for_pickup' || ! $order->balance_payment_submitted_at) {
+            return back()->withErrors(['status' => 'A submitted balance payment is required while the order is ready for pickup.']);
+        }
+
+        $order->update(['balance_payment_verified_at' => now()]);
+        if ($order->client?->user) {
+            NotificationService::send($order->client->user->user_id, 'payment', 'Balance Payment Verified', "Your balance for Order #{$order->order_id} was verified. Your order is cleared for pickup or dispatch.", ['order_id' => $order->order_id]);
+        }
+        return redirect()->route('quotations.index')->with('success', "Balance payment for Order #{$order->order_id} verified. Pickup is now cleared.");
     }
 
     /**
@@ -171,7 +187,12 @@ class SalesAgentController extends Controller
             $order = Order::create([
                 'client_id'    => $quotation->inquiry->client->client_id,
                 'quotation_id' => $quotation->quotation_id,
+                // The quotation is the complete package total. Payment is
+                // split equally: 50% before production and 50% before pickup.
                 'total_amount' => $quotation->total_amount,
+                'initial_payment_amount' => $quotation->total_amount / 2,
+                'initial_payment_verified_at' => now(),
+                'balance_payment_amount' => $quotation->total_amount / 2,
                 'status'       => 'approved', // matches Figure 6.3's first order stage
             ]);
 

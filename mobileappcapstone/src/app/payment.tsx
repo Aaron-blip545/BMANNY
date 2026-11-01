@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Image, Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../contexts/ThemeContext';
-import { submitQuotationPayment } from '../services/api';
+import { getPaymentAccounts, submitBalancePayment, submitQuotationPayment } from '../services/api';
 
 const HomeIcon = ({ colors }: { colors: any }) => (
   <Image source={require('@/assets/images/homepageicon/home.png')} style={styles.navIcon} tintColor={colors.text} />
@@ -23,28 +23,29 @@ const ProfileIcon = ({ colors }: { colors: any }) => (
 
 export default function PaymentScreen() {
   const { colors } = useTheme();
-  const { quotationId, amount, paymentMethod } = useLocalSearchParams<{
+  const { quotationId, orderId, amount, paymentMethod } = useLocalSearchParams<{
     quotationId: string;
+    orderId: string;
     amount: string;
     paymentMethod: string;
   }>();
   const [proofImage, setProofImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [accounts, setAccounts] = useState<Array<{ bank: string; account_name: string; account_number: string }>>([]);
 
   const totalAmount = parseFloat(amount) || 0;
-  const method = paymentMethod || 'gcash';
+  const method = paymentMethod || 'bank_transfer';
+  const bpi = accounts.find((account) => account.bank === 'BPI') ?? { bank: 'BPI', account_name: 'BMANNY', account_number: '2059422815' };
+  const goTyme = accounts.find((account) => account.bank === 'GoTyme Bank') ?? { bank: 'GoTyme Bank', account_name: 'BMANNY', account_number: '010233551651' };
 
-  // Determine QR code based on payment method
-  const qrCodeSource = method === 'card'
-    ? require('@/assets/images/paymentmethodimage/debit qr.png')
-    : require('@/assets/images/paymentmethodimage/gcash qr.png');
+  useEffect(() => { getPaymentAccounts().then(setAccounts).catch(() => setAccounts([])); }, []);
 
   const handlePickImage = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [4, 3],
+        // Payment proofs must retain their original dimensions and all transaction details.
+        allowsEditing: false,
         quality: 1,
       });
 
@@ -62,18 +63,19 @@ export default function PaymentScreen() {
       return;
     }
 
-    if (!quotationId) {
-      Alert.alert('Error', 'Missing quotation reference. Please go back and try again.');
+    if (!orderId && !quotationId) {
+      Alert.alert('Error', 'Missing payment reference. Please go back and try again.');
       return;
     }
 
     setIsUploading(true);
     try {
-      await submitQuotationPayment(Number(quotationId), method as 'gcash' | 'card' | 'cod', proofImage);
+      if (orderId) await submitBalancePayment(Number(orderId), proofImage!);
+      else await submitQuotationPayment(Number(quotationId), 'bank_transfer', proofImage);
 
       Alert.alert(
         'Payment Submitted! 🎉',
-        'Your payment has been sent to our sales team for confirmation. Once confirmed, your order will be created.',
+        orderId ? 'Your balance proof has been sent to Sales for verification. Pickup is available after confirmation.' : 'Your payment has been sent to our sales team for confirmation. Once confirmed, your order will be created.',
         [{ text: 'OK', onPress: () => router.push('/orders') }]
       );
     } catch (err: any) {
@@ -94,15 +96,15 @@ export default function PaymentScreen() {
         </View>
 
         <View style={[styles.totalSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Payment Summary</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>{orderId ? 'Balance Payment' : 'Initial Payment'}</Text>
           <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Quotation</Text>
-            <Text style={[styles.summaryValue, { color: colors.text }]}>#{quotationId}</Text>
+            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{orderId ? 'Order' : 'Quotation'}</Text>
+            <Text style={[styles.summaryValue, { color: colors.text }]}>#{orderId || quotationId}</Text>
           </View>
           <View style={styles.summaryRow}>
             <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Payment Method</Text>
             <Text style={[styles.summaryValue, { color: colors.text }]}>
-              {method === 'gcash' ? 'GCash' : method === 'bank_transfer' ? 'Bank Transfer (BDO)' : method === 'card' ? 'Credit/Debit Card' : 'Cash on Delivery'}
+              Bank Transfer
             </Text>
           </View>
           <View style={[styles.summaryRow, styles.totalRow]}>
@@ -114,18 +116,27 @@ export default function PaymentScreen() {
         {/* Bank or GCash Account Details Card */}
         <View style={[styles.totalSection, { backgroundColor: colors.card, borderColor: colors.border, marginTop: -4 }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            {method === 'bank_transfer' ? 'BDO Bank Account Details' : 'GCash Account Details'}
+            BMANNY bank transfer details
           </Text>
           {method === 'bank_transfer' ? (
             <View style={{ gap: 4, marginTop: 4 }}>
               <Text style={{ fontSize: 13, color: colors.textSecondary }}>
-                Bank: <Text style={{ fontWeight: '700', color: colors.text }}>BDO UNIBANK</Text>
+                Bank: <Text style={{ fontWeight: '700', color: colors.text }}>{bpi.bank}</Text>
               </Text>
               <Text style={{ fontSize: 13, color: colors.textSecondary }}>
-                Savings Acnt #: <Text style={{ fontWeight: '800', color: '#dc2626' }}>010050028154</Text>
+                Account no.: <Text style={{ fontWeight: '800', color: '#2196F3' }}>{bpi.account_number}</Text>
               </Text>
               <Text style={{ fontSize: 13, color: colors.textSecondary }}>
-                Account Name: <Text style={{ fontWeight: '700', color: colors.text, fontStyle: 'italic' }}>BManny Partners Inc.</Text>
+                Account Name: <Text style={{ fontWeight: '700', color: colors.text, fontStyle: 'italic' }}>{bpi.account_name}</Text>
+              </Text>
+              <Text style={{ fontSize: 13, color: colors.textSecondary, marginTop: 12 }}>
+                Bank: <Text style={{ fontWeight: '700', color: colors.text }}>{goTyme.bank}</Text>
+              </Text>
+              <Text style={{ fontSize: 13, color: colors.textSecondary }}>
+                Account no.: <Text style={{ fontWeight: '800', color: '#2196F3' }}>{goTyme.account_number}</Text>
+              </Text>
+              <Text style={{ fontSize: 13, color: colors.textSecondary }}>
+                Account Name: <Text style={{ fontWeight: '700', color: colors.text, fontStyle: 'italic' }}>{goTyme.account_name}</Text>
               </Text>
             </View>
           ) : (
@@ -147,21 +158,7 @@ export default function PaymentScreen() {
               You will pay in cash when your order is delivered. Please have the exact amount ready.
             </Text>
           </View>
-        ) : (
-          <View style={[styles.qrSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Scan QR Code to Pay</Text>
-            <Image
-              source={method === 'bank_transfer' || method === 'card' ? require('@/assets/images/paymentmethodimage/debit qr.png') : require('@/assets/images/paymentmethodimage/gcash qr.png')}
-              style={styles.qrCode}
-              resizeMode="contain"
-            />
-            <Text style={[styles.qrInstruction, { color: colors.textSecondary }]}>
-              {method === 'bank_transfer'
-                ? 'Scan this QR code with your BDO or banking app, or transfer directly to BDO Acnt # 010050028154'
-                : 'Scan this QR code using your GCash app or send directly to 0917 500 2815'}
-            </Text>
-          </View>
-        )}
+        ) : null}
 
         {method !== 'cod' && (
           <View style={[styles.uploadSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -287,27 +284,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
   },
-  qrSection: {
-    borderRadius: 20,
-    padding: 24,
-    marginBottom: 20,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 16,
-  },
-  qrCode: {
-    width: 250,
-    height: 250,
-    marginBottom: 16,
-  },
-  qrInstruction: {
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 20,
   },
   codSection: {
     borderRadius: 20,

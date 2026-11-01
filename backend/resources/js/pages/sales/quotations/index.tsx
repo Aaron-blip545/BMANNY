@@ -2,6 +2,7 @@ import { confirmModal } from '@/lib/sweetalert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { BmannyMetricCard } from '@/components/bmanny-metric-card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
@@ -35,6 +36,7 @@ interface Quotation {
     payment_method: string | null;
     payment_proof_url: string | null;
     payment_submitted_at: string | null;
+    order: { order_id: number; status: string; balance_payment_amount: string | number | null; balance_payment_submitted_at: string | null; balance_payment_verified_at: string | null; balance_payment_proof_url: string | null } | null;
 }
 
 interface Props {
@@ -87,6 +89,8 @@ export default function QuotationsPage({ quotations }: Props) {
     const { flash, errors } = usePage().props as any;
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+    const [proofPreview, setProofPreview] = useState<{ url: string; quotationId: number } | null>(null);
+    const [receiptPreview, setReceiptPreview] = useState<{ url: string; quotationId: number; milestone: 'Initial' | 'Balance' } | null>(null);
 
     async function handleAccept(quotation: Quotation) {
         const client = quotation.inquiry?.client;
@@ -122,6 +126,11 @@ export default function QuotationsPage({ quotations }: Props) {
             {},
             { preserveScroll: true },
         );
+    }
+
+    async function handleVerifyBalance(orderId: number) {
+        const confirmed = await confirmModal({ title: `Verify balance for Order #${orderId}?`, text: 'This clears the order for pickup or dispatch.', confirmButtonText: 'Verify balance', cancelButtonText: 'Cancel', icon: 'question' });
+        if (confirmed) router.post(route('orders.verify-balance-payment', { id: orderId }), {}, { preserveScroll: true });
     }
 
     const sent     = quotations.filter((q) => q.status === 'sent' && !q.payment_submitted_at).length;
@@ -190,7 +199,7 @@ export default function QuotationsPage({ quotations }: Props) {
                         { label: 'Payment Submitted',     value: awaitingConfirmation,    color: 'text-blue-600 dark:text-blue-400' },
                         { label: 'Accepted',              value: accepted,                color: 'text-green-600 dark:text-green-400' },
                     ].map((s) => (
-                        <BmannyMetricCard key={s.label} label={s.label} value={s.value} description={s.label === 'Awaiting Payment' ? 'Waiting for client action' : s.label === 'Payment Submitted' ? 'Ready for review' : s.label === 'Accepted' ? 'Forwarded to orders' : 'All quotations'} icon={s.label === 'Accepted' ? CircleCheck : s.label === 'Total' ? FileText : Send} accent={s.label === 'Awaiting Payment' ? 'gold' : s.label === 'Payment Submitted' ? 'blue' : s.label === 'Accepted' ? 'green' : 'navy'} />
+                        <BmannyMetricCard key={s.label} label={s.label} value={s.value} description={s.label === 'Awaiting Payment' ? 'Waiting for client action' : s.label === 'Payment Submitted' ? 'Ready for review' : s.label === 'Accepted' ? 'Forwarded to orders' : 'All quotations'} icon={s.label === 'Accepted' ? CircleCheck : s.label === 'Total' ? FileText : Send} accent={s.label === 'Awaiting Payment' ? 'gold' : s.label === 'Payment Submitted' ? 'blue' : s.label === 'Accepted' ? 'green' : 'blue'} />
                     ))}
                 </div>
 
@@ -295,15 +304,14 @@ export default function QuotationsPage({ quotations }: Props) {
                                                                         : '—'}
                                                                 </div>
                                                                 {quotation.payment_proof_url && (
-                                                                    <a
-                                                                        href={quotation.payment_proof_url}
-                                                                        target="_blank"
-                                                                        rel="noreferrer"
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setProofPreview({ url: quotation.payment_proof_url!, quotationId: quotation.quotation_id })}
                                                                         className="inline-flex items-center gap-1 text-xs text-primary underline-offset-2 hover:underline"
                                                                     >
                                                                         <ImageIcon className="h-3 w-3" />
                                                                         View proof
-                                                                    </a>
+                                                                    </button>
                                                                 )}
                                                             </div>
                                                         ) : (
@@ -338,6 +346,16 @@ export default function QuotationsPage({ quotations }: Props) {
                                                             <span className="text-xs text-muted-foreground">
                                                                 Waiting for client to pay
                                                             </span>
+                                                        ) : quotation.order?.status === 'ready_for_pickup' && quotation.order.balance_payment_submitted_at && !quotation.order.balance_payment_verified_at ? (
+                                                            <div className="flex flex-col items-start gap-1">
+                                                                {quotation.order.balance_payment_proof_url && <button type="button" onClick={() => setProofPreview({ url: quotation.order!.balance_payment_proof_url!, quotationId: quotation.quotation_id })} className="text-xs text-primary underline-offset-2 hover:underline">View balance proof</button>}
+                                                                <Button size="sm" onClick={() => handleVerifyBalance(quotation.order!.order_id)}>Verify balance</Button>
+                                                            </div>
+                                                        ) : quotation.order ? (
+                                                            <div className="flex flex-col items-start gap-1">
+                                                                <button type="button" className="text-xs text-primary underline-offset-2 hover:underline" onClick={() => setReceiptPreview({ url: route('orders.payment-receipt', { id: quotation.order!.order_id, milestone: 'initial' }), quotationId: quotation.quotation_id, milestone: 'Initial' })}>Initial payment receipt</button>
+                                                                {quotation.order.balance_payment_verified_at && <button type="button" className="text-xs text-primary underline-offset-2 hover:underline" onClick={() => setReceiptPreview({ url: route('orders.payment-receipt', { id: quotation.order!.order_id, milestone: 'balance' }), quotationId: quotation.quotation_id, milestone: 'Balance' })}>Balance payment receipt</button>}
+                                                            </div>
                                                         ) : (
                                                             <span className="text-xs text-muted-foreground capitalize">
                                                                 {quotation.status}
@@ -353,6 +371,40 @@ export default function QuotationsPage({ quotations }: Props) {
                         )}
                     </CardContent>
                 </Card>
+
+                <Dialog open={proofPreview !== null} onOpenChange={(open) => !open && setProofPreview(null)}>
+                    <DialogContent className="max-h-[90vh] max-w-3xl overflow-hidden p-0">
+                        <DialogHeader className="border-b px-6 py-4 pr-12">
+                            <DialogTitle>Payment proof</DialogTitle>
+                            <DialogDescription>Quotation #{proofPreview?.quotationId}</DialogDescription>
+                        </DialogHeader>
+                        {proofPreview && (
+                            <div className="bg-muted/30 p-4">
+                                <img
+                                    src={proofPreview.url}
+                                    alt={`Payment proof for quotation #${proofPreview.quotationId}`}
+                                    className="max-h-[68vh] w-full rounded-md object-contain"
+                                />
+                            </div>
+                        )}
+                    </DialogContent>
+                </Dialog>
+
+                <Dialog open={receiptPreview !== null} onOpenChange={(open) => !open && setReceiptPreview(null)}>
+                    <DialogContent className="flex h-[90vh] max-w-3xl flex-col overflow-hidden p-0">
+                        <DialogHeader className="border-b px-6 py-4 pr-12">
+                            <DialogTitle>{receiptPreview?.milestone} payment receipt</DialogTitle>
+                            <DialogDescription>Quotation #{receiptPreview?.quotationId}</DialogDescription>
+                        </DialogHeader>
+                        {receiptPreview && (
+                            <iframe
+                                src={receiptPreview.url}
+                                title={`${receiptPreview.milestone} payment receipt for quotation #${receiptPreview.quotationId}`}
+                                className="min-h-0 flex-1 border-0 bg-white"
+                            />
+                        )}
+                    </DialogContent>
+                </Dialog>
             </div>
         </AppLayout>
     );

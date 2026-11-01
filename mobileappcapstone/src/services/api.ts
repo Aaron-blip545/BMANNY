@@ -78,6 +78,11 @@ export async function getProducts() {
     return request('/products');
 }
 
+export async function getPaymentAccounts(): Promise<Array<{ bank: string; account_name: string; account_number: string }>> {
+    const data = await request('/payment-accounts');
+    return Array.isArray(data.accounts) ? data.accounts : [];
+}
+
 export async function getProductCategories(): Promise<string[]> {
     return request('/product-categories').catch(() => []);
 }
@@ -134,6 +139,11 @@ export function resolveImageUrl(urlOrPath?: string | null): string | null {
 
 export async function getConversations() {
     return request('/conversations');
+}
+
+/** Active Sales Agents a customer can start a one-to-one chat with. */
+export async function getSalesAgents(): Promise<Array<{ user_id: number; full_name: string }>> {
+    return request('/sales-agents');
 }
 
 export async function getConversation(otherUserId: number) {
@@ -283,16 +293,34 @@ export async function submitInquiry(
     clientId: number,
     customizations: {
         customization_type?: string;
+        selected_package?: string;
         packaging_type: string;
         packaging_finish?: string;
         serving_size?: string;
         formulation_notes?: string;
+        requested_ingredient_note?: string;
         client_notes?: string;
     }[]
 ) {
     return request('/inquiries', {
         method: 'POST',
         body: JSON.stringify({ client_id: clientId, customizations }),
+    });
+}
+
+export async function uploadInquiryDesign(inquiryId: number, imageUri: string) {
+    const token = await getToken();
+    const form = new FormData();
+    const name = `brand-artwork-${Date.now()}.jpg`;
+    form.append('design', { uri: imageUri, name, type: 'image/jpeg' } as any);
+    return new Promise<any>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `${API_BASE_URL}/inquiries/${inquiryId}/upload-design`);
+        xhr.setRequestHeader('Accept', 'application/json');
+        if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        xhr.onload = () => xhr.status >= 200 && xhr.status < 300 ? resolve(JSON.parse(xhr.responseText || '{}')) : reject(new Error(JSON.parse(xhr.responseText || '{}').message || 'Could not upload artwork.'));
+        xhr.onerror = () => reject(new Error('Network request failed.'));
+        xhr.send(form as any);
     });
 }
 
@@ -405,6 +433,30 @@ export async function submitQuotationPayment(
 
         xhr.onerror = () => reject(new Error('Network request failed.'));
 
+        xhr.send(form as any);
+    });
+}
+
+/** Submit the remaining balance only after BMANNY marks an order ready for pickup. */
+export async function submitBalancePayment(orderId: number, proofImageUri: string) {
+    const token = await getToken();
+    const form = new FormData();
+    form.append('payment_method', 'bank_transfer');
+    const filename = proofImageUri.split('/').pop() || 'balance-proof.jpg';
+    form.append('proof', { uri: proofImageUri, name: filename, type: 'image/jpeg' } as any);
+
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `${API_BASE_URL}/orders/${orderId}/balance-payment`);
+        xhr.setRequestHeader('Accept', 'application/json');
+        if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        xhr.onload = () => {
+            let data: any = {};
+            try { data = JSON.parse(xhr.responseText); } catch {}
+            if (xhr.status >= 200 && xhr.status < 300) return resolve(data);
+            reject(new Error(data.message || 'Unable to submit the balance payment.'));
+        };
+        xhr.onerror = () => reject(new Error('Network request failed.'));
         xhr.send(form as any);
     });
 }

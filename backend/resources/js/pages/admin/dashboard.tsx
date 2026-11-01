@@ -58,7 +58,7 @@ export default function AdminDashboard({
         { label: 'Users', value: stats.users, description: 'Registered accounts', icon: Users, accent: 'bg-[#1547c0]', surface: 'bg-[#f7faff] dark:bg-card', iconColor: 'text-[#1547c0] dark:text-blue-300' },
         { label: 'Inquiries', value: stats.inquiries, description: 'Customer submissions', icon: CircleHelp, accent: 'bg-[#d6a72c]', surface: 'bg-[#fffaf0] dark:bg-card', iconColor: 'text-[#b67c08] dark:text-amber-300' },
         { label: 'Orders', value: stats.orders, description: 'Confirmed orders', icon: PackageCheck, accent: 'bg-emerald-600 dark:bg-emerald-500', surface: 'bg-[#f4fbf7] dark:bg-card', iconColor: 'text-emerald-700 dark:text-emerald-300' },
-        { label: 'Products', value: stats.products, description: 'Catalog products', icon: Boxes, accent: 'bg-violet-600 dark:bg-violet-500', surface: 'bg-[#f8f6ff] dark:bg-card', iconColor: 'text-violet-700 dark:text-violet-300' },
+        { label: 'Products', value: stats.products, description: 'Catalog products', icon: Boxes, accent: 'bg-[#1547c0]', surface: 'bg-[#f7faff] dark:bg-card', iconColor: 'text-[#1547c0] dark:text-blue-300' },
     ];
 
     return (

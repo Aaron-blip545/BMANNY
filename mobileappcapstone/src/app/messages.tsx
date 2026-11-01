@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Image, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { getConversations, resolveImageUrl } from '../services/api';
 import { subscribeToRealtime } from '../services/realtime';
@@ -160,6 +161,16 @@ export default function MessagesScreen() {
         )}
       </ScrollView>
 
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel="Start a new chat with a Sales Agent"
+        style={styles.newChatButton}
+        onPress={() => router.push('/new-chat')}
+        activeOpacity={0.82}
+      >
+        <Ionicons name="create-outline" size={27} color="#ffffff" />
+      </TouchableOpacity>
+
       <MobileNavDock activeTab="messages" />
 
     </SafeAreaView>
@@ -251,6 +262,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  newChatButton: {
+    position: 'absolute',
+    right: 28,
+    bottom: 98,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#2196F3',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
+    elevation: 7,
   },
 
   /* NAVIGATION BAR */

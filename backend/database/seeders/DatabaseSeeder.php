@@ -12,6 +12,8 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             ProductSeeder::class,
             BmannyCatalogSeeder::class,
+            RawMaterialsAndBomSeeder::class,
+            AshigoPackageSeeder::class,
         ]);
     }
 }

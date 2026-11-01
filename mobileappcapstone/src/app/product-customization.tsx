@@ -1,67 +1,127 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TextInput,
-  TouchableOpacity,
+  ActivityIndicator,
   Alert,
   Image,
-  Modal,
-  ActivityIndicator,
-  SafeAreaView,
   KeyboardAvoidingView,
+  Modal,
   Platform,
-} from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
-import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTheme } from '../contexts/ThemeContext';
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { useTheme } from "../contexts/ThemeContext";
 import {
   getMe,
   getProducts,
-  getCustomizationMaterials,
   submitInquiry,
-} from '../services/api';
+  uploadInquiryDesign,
+} from "../services/api";
 
-interface RawMaterialItem {
-  product_id: number;
-  name: string;
-  sku: string;
-  category: string;
-  price: number;
-  rate?: number;
-  unit_of_measure?: string;
-  stock_quantity: number;
-  in_stock: boolean;
-}
-
-interface FormulationRow {
-  product_id: number;
-  raw_material_name: string;
-  raw_material_sku: string;
-  unit_of_measure: string;
-  quantity_per_unit: string;
-  rate: number;
-  amount: number;
-}
-
-interface PackagingTypeOption {
-  id: string | number;
-  name: string;
-  category?: string;
-  inStock: boolean;
-  stockQuantity?: number;
-}
-
-const defaultPackagingTypes: PackagingTypeOption[] = [
-  { id: 'pouch', name: 'Stand-up Pouch', category: 'Pouch', inStock: true, stockQuantity: 500 },
-  { id: 'sachet', name: 'Stick / Sachet', category: 'Sachet', inStock: true, stockQuantity: 600 },
-  { id: 'bottle', name: 'HDPE / PET Bottle', category: 'Bottle', inStock: true, stockQuantity: 400 },
-  { id: 'jar', name: 'Glass / Plastic Jar', category: 'Jar', inStock: true, stockQuantity: 150 },
-  { id: 'box', name: 'Master Packaging Box', category: 'Box', inStock: true, stockQuantity: 350 },
-  { id: 'can', name: 'Composite Can / Tin', category: 'Can', inStock: true, stockQuantity: 200 },
+type Tier = "starter" | "gold" | "elite";
+type Pack = {
+  id: Tier;
+  title: string;
+  desc: string;
+  moq: string;
+  packaging: string;
+  label: string;
+  weight: string;
+  lead: string;
+  cost: string;
+  initialPrice: number;
+  terms: string;
+  publicIngredients: string;
+  costBreakdown: { label: string; amount: number; quantity: string }[];
+  packageNotes: string;
+  allowsRequest: boolean;
+};
+const peso = (amount: number) =>
+  `₱${Number(amount || 0).toLocaleString("en-PH", {
+    minimumFractionDigits: 2,
+  })}`;
+const PACKAGE_PREVIEWS: Record<Tier, number> = {
+  starter: require("../../assets/images/packages/ashigo-starter.jpg"),
+  gold: require("../../assets/images/packages/ashigo-gold.jpg"),
+  elite: require("../../assets/images/packages/ashigo-elite.jpg"),
+};
+const ASHIGO_PRODUCT_IMAGE = require("../../assets/images/ashigo-plus.jpg");
+const ASHIGO_PUBLIC_INGREDIENTS =
+  "Purple corn kernel, mangosteen rind extract, moringa leaves extract, guyabano fruit extract, ashitaba leaves extract, barley grass extract, spirulina leaves extract, ampalaya leaves extract, and chia seeds.";
+const DEFAULT_PACKAGES: Pack[] = [
+  {
+    id: "starter",
+    title: "Starter Package",
+    desc: "A practical first run for a new brand.",
+    moq: "100 pouches",
+    packaging: "Stand-up pouch, 12 × 20 cm",
+    label: "Sticker label",
+    weight: "120 g",
+    lead: "10–15 business days",
+    cost: "Starting at ₱7,900",
+    terms: "50% before production · 50% before pickup",
+    initialPrice: 7900,
+    publicIngredients: "Corn coffee with malunggay and mangosteen.",
+    costBreakdown: [
+      { label: "Price per pouch", amount: 79, quantity: "100 pouches" },
+    ],
+    packageNotes:
+      "A practical first production run. FOB CDO · VAT exclusive.",
+    allowsRequest: false,
+  },
+  {
+    id: "gold",
+    title: "Gold Package",
+    desc: "For brands ready for full-color pouch packaging.",
+    moq: "5,000 pouches",
+    packaging: "Stand-up pouch, 12 × 20 cm",
+    label: "Full-color pouch print",
+    weight: "120 g",
+    lead: "40–60 days after layout approval",
+    cost: "Initial package cost from ₱99,900",
+    terms: "Package, cylinder, and production milestones apply",
+    initialPrice: 99900,
+    publicIngredients:
+      "Corn coffee with malunggay and mangosteen, plus up to 6 requested herbal ingredients subject to Product Control review.",
+    costBreakdown: [
+      { label: "Packaging cost", amount: 50000, quantity: "₱10 × 5,000 pouches" },
+      { label: "Cylinder cost", amount: 22400, quantity: "One-time payment" },
+      { label: "Production payment", amount: 27500, quantity: "₱55 × 500 pouches" },
+    ],
+    packageNotes:
+      "Packaging is purchased first. Remaining packaging may be kept for the next batch, subject to storage terms. FOB CDO · VAT exclusive.",
+    allowsRequest: true,
+  },
+  {
+    id: "elite",
+    title: "Elite Package",
+    desc: "For larger production requirements and premium presentation.",
+    moq: "10,000 pouches",
+    packaging: "Stand-up pouch, 12 × 20 cm",
+    label: "Full-color pouch print",
+    weight: "120 g",
+    lead: "40–60 days after layout approval",
+    cost: "Initial package cost from ₱142,400",
+    terms: "Package, cylinder, and production milestones apply",
+    initialPrice: 142400,
+    publicIngredients:
+      "Corn coffee with malunggay and mangosteen, plus up to 8 requested herbal ingredients subject to Product Control review.",
+    costBreakdown: [
+      { label: "Packaging cost", amount: 100000, quantity: "₱10 × 10,000 pouches" },
+      { label: "Cylinder cost", amount: 22400, quantity: "One-time payment" },
+      { label: "Production payment", amount: 20000, quantity: "₱50 × 400 pouches" },
+    ],
+    packageNotes:
+      "Packaging is purchased first. Remaining packaging may be kept for the next batch, subject to storage terms. FOB CDO · VAT exclusive.",
+    allowsRequest: true,
+  },
 ];
 
 export default function ProductCustomizationScreen() {
@@ -70,1326 +130,729 @@ export default function ProductCustomizationScreen() {
     id?: string;
     name?: string;
     product_code?: string;
-    category?: string;
-    price?: string;
-    moq?: string;
-    description?: string;
     image?: string;
   }>();
-
-  const scrollViewRef = useRef<ScrollView>(null);
-
-  // ── Step Navigation State: 1 = Ingredients | 2 = Packaging & Company Info | 3 = Details & Submit ──
-  // (No top stepper tabs bar — clean page-to-page navigation with Proceed/Back buttons)
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
-
-  // ── Product Catalog & Materials State ──
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [productCode, setProductCode] = useState(params.product_code || 'FP-0001');
-  const [productName, setProductName] = useState(params.name || 'Corn Coffee');
-  const [productMoq, setProductMoq] = useState(params.moq || '100 units');
-  const [productCategory, setProductCategory] = useState(params.category || 'Health & Wellness');
-  const [catalogPrice, setCatalogPrice] = useState<number>(0);
-  const [catalogRawMaterials, setCatalogRawMaterials] = useState<RawMaterialItem[]>([]);
-
-  // ── Company Info (Pre-filled from authenticated client, editable in Step 2) ──
-  const [companyName, setCompanyName] = useState('BManny Client');
-  const [contactPerson, setContactPerson] = useState('Client Representative');
-  const [todayDate] = useState(
-    new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const [step, setStep] = useState<1 | 2 | 3>(1),
+    [loading, setLoading] = useState(true),
+    [submitting, setSubmitting] = useState(false),
+    [success, setSuccess] = useState(false);
+  const [productName, setProductName] = useState(
+      params.name || "AshigoPlus Coffee Drink Mix",
+    ),
+    [code, setCode] = useState(params.product_code || "FP-0001"),
+    [image, setImage] = useState(params.image || "");
+  const [tier, setTier] = useState<Tier | null>(null),
+    [company, setCompany] = useState(""),
+    [contact, setContact] = useState(""),
+    [brand, setBrand] = useState(""),
+    [artwork, setArtwork] = useState<string | null>(null),
+    [request, setRequest] = useState(""),
+    [notes, setNotes] = useState(""),
+    [inquiryId, setInquiryId] = useState<number | null>(null),
+    [showIngredients, setShowIngredients] = useState(false),
+    [breakdownPackage, setBreakdownPackage] = useState<Pack | null>(null);
+  const [packageOptions, setPackageOptions] =
+    useState<Pack[]>(DEFAULT_PACKAGES);
+  const PACKAGES = packageOptions;
+  const selected = useMemo(
+    () => packageOptions.find((x) => x.id === tier) || null,
+    [tier, packageOptions],
   );
-
-  // ── Step 1: Formulation Recipe Rows ──
-  const [formulationRows, setFormulationRows] = useState<FormulationRow[]>([]);
-  const [rawMaterialPickerIndex, setRawMaterialPickerIndex] = useState<number | null>(null);
-  const [rawMaterialModalVisible, setRawMaterialModalVisible] = useState(false);
-  const [materialSearchQuery, setMaterialSearchQuery] = useState('');
-
-  // ── Step 2: Packaging & Branding ──
-  const [packagingOptionsList, setPackagingOptionsList] = useState<PackagingTypeOption[]>(defaultPackagingTypes);
-  const [selectedPackaging, setSelectedPackaging] = useState('Pouch');
-  const [selectedFinish, setSelectedFinish] = useState('STICKER LABEL');
-  const [packagingDimensions, setPackagingDimensions] = useState('12X20cm');
-  const [brandName, setBrandName] = useState('YOUR BRAND');
-  const [servingSize, setServingSize] = useState('120g');
-  const [quantity, setQuantity] = useState('100');
-  const [uploadedLogoUri, setUploadedLogoUri] = useState<string | null>(null);
-  const [clientNotes, setClientNotes] = useState('');
-
-  // ── SweetAlert Success Modal ──
-  const [successModalVisible, setSuccessModalVisible] = useState(false);
-  const [createdInquiryId, setCreatedInquiryId] = useState<number | null>(null);
-
-  // ── Load Catalog & Materials on Mount ──
+  const isAshigo = productName.toLowerCase().includes("ashigo");
+  const surface = isDarkMode ? "#131d31" : colors.card,
+    muted = isDarkMode ? "#1d2a40" : "#f7faff",
+    border = isDarkMode ? "#31425e" : colors.border;
   useEffect(() => {
-    async function loadData() {
+    (async () => {
       try {
-        setLoading(true);
-        const [materialsRes, productsRes, meRes] = await Promise.all([
-          getCustomizationMaterials().catch(() => null),
-          getProducts().catch(() => null),
+        const [me, all] = await Promise.all([
           getMe().catch(() => null),
+          getProducts().catch(() => null),
         ]);
-
-        if (meRes) {
-          const biz = meRes.business_client || meRes.businessClient;
-          const comp = biz?.business_name || meRes.full_name || 'BManny Client';
-          const contact = biz?.contact_person || meRes.full_name || 'Client';
-          setCompanyName(comp);
-          setContactPerson(contact);
-        }
-
-        let materials: RawMaterialItem[] = [];
-        if (materialsRes) {
-          const list = materialsRes.raw_materials || materialsRes.all || [];
-          materials = list.map((m: any) => ({
-            product_id: m.product_id,
-            name: m.name,
-            sku: m.sku,
-            category: m.category || 'Raw Materials',
-            price: Number(m.rate || m.price || 0),
-            rate: Number(m.rate || m.price || 0),
-            unit_of_measure: m.unit_of_measure || 'kg',
-            stock_quantity: Number(m.stock_quantity || 0),
-            in_stock: Boolean(m.in_stock && Number(m.stock_quantity) > 0),
-          }));
-          setCatalogRawMaterials(materials);
-
-          if (materialsRes.packaging_options && materialsRes.packaging_options.length > 0) {
-            setPackagingOptionsList(
-              materialsRes.packaging_options.map((p) => ({
-                id: p.packaging_id,
-                name: p.name,
-                category: p.category,
-                inStock: p.is_available,
-              }))
-            );
-          }
-        }
-
-        // Match current product to populate existing recipe / BOM
-        if (Array.isArray(productsRes)) {
-          const targetName = (params.name || '').toLowerCase().trim();
-          const targetId = Number(params.id);
-          const matched = productsRes.find(
-            (p: any) =>
-              (targetId && (p.id === targetId || p.product_type_id === targetId)) ||
-              (targetName && p.name && p.name.toLowerCase().trim() === targetName)
-          );
-
-          if (matched) {
-            setProductName(matched.name);
-            if (matched.product_code) setProductCode(matched.product_code);
-            if (matched.moq) setProductMoq(matched.moq);
-            if (matched.category) setProductCategory(matched.category);
-            if (matched.base_price) setCatalogPrice(Number(matched.base_price));
-            else if (matched.price) {
-              const num = parseFloat(String(matched.price).replace(/[^0-9.]/g, ''));
-              if (!isNaN(num)) setCatalogPrice(num);
-            }
-            if (matched.net_weight) setServingSize(matched.net_weight);
-            if (matched.packaging_specification) setPackagingDimensions(matched.packaging_specification);
-
-            if (matched.recipes && matched.recipes.length > 0) {
-              const rows: FormulationRow[] = matched.recipes.map((r: any) => {
-                const qty = Number(r.quantity_per_unit || 0);
-                const rate = Number(r.rate || 0);
+        const c = me?.business_client || me?.businessClient;
+        setCompany(c?.business_name || me?.full_name || "");
+        setContact(c?.contact_person || me?.full_name || "");
+        const p = (Array.isArray(all) ? all : all?.data || []).find(
+          (x: any) =>
+            (params.id &&
+              String(x.id || x.product_type_id) === String(params.id)) ||
+            (params.name &&
+              String(x.name).toLowerCase() ===
+                String(params.name).toLowerCase()),
+        );
+        if (p) {
+          setProductName(p.name || productName);
+          setCode(p.product_code || code);
+          setImage(p.image_url || image);
+          if (Array.isArray(p.packages) && p.packages.length)
+            setPackageOptions(
+              p.packages.map((x: any) => {
+                const fallback = DEFAULT_PACKAGES.find(
+                  (item) => item.id === x.slug,
+                );
                 return {
-                  product_id: r.product_id,
-                  raw_material_name: r.raw_material_name || r.name || 'Raw Material',
-                  raw_material_sku: r.raw_material_sku || r.sku || '',
-                  unit_of_measure: r.unit_of_measure || 'kg',
-                  quantity_per_unit: String(r.quantity_per_unit || '0.001'),
-                  rate: rate,
-                  amount: Math.round(qty * rate * 100) / 100,
-                };
-              });
-              setFormulationRows(rows);
-              return;
-            }
-          }
+                id: x.slug as Tier,
+                title: x.name,
+                desc: x.description || "",
+                moq: Number(x.minimum_quantity).toLocaleString() + " pouches",
+                packaging: x.packaging_details,
+                label: x.label_details,
+                weight: x.net_weight,
+                lead: x.lead_time_text,
+                cost:
+                  "₱" +
+                  Number(x.initial_price).toLocaleString("en-PH", {
+                    minimumFractionDigits: 2,
+                  }),
+                initialPrice: Number(x.initial_price),
+                terms: x.payment_terms,
+                publicIngredients:
+                  x.public_ingredients || fallback?.publicIngredients || "",
+                costBreakdown: Array.isArray(x.cost_breakdown)
+                  ? x.cost_breakdown.map((line: any) => ({
+                      label: line.label,
+                      amount: Number(line.amount),
+                      quantity: line.quantity || "",
+                    }))
+                  : fallback?.costBreakdown || [],
+                packageNotes: x.package_notes || fallback?.packageNotes || "",
+                allowsRequest: Boolean(x.allows_ingredient_request),
+              };
+              }),
+            );
         }
-
-        // Fallback default formulation rows
-        if (materials.length > 0) {
-          const sample = materials.slice(0, 4).map((m, idx) => {
-            const defaultQty = idx === 0 ? '0.0003' : idx === 1 ? '0.00434' : idx === 2 ? '0.00075' : '0.00808';
-            const qtyNum = parseFloat(defaultQty) || 0;
-            const rate = m.rate || m.price || 50;
-            return {
-              product_id: m.product_id,
-              raw_material_name: m.name,
-              raw_material_sku: m.sku,
-              unit_of_measure: m.unit_of_measure || 'kg',
-              quantity_per_unit: defaultQty,
-              rate: rate,
-              amount: Math.round(qtyNum * rate * 100) / 100,
-            };
-          });
-          setFormulationRows(sample);
-        }
-      } catch (err) {
-        console.warn('Error initializing customization data:', err);
       } finally {
         setLoading(false);
       }
-    }
-
-    loadData();
+    })();
   }, [params.id, params.name]);
-
-  // ── Calculation Formulas ──
-  const calculatedFormulationCost = useMemo(() => {
-    const total = formulationRows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
-    return Math.round(total * 100) / 100;
-  }, [formulationRows]);
-
-  const pricePerUnit = useMemo(() => {
-    if (catalogPrice > 0) return catalogPrice;
-    if (calculatedFormulationCost > 0) return Math.max(79.0, Math.round((calculatedFormulationCost + 20) * 100) / 100);
-    return 79.0;
-  }, [catalogPrice, calculatedFormulationCost]);
-
-  const batchQtyNum = useMemo(() => {
-    return parseInt(quantity, 10) || 100;
-  }, [quantity]);
-
-  const totalPrice = useMemo(() => {
-    return Math.round(pricePerUnit * batchQtyNum * 100) / 100;
-  }, [pricePerUnit, batchQtyNum]);
-
-  // Formatted ingredients string for quotation table
-  const ingredientsDisplayText = useMemo(() => {
-    if (formulationRows.length === 0) {
-      return `${productName.toUpperCase()} with NATURAL EXTRACTS`;
-    }
-    const names = formulationRows.map((r) => r.raw_material_name.toUpperCase()).slice(0, 3);
-    return `${productName.toUpperCase()} with ${names.join(' & ')}`;
-  }, [productName, formulationRows]);
-
-  // ── Formulation Row Handlers ──
-  const handleUpdateRowQuantity = (index: number, newQty: string) => {
-    setFormulationRows((prev) => {
-      const updated = [...prev];
-      const row = { ...updated[index] };
-      row.quantity_per_unit = newQty;
-      const numQty = parseFloat(newQty) || 0;
-      row.amount = Math.round(numQty * row.rate * 100) / 100;
-      updated[index] = row;
-      return updated;
-    });
+  const back = () =>
+    step === 1 ? router.back() : setStep((step - 1) as 1 | 2);
+  const next = () => {
+    if (!selected)
+      return Alert.alert(
+        "Choose a package",
+        "Select Starter, Gold, or Elite before continuing.",
+      );
+    setStep(2);
   };
-
-  const handleSelectRawMaterial = (material: RawMaterialItem) => {
-    if (rawMaterialPickerIndex === null) return;
-    setFormulationRows((prev) => {
-      const updated = [...prev];
-      const row = { ...updated[rawMaterialPickerIndex] };
-      row.product_id = material.product_id;
-      row.raw_material_name = material.name;
-      row.raw_material_sku = material.sku;
-      row.unit_of_measure = material.unit_of_measure || 'kg';
-      row.rate = material.rate || material.price || 0;
-      const numQty = parseFloat(row.quantity_per_unit) || 0;
-      row.amount = Math.round(numQty * row.rate * 100) / 100;
-      updated[rawMaterialPickerIndex] = row;
-      return updated;
-    });
-    setRawMaterialModalVisible(false);
-    setRawMaterialPickerIndex(null);
+  const review = () => {
+    if (!company.trim() || !contact.trim() || !brand.trim())
+      return Alert.alert(
+        "Complete your details",
+        "Company name, contact person, and brand name are required.",
+      );
+    setStep(3);
   };
-
-  const handleAddRawMaterialRow = () => {
-    const usedIds = new Set(formulationRows.map((r) => r.product_id));
-    const nextAvail = catalogRawMaterials.find((m) => !usedIds.has(m.product_id)) || catalogRawMaterials[0];
-
-    if (!nextAvail) {
-      Alert.alert('Notice', 'No more raw materials available in catalog.');
-      return;
-    }
-
-    const newRow: FormulationRow = {
-      product_id: nextAvail.product_id,
-      raw_material_name: nextAvail.name,
-      raw_material_sku: nextAvail.sku,
-      unit_of_measure: nextAvail.unit_of_measure || 'kg',
-      quantity_per_unit: '0.001',
-      rate: nextAvail.rate || nextAvail.price || 0,
-      amount: Math.round(0.001 * (nextAvail.rate || nextAvail.price || 0) * 100) / 100,
-    };
-
-    setFormulationRows((prev) => [...prev, newRow]);
-  };
-
-  const handleRemoveRow = (index: number) => {
-    if (formulationRows.length <= 1) {
-      Alert.alert('Formulation Requirement', 'A composite formulation must have at least one ingredient.');
-      return;
-    }
-    setFormulationRows((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handlePickLogo = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Needed', 'Please allow photo gallery access to upload your logo artwork.');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+  const pick = async () => {
+    const p = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (p.status !== "granted")
+      return Alert.alert(
+        "Permission needed",
+        "Allow photo access to attach artwork.",
+      );
+    const r = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.9,
+      quality: 0.85,
     });
-
-    if (!result.canceled && result.assets[0]?.uri) {
-      setUploadedLogoUri(result.assets[0].uri);
-    }
+    if (!r.canceled && r.assets[0]?.uri) setArtwork(r.assets[0].uri);
   };
-
-  // ── Step Navigation Helpers ──
-  const goToPackaging = () => {
-    if (formulationRows.length === 0) {
-      Alert.alert('Missing Ingredients', 'Please include at least one raw material ingredient.');
-      return;
-    }
-    const hasZero = formulationRows.some((r) => (parseFloat(r.quantity_per_unit) || 0) <= 0);
-    if (hasZero) {
-      Alert.alert('Invalid Quantity', 'All ingredient quantities must be greater than 0.');
-      return;
-    }
-    setCurrentStep(2);
-    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-  };
-
-  const goToDetails = () => {
-    if (!selectedPackaging) {
-      Alert.alert('Packaging Required', 'Please select a packaging container.');
-      return;
-    }
-    const moqNum = parseInt(productMoq.replace(/[^0-9]/g, ''), 10) || 100;
-    if (batchQtyNum < moqNum) {
-      Alert.alert('Minimum Order Quantity', `The minimum batch quantity for this product is ${moqNum} units.`);
-      return;
-    }
-    if (!companyName.trim()) {
-      Alert.alert('Company Name Required', 'Please provide a company / business name for the quotation sheet.');
-      return;
-    }
-    if (!contactPerson.trim()) {
-      Alert.alert('Contact Person Required', 'Please provide a contact person.');
-      return;
-    }
-    setCurrentStep(3);
-    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-  };
-
-  // ── Submit Inquiry to Sales Team ──
-  const handleSubmitCustomization = async () => {
+  const submit = async () => {
+    if (!selected) return;
     setSubmitting(true);
     try {
       const me = await getMe();
-      const clientId = me?.business_client?.client_id ?? me?.businessClient?.client_id;
-
-      if (!clientId) {
-        Alert.alert('Account Notice', 'Could not locate your business profile. Please contact support.');
-        return;
-      }
-
-      const ingredientsSummary = formulationRows
-        .map(
-          (r, idx) =>
-            `${idx + 1}. ${r.raw_material_name} (${r.raw_material_sku || 'RM'}): ${r.quantity_per_unit} ${r.unit_of_measure} @ ₱${r.rate.toFixed(2)} = ₱${r.amount.toFixed(2)}`
-        )
-        .join('; ');
-
-      const clientNotesFormatted = [
-        `Company Name: ${companyName}`,
-        `Contact Person: ${contactPerson}`,
-        `Brand: ${brandName || 'Your Brand'}`,
-        `Finished Product: ${productName} (${productCode})`,
-        `Formulation Cost: ₱${calculatedFormulationCost.toFixed(2)}/unit`,
-        `Packaging: ${selectedPackaging} ${packagingDimensions}`,
-        `Printing: ${selectedFinish}`,
-        `Net Weight: ${servingSize}`,
-        `Batch Quantity: ${batchQtyNum} units`,
-        `Price / Unit: ₱${pricePerUnit.toFixed(2)}`,
-        `Total Price: ₱${totalPrice.toLocaleString()}`,
-        `Terms: Commercial quotation & payment terms to be issued by Sales Agent | Lead time: 10-15 days | FOB: CDO | VAT Exclusive`,
-        clientNotes ? `Client Notes: ${clientNotes}` : null,
+      const clientId =
+        me?.business_client?.client_id ?? me?.businessClient?.client_id;
+      if (!clientId)
+        return Alert.alert(
+          "Account notice",
+          "Your business profile could not be located.",
+        );
+      const data = [
+        "Company Name: " + company.trim(),
+        "Contact Person: " + contact.trim(),
+        "Brand: " + brand.trim(),
+        "Finished Product: " + productName + " (" + code + ")",
+        "Selected Package: " + selected.title,
+        "MOQ: " + selected.moq,
+        "Packaging: " + selected.packaging,
+        "Label Style: " + selected.label,
+        "Net Weight: " + selected.weight,
+        "Lead Time: " + selected.lead,
+        "Package Terms: " + selected.terms,
+        artwork ? "Brand Artwork: Attached in mobile app" : null,
+        selected.allowsRequest && request.trim()
+          ? "Requested Ingredient / Desired Effect: " + request.trim()
+          : null,
+        notes.trim() ? "Special Instructions: " + notes.trim() : null,
       ]
         .filter(Boolean)
-        .join(' | ');
-
-      const customizations = [
+        .join(" | ");
+      const r = await submitInquiry(clientId, [
         {
-          customization_type: 'Custom Rebrand & Packaging',
-          packaging_type: `${selectedPackaging} ${packagingDimensions}`,
-          packaging_finish: selectedFinish,
-          serving_size: `${servingSize} × ${batchQtyNum} units`,
-          formulation_notes: `Calculated Formulation Recipe (₱${calculatedFormulationCost.toFixed(2)}/unit): ${ingredientsSummary}`,
-          client_notes: clientNotesFormatted,
+          customization_type: "Package inquiry — " + selected.title,
+          selected_package: selected.id,
+          packaging_type: selected.packaging,
+          packaging_finish: selected.label,
+          serving_size: selected.weight + " × " + selected.moq,
+          formulation_notes:
+            "Package specification: " +
+            selected.title +
+            ". Internal formulation is reviewed by BMANNY Product Control.",
+          requested_ingredient_note:
+            selected.allowsRequest && request.trim()
+              ? request.trim()
+              : undefined,
+          client_notes: data,
         },
-      ];
-
-      const res = await submitInquiry(clientId, customizations);
-      if (res?.inquiry?.inquiry_id) {
-        setCreatedInquiryId(res.inquiry.inquiry_id);
-      }
-      setSuccessModalVisible(true);
-    } catch (err: any) {
-      Alert.alert('Submission Error', err.message || 'Failed to submit customization. Please try again.');
+      ]);
+      const id = r?.inquiry?.inquiry_id ?? null;
+      if (artwork && id) await uploadInquiryDesign(id, artwork);
+      setInquiryId(id);
+      setSuccess(true);
+    } catch (e: any) {
+      Alert.alert(
+        "Submission error",
+        e?.message || "Unable to submit your inquiry.",
+      );
     } finally {
       setSubmitting(false);
     }
   };
-
-  const filteredCatalogMaterials = useMemo(() => {
-    if (!materialSearchQuery.trim()) return catalogRawMaterials;
-    const q = materialSearchQuery.toLowerCase();
-    return catalogRawMaterials.filter(
-      (m) => m.name.toLowerCase().includes(q) || m.sku.toLowerCase().includes(q) || m.category.toLowerCase().includes(q)
-    );
-  }, [catalogRawMaterials, materialSearchQuery]);
-
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[s.safe, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
-        style={styles.keyboardContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={s.safe}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        {/* ── Top Header Bar (No Stepper Tabs Bar) ── */}
-        <View style={[styles.headerBar, { borderBottomColor: colors.border, backgroundColor: colors.card }]}>
+        <View
+          style={[
+            s.header,
+            { backgroundColor: surface, borderBottomColor: border },
+          ]}
+        >
           <TouchableOpacity
-            style={[styles.backBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }]}
-            onPress={() => {
-              if (currentStep === 3) {
-                setCurrentStep(2);
-                scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-              } else if (currentStep === 2) {
-                setCurrentStep(1);
-                scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-              } else {
-                router.back();
-              }
-            }}
+            style={[s.back, { backgroundColor: muted }]}
+            onPress={back}
           >
-            <Ionicons name="arrow-back" size={20} color={colors.text} />
+            <Ionicons name="arrow-back" size={21} color={colors.text} />
           </TouchableOpacity>
-          <View style={styles.headerTitleWrap}>
-            <Text style={[styles.screenTitle, { color: colors.text }]}>Product Customization</Text>
-            <Text style={[styles.screenSubtitle, { color: colors.textSecondary }]}>
-              {currentStep === 1
-                ? 'Step 1: Formulation Recipe (Composite Item)'
-                : currentStep === 2
-                ? 'Step 2: Packaging, Branding & Client Info'
-                : 'Step 3: Starter Package Details & Submit'}
+          <View>
+            <Text style={[s.headerTitle, { color: colors.text }]}>
+              Product Inquiry
+            </Text>
+            <Text style={[s.sub, { color: colors.textSecondary }]}>
+              Step {step}:{" "}
+              {step === 1
+                ? "Choose a package"
+                : step === 2
+                  ? "Brand & business details"
+                  : "Review & submit"}
             </Text>
           </View>
         </View>
-
         {loading ? (
-          <View style={styles.loadingContainer}>
+          <View style={s.loading}>
             <ActivityIndicator size="large" color="#2196F3" />
-            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-              Loading formulation recipes and materials...
+            <Text style={{ color: colors.textSecondary }}>
+              Loading product details…
             </Text>
           </View>
         ) : (
           <ScrollView
-            ref={scrollViewRef}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
+            contentContainerStyle={s.content}
             keyboardShouldPersistTaps="handled"
           >
-            {/* ════════════════════════════════════════════════════════════════════
-                PAGE 1: INGREDIENTS & COMPOSITE FORMULATION
-               ════════════════════════════════════════════════════════════════════ */}
-            {currentStep === 1 && (
-              <View style={styles.pageBlock}>
-                <View style={styles.sectionHeaderIntro}>
-                  <Text style={[styles.modalHeadline, { color: colors.text }]}>Edit Composite Item</Text>
-                  <Text style={[styles.modalSubheadline, { color: colors.textSecondary }]}>
-                    Define the formulation recipe and per-unit raw material quantities for this finished product.
-                  </Text>
-                </View>
-
-                {/* ── Composite Product Header Card with Live Formulation Cost ── */}
-                <View
-                  style={[
-                    styles.compositeProductCard,
-                    {
-                      backgroundColor: isDarkMode ? '#0d1527' : '#f8fafc',
-                      borderColor: isDarkMode ? '#1e293b' : '#e2e8f0',
-                    },
-                  ]}
-                >
-                  <View style={styles.compositeLeft}>
-                    <View
-                      style={[
-                        styles.compositeIconBox,
-                        {
-                          backgroundColor: isDarkMode ? '#172554' : '#e0f2fe',
-                          borderColor: isDarkMode ? '#1e3a8a' : '#bae6fd',
-                        },
-                      ]}
-                    >
-                      <Feather name="box" size={24} color="#2196F3" />
-                    </View>
-                    <View style={styles.compositeInfo}>
-                      <Text style={[styles.compositeProductName, { color: colors.text }]}>
-                        {productName}
-                      </Text>
-                      <Text style={styles.compositeProductCode}>{productCode}</Text>
-                      <Text style={[styles.compositeCategoryNote, { color: colors.textSecondary }]}>
-                        Composite Item / Bill of Materials (Strictly Raw Materials)
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.compositeRight}>
-                    <Text style={[styles.costLabel, { color: colors.textSecondary }]}>
-                      Calculated Formulation Cost
-                    </Text>
-                    <View style={styles.costValueRow}>
-                      <Text style={styles.costCurrencySymbol}>₱</Text>
-                      <Text style={styles.costValueNumber}>{calculatedFormulationCost.toFixed(2)}</Text>
-                      <Text style={[styles.costPerUnit, { color: colors.textSecondary }]}>/ unit</Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* ── Recipe Ingredients Table ── */}
-                <View
-                  style={[
-                    styles.recipeTableContainer,
-                    {
-                      backgroundColor: isDarkMode ? '#0b1120' : '#ffffff',
-                      borderColor: isDarkMode ? '#1e293b' : '#e2e8f0',
-                    },
-                  ]}
-                >
-                  {/* Table Header Row */}
-                  <View
-                    style={[
-                      styles.tableHeaderRow,
-                      {
-                        backgroundColor: isDarkMode ? '#0f172a' : '#f1f5f9',
-                        borderBottomColor: isDarkMode ? '#1e293b' : '#e2e8f0',
-                      },
-                    ]}
-                  >
-                    <Text style={[styles.tableColHeader, styles.colIndex]}>#</Text>
-                    <Text style={[styles.tableColHeader, styles.colItem]}>ITEM (RAW MATERIAL)</Text>
-                    <Text style={[styles.tableColHeader, styles.colQty]}>QUANTITY (PER UNIT)</Text>
-                    <Text style={[styles.tableColHeader, styles.colRate]}>RATE (₱)</Text>
-                    <Text style={[styles.tableColHeader, styles.colAmount]}>AMOUNT (₱)</Text>
-                    <Text style={[styles.tableColHeader, styles.colAction]}></Text>
-                  </View>
-
-                  {/* Table Rows */}
-                  {formulationRows.map((row, idx) => (
-                    <View
-                      key={`${row.product_id}-${idx}`}
-                      style={[
-                        styles.tableDataRow,
-                        {
-                          borderBottomColor: isDarkMode ? '#1e293b' : '#f1f5f9',
-                          backgroundColor: idx % 2 === 1 ? (isDarkMode ? '#0d1627' : '#fafafa') : 'transparent',
-                        },
-                      ]}
-                    >
-                      <Text style={[styles.cellIndex, { color: colors.textSecondary }]}>{idx + 1}</Text>
-
-                      <View style={styles.cellItem}>
-                        <TouchableOpacity
-                          style={[
-                            styles.materialDropdownBtn,
-                            {
-                              backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
-                              borderColor: isDarkMode ? '#334155' : '#cbd5e1',
-                            },
-                          ]}
-                          onPress={() => {
-                            setRawMaterialPickerIndex(idx);
-                            setMaterialSearchQuery('');
-                            setRawMaterialModalVisible(true);
-                          }}
-                        >
-                          <Text style={[styles.materialDropdownText, { color: colors.text }]} numberOfLines={1}>
-                            {row.raw_material_name} ({row.raw_material_sku || 'RM'}) — ₱{row.rate.toFixed(2)}/{row.unit_of_measure}
-                          </Text>
-                          <Feather name="chevron-down" size={14} color={colors.textSecondary} />
-                        </TouchableOpacity>
-                      </View>
-
-                      <View style={styles.cellQty}>
-                        <View
-                          style={[
-                            styles.qtyInputWrap,
-                            {
-                              backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
-                              borderColor: isDarkMode ? '#334155' : '#cbd5e1',
-                            },
-                          ]}
-                        >
-                          <TextInput
-                            style={[styles.qtyInputText, { color: colors.text }]}
-                            value={row.quantity_per_unit}
-                            onChangeText={(text) => handleUpdateRowQuantity(idx, text)}
-                            keyboardType="numeric"
-                            placeholder="0.00"
-                            placeholderTextColor={colors.textSecondary}
-                          />
-                          <Text style={[styles.qtyUnitLabel, { color: colors.textSecondary }]}>
-                            {row.unit_of_measure}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <Text style={[styles.cellRate, { color: colors.textSecondary }]}>
-                        ₱{row.rate.toFixed(2)}
-                      </Text>
-
-                      <Text style={[styles.cellAmount, { color: colors.text }]}>
-                        ₱{row.amount.toFixed(2)}
-                      </Text>
-
-                      <TouchableOpacity
-                        style={styles.cellActionBtn}
-                        onPress={() => handleRemoveRow(idx)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Ionicons name="close" size={18} color="#94a3b8" />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-
-                  {/* Add Raw Material Button */}
-                  <View style={styles.addMaterialFooter}>
-                    <TouchableOpacity
-                      style={[
-                        styles.addMaterialBtn,
-                        {
-                          borderColor: isDarkMode ? '#1e3a8a' : '#bfdbfe',
-                          backgroundColor: isDarkMode ? 'rgba(33, 150, 243, 0.08)' : '#eff6ff',
-                        },
-                      ]}
-                      onPress={handleAddRawMaterialRow}
-                    >
-                      <Ionicons name="add" size={16} color="#2196F3" />
-                      <Text style={styles.addMaterialBtnText}>Add Raw Material</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {/* Page 1 Bottom Navigation */}
-                <TouchableOpacity
-                  style={[styles.primaryNavBtn, { backgroundColor: '#2196F3' }]}
-                  onPress={goToPackaging}
-                  activeOpacity={0.88}
-                >
-                  <Text style={styles.primaryNavBtnText}>Proceed to Packaging</Text>
-                  <Ionicons name="arrow-forward" size={18} color="#ffffff" style={{ marginLeft: 6 }} />
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* ════════════════════════════════════════════════════════════════════
-                PAGE 2: PACKAGING PART ("after the ingredients, the next page should be packaging")
-               ════════════════════════════════════════════════════════════════════ */}
-            {currentStep === 2 && (
-              <View style={styles.pageBlock}>
-                <View style={styles.sectionHeaderIntro}>
-                  <Text style={[styles.modalHeadline, { color: colors.text }]}>Packaging &amp; Private Labeling</Text>
-                  <Text style={[styles.modalSubheadline, { color: colors.textSecondary }]}>
-                    Select container type, brand name, net weight, label specifications, and batch volume.
-                  </Text>
-                </View>
-
-                <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  {/* Packaging Container */}
-                  <Text style={[styles.fieldLabel, { color: colors.text }]}>Packaging Container *</Text>
-                  <View style={styles.packagingGrid}>
-                    {packagingOptionsList.map((pkg) => {
-                      const isSelected = selectedPackaging.toLowerCase() === pkg.name.toLowerCase();
-                      return (
-                        <TouchableOpacity
-                          key={pkg.id}
-                          style={[
-                            styles.packagingCardItem,
-                            {
-                              backgroundColor: isSelected
-                                ? isDarkMode
-                                  ? 'rgba(33, 150, 243, 0.15)'
-                                  : '#eff6ff'
-                                : isDarkMode
-                                ? '#1e293b'
-                                : '#f8fafc',
-                              borderColor: isSelected ? '#2196F3' : colors.border,
-                            },
-                          ]}
-                          onPress={() => setSelectedPackaging(pkg.name)}
-                          activeOpacity={0.8}
-                        >
-                          <View style={styles.pkgHeaderRow}>
-                            <MaterialCommunityIcons
-                              name={
-                                pkg.name.toLowerCase().includes('bottle')
-                                  ? 'bottle-tonic-outline'
-                                  : pkg.name.toLowerCase().includes('jar')
-                                  ? 'cup-outline'
-                                  : pkg.name.toLowerCase().includes('sachet')
-                                  ? 'ticket-outline'
-                                  : pkg.name.toLowerCase().includes('box')
-                                  ? 'package-variant'
-                                  : 'package-variant-closed'
-                              }
-                              size={20}
-                              color={isSelected ? '#2196F3' : colors.textSecondary}
-                            />
-                            {isSelected && <Ionicons name="checkmark-circle" size={18} color="#2196F3" />}
-                          </View>
-                          <Text
-                            style={[
-                              styles.pkgItemName,
-                              { color: isSelected ? '#2196F3' : colors.text },
-                              isSelected && { fontWeight: '700' },
-                            ]}
-                          >
-                            {pkg.name}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-
-                  {/* Packaging Printing & Dimensions */}
-                  <View style={styles.rowTwoCols}>
-                    <View style={styles.colHalf}>
-                      <Text style={[styles.fieldLabel, { color: colors.text, marginTop: 14 }]}>
-                        Printing / Label Style
-                      </Text>
-                      <TextInput
-                        style={[
-                          styles.inputField,
-                          {
-                            backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-                            borderColor: colors.border,
-                            color: colors.text,
-                          },
-                        ]}
-                        value={selectedFinish}
-                        onChangeText={setSelectedFinish}
-                        placeholder="e.g. STICKER LABEL"
-                        placeholderTextColor={colors.textSecondary}
-                      />
-                    </View>
-
-                    <View style={styles.colHalf}>
-                      <Text style={[styles.fieldLabel, { color: colors.text, marginTop: 14 }]}>
-                        Container Dimensions
-                      </Text>
-                      <TextInput
-                        style={[
-                          styles.inputField,
-                          {
-                            backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-                            borderColor: colors.border,
-                            color: colors.text,
-                          },
-                        ]}
-                        value={packagingDimensions}
-                        onChangeText={setPackagingDimensions}
-                        placeholder="e.g. 12X20cm"
-                        placeholderTextColor={colors.textSecondary}
-                      />
-                    </View>
-                  </View>
-
-                  {/* Brand Name & Net Weight */}
-                  <View style={styles.rowTwoCols}>
-                    <View style={styles.colHalf}>
-                      <Text style={[styles.fieldLabel, { color: colors.text, marginTop: 14 }]}>
-                        Your Brand Name *
-                      </Text>
-                      <TextInput
-                        style={[
-                          styles.inputField,
-                          {
-                            backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-                            borderColor: colors.border,
-                            color: colors.text,
-                          },
-                        ]}
-                        value={brandName}
-                        onChangeText={setBrandName}
-                        placeholder="e.g. Your Brand"
-                        placeholderTextColor={colors.textSecondary}
-                      />
-                    </View>
-
-                    <View style={styles.colHalf}>
-                      <Text style={[styles.fieldLabel, { color: colors.text, marginTop: 14 }]}>
-                        Net Weight *
-                      </Text>
-                      <TextInput
-                        style={[
-                          styles.inputField,
-                          {
-                            backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-                            borderColor: colors.border,
-                            color: colors.text,
-                          },
-                        ]}
-                        value={servingSize}
-                        onChangeText={setServingSize}
-                        placeholder="e.g. 120g"
-                        placeholderTextColor={colors.textSecondary}
-                      />
-                    </View>
-                  </View>
-
-                  {/* Batch Order Quantity with MOQ */}
-                  <View style={styles.moqRowHeader}>
-                    <Text style={[styles.fieldLabel, { color: colors.text, marginTop: 14 }]}>
-                      Batch Order Quantity (units / pouches) *
-                    </Text>
-                    <View style={styles.moqBadge}>
-                      <Text style={styles.moqBadgeText}>MOQ: {productMoq}</Text>
-                    </View>
-                  </View>
-                  <TextInput
-                    style={[
-                      styles.inputField,
-                      styles.qtyField,
-                      {
-                        backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-                        borderColor: colors.border,
-                        color: colors.text,
-                      },
-                    ]}
-                    value={quantity}
-                    onChangeText={setQuantity}
-                    keyboardType="number-pad"
-                    placeholder="100"
-                    placeholderTextColor={colors.textSecondary}
-                  />
-
-                  {/* Brand Logo Upload */}
-                  <Text style={[styles.fieldLabel, { color: colors.text, marginTop: 14 }]}>
-                    Upload Brand Logo / Artwork Preview (Optional)
-                  </Text>
-                  <TouchableOpacity
-                    style={[
-                      styles.uploadLogoBox,
-                      {
-                        backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-                        borderColor: isDarkMode ? '#334155' : '#cbd5e1',
-                      },
-                    ]}
-                    onPress={handlePickLogo}
-                  >
-                    {uploadedLogoUri ? (
-                      <View style={styles.uploadedLogoWrap}>
-                        <Image source={{ uri: uploadedLogoUri }} style={styles.uploadedLogoImg} />
-                        <Text style={styles.changeLogoText}>Tap to change artwork</Text>
-                      </View>
-                    ) : (
-                      <View style={styles.uploadPlaceholderInner}>
-                        <Ionicons name="image-outline" size={26} color="#2196F3" />
-                        <Text style={[styles.uploadLogoPrompt, { color: colors.text }]}>
-                          Tap to attach custom brand logo / label graphic
-                        </Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                </View>
-
-                {/* ── Sub-Section: Company & Client Information ── */}
-                <View style={[styles.sectionHeaderIntro, { marginTop: 16 }]}>
-                  <Text style={[styles.modalHeadline, { color: colors.text }]}>Company Information</Text>
-                  <Text style={[styles.modalSubheadline, { color: colors.textSecondary }]}>
-                    Provide your business client details to be listed on the official starter package specification.
-                  </Text>
-                </View>
-
-                <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  <View style={styles.rowTwoCols}>
-                    <View style={styles.colHalf}>
-                      <Text style={[styles.fieldLabel, { color: colors.text }]}>Company Name *</Text>
-                      <TextInput
-                        style={[
-                          styles.inputField,
-                          {
-                            backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-                            borderColor: colors.border,
-                            color: colors.text,
-                          },
-                        ]}
-                        value={companyName}
-                        onChangeText={setCompanyName}
-                        placeholder="e.g. BManny Client Co."
-                        placeholderTextColor={colors.textSecondary}
-                      />
-                    </View>
-
-                    <View style={styles.colHalf}>
-                      <Text style={[styles.fieldLabel, { color: colors.text }]}>Contact Person *</Text>
-                      <TextInput
-                        style={[
-                          styles.inputField,
-                          {
-                            backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-                            borderColor: colors.border,
-                            color: colors.text,
-                          },
-                        ]}
-                        value={contactPerson}
-                        onChangeText={setContactPerson}
-                        placeholder="e.g. Juan Dela Cruz"
-                        placeholderTextColor={colors.textSecondary}
-                      />
-                    </View>
-                  </View>
-
-                  <View style={[styles.rowTwoCols, { marginTop: 12 }]}>
-                    <View style={styles.colHalf}>
-                      <Text style={[styles.fieldLabel, { color: colors.text }]}>Quotation Date</Text>
-                      <View
-                        style={[
-                          styles.inputFieldReadOnly,
-                          {
-                            backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9',
-                            borderColor: colors.border,
-                          },
-                        ]}
-                      >
-                        <Text style={[styles.readOnlyText, { color: colors.text }]}>{todayDate}</Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.colHalf}>
-                      <Text style={[styles.fieldLabel, { color: colors.text }]}>Customer Support</Text>
-                      <View
-                        style={[
-                          styles.inputFieldReadOnly,
-                          {
-                            backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9',
-                            borderColor: colors.border,
-                          },
-                        ]}
-                      >
-                        <Text style={[styles.readOnlyText, { color: colors.text }]}>BManny Partners Inc.</Text>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-
-                {/* ── Sub-Section: Special Notes & Instructions ── */}
-                <View style={[styles.sectionHeaderIntro, { marginTop: 16 }]}>
-                  <Text style={[styles.modalHeadline, { color: colors.text }]}>Special Instructions & Notes</Text>
-                  <Text style={[styles.modalSubheadline, { color: colors.textSecondary }]}>
-                    Enter any formulation tweaks, packaging preferences, or logistics instructions for our sales team.
-                  </Text>
-                </View>
-
-                <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  <TextInput
-                    style={[
-                      styles.inputField,
-                      {
-                        backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-                        borderColor: colors.border,
-                        color: colors.text,
-                        minHeight: 70,
-                        textAlignVertical: 'top',
-                      },
-                    ]}
-                    multiline
-                    numberOfLines={3}
-                    value={clientNotes}
-                    onChangeText={setClientNotes}
-                    placeholder="Enter any special packaging, shipping, or formulation requests..."
-                    placeholderTextColor={colors.textSecondary}
-                  />
-                </View>
-
-                {/* Page 2 Bottom Navigation */}
-                <View style={styles.dualNavButtons}>
-                  <TouchableOpacity
-                    style={[styles.secondaryNavBtn, { borderColor: colors.border }]}
-                    onPress={() => {
-                      setCurrentStep(1);
-                      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-                    }}
-                  >
-                    <Ionicons name="arrow-back" size={16} color={colors.text} style={{ marginRight: 6 }} />
-                    <Text style={[styles.secondaryNavBtnText, { color: colors.text }]}>Back to Ingredients</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.primaryNavBtn, styles.flexOne, { backgroundColor: '#2196F3' }]}
-                    onPress={goToDetails}
-                  >
-                    <Text style={styles.primaryNavBtnText}>Proceed to Specification Sheet</Text>
-                    <Ionicons name="arrow-forward" size={16} color="#ffffff" style={{ marginLeft: 6 }} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-
-            {/* ════════════════════════════════════════════════════════════════════
-                PAGE 3: STARTER PACKAGE SPECIFICATION SHEET & SUBMIT
-               ════════════════════════════════════════════════════════════════════ */}
-            {currentStep === 3 && (
-              <View style={styles.pageBlock}>
-                <View style={styles.sectionHeaderIntro}>
-                  <Text style={[styles.modalHeadline, { color: colors.text }]}>
-                    Starter Package Specification Sheet
-                  </Text>
-                  <Text style={[styles.modalSubheadline, { color: colors.textSecondary }]}>
-                    Official BMANNY custom starter package details and commercial quotation breakdown.
-                  </Text>
-                </View>
-
-                <ScrollView horizontal showsHorizontalScrollIndicator={true} style={styles.sheetHorizontalScroll}>
-                  <View style={[styles.sheetTableContainer, { borderColor: '#475569' }]}>
-                    {/* Row 1: Pink Header "COMPANY INFO" */}
-                    <View style={styles.sheetPinkHeaderRow}>
-                      <Text style={styles.sheetPinkHeaderText}>COMPANY INFO</Text>
-                    </View>
-
-                    {/* Row 2: Company Info 2-Column Details */}
-                    <View style={styles.sheetInfoGrid}>
-                      <View style={styles.sheetInfoColLeft}>
-                        <View style={styles.sheetInfoLine}>
-                          <Text style={styles.sheetInfoLabel}>Company Name:</Text>
-                          <Text style={styles.sheetInfoVal} numberOfLines={1}>
-                            {companyName}
-                          </Text>
-                        </View>
-                        <View style={styles.sheetInfoLine}>
-                          <Text style={styles.sheetInfoLabel}>Contact Person:</Text>
-                          <Text style={styles.sheetInfoVal} numberOfLines={1}>
-                            {contactPerson}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.sheetInfoColRight}>
-                        <View style={styles.sheetInfoLine}>
-                          <Text style={styles.sheetInfoLabel}>Date:</Text>
-                          <Text style={styles.sheetInfoVal}>{todayDate}</Text>
-                        </View>
-                        <View style={styles.sheetInfoLine}>
-                          <Text style={styles.sheetInfoLabel}>Customer Support:</Text>
-                          <Text style={styles.sheetInfoVal}>BManny Partners Inc.</Text>
-                        </View>
-                      </View>
-                    </View>
-
-                    {/* Row 3: Yellow Package Banner */}
-                    <View style={styles.sheetYellowBannerRow}>
-                      <Text style={styles.sheetYellowBannerText}>
-                        {productName.toUpperCase()} STARTER PACKAGE
-                      </Text>
-                    </View>
-
-                    {/* Row 4: Main Columns Header (WITHOUT THE IMAGE / PRESENTATION COLUMN) */}
-                    <View style={styles.sheetColHeaderRow}>
-                      <View style={[styles.sheetTh, styles.sheetColPkgDetails]}>
-                        <Text style={styles.sheetThText}>PACKAGING DETAILS</Text>
-                      </View>
-                      <View style={[styles.sheetTh, styles.sheetColMoq]}>
-                        <Text style={styles.sheetThText}>MOQ</Text>
-                      </View>
-                      <View style={[styles.sheetTh, styles.sheetColPriceUnit]}>
-                        <Text style={styles.sheetThText}>PRICE/UNIT</Text>
-                      </View>
-                      <View style={[styles.sheetTh, styles.sheetColPriceTotal]}>
-                        <Text style={styles.sheetThText}>PRICE / TOTAL</Text>
-                      </View>
-                    </View>
-
-                    {/* Row 5: Product Customization Data Row (WITHOUT THE IMAGE / PRESENTATION COLUMN) */}
-                    <View style={styles.sheetDataRow}>
-                      {/* Column 1: Packaging Details */}
-                      <View style={[styles.sheetTd, styles.sheetColPkgDetails, styles.sheetDetailsPadding]}>
-                        <View style={styles.sheetSpecItem}>
-                          <Text style={styles.sheetSpecLabel}>PRODUCT NAME:</Text>
-                          <Text style={styles.sheetSpecValueRed}>{productName.toUpperCase()}</Text>
-                        </View>
-
-                        <View style={styles.sheetSpecItem}>
-                          <Text style={styles.sheetSpecLabel}>PRIMARY:</Text>
-                          <Text style={styles.sheetSpecValueRed}>
-                            {selectedPackaging.toUpperCase()} {packagingDimensions.toUpperCase()}
-                          </Text>
-                        </View>
-
-                        <View style={styles.sheetSpecItem}>
-                          <Text style={styles.sheetSpecLabel}>PRINTING:</Text>
-                          <Text style={styles.sheetSpecValueRed}>{selectedFinish.toUpperCase()}</Text>
-                        </View>
-
-                        <View style={styles.sheetSpecItem}>
-                          <Text style={styles.sheetSpecLabel}>NET WT.:</Text>
-                          <Text style={styles.sheetSpecValueRed}>{servingSize.toUpperCase()}</Text>
-                        </View>
-
-                        <View style={styles.sheetSpecItem}>
-                          <Text style={styles.sheetSpecLabel}>INGREDIENTS:</Text>
-                          <Text style={[styles.sheetSpecValueRed, styles.sheetIngredientsRedItalic]}>
-                            {ingredientsDisplayText}
-                          </Text>
-                        </View>
-                      </View>
-
-                      {/* Column 2: MOQ */}
-                      <View style={[styles.sheetTd, styles.sheetColMoq, styles.sheetCenterAlign]}>
-                        <Text style={styles.sheetValueRedBold}>
-                          {batchQtyNum} {selectedPackaging.toLowerCase().includes('pouch') ? 'pouch' : 'units'}
-                        </Text>
-                      </View>
-
-                      {/* Column 3: Price / Unit */}
-                      <View style={[styles.sheetTd, styles.sheetColPriceUnit, styles.sheetCenterAlign]}>
-                        <Text style={styles.sheetValueRedBold}>₱{pricePerUnit.toFixed(2)}</Text>
-                      </View>
-
-                      {/* Column 4: Total Amount */}
-                      <View style={[styles.sheetTd, styles.sheetColPriceTotal, styles.sheetCenterAlign]}>
-                        <Text style={styles.sheetValueRedBold}>
-                          ₱ {totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* Row 6: Commercial Notice Row */}
-                    <View style={styles.sheetTermsBlockRow}>
-                      <View style={styles.sheetTermsLabelCol}>
-                        <Text style={styles.sheetTermsBlockLabel}>COMMERCIAL TERMS</Text>
-                      </View>
-                      <View style={styles.sheetTermsTextCol}>
-                        <Text style={styles.sheetTermLine}>• Quotation and commercial payment terms handled by Sales Agent</Text>
-                        <Text style={styles.sheetTermLine}>• Payment via GCash or Bank Transfer available upon quote issuance</Text>
-                      </View>
-                      <View style={styles.sheetLeadTimeCol}>
-                        <Text style={styles.sheetTermLine}>• Standard Order Lead Time 10-15 days</Text>
-                      </View>
-                    </View>
-
-                    {/* Row 7: Pink Header "TERMS & SPECIFICATIONS" */}
-                    <View style={styles.sheetPinkHeaderRow}>
-                      <Text style={styles.sheetPinkHeaderText}>TERMS & SPECIFICATIONS</Text>
-                    </View>
-
-                    {/* Row 8: FOB & VAT Information */}
-                    <View style={styles.sheetFobVatRow}>
-                      <View style={styles.sheetFobVatItem}>
-                        <Text style={styles.sheetFobLabel}>FOB:</Text>
-                        <Text style={styles.sheetValueRedBold}>CDO</Text>
-                      </View>
-                      <View style={styles.sheetFobVatItem}>
-                        <Text style={styles.sheetFobLabel}>VAT:</Text>
-                        <Text style={styles.sheetValueRedBold}>VAT EXCLUSIVE</Text>
-                      </View>
-                    </View>
-                  </View>
-                </ScrollView>
-
-                {/* Step 3 Bottom Navigation & Submission */}
-                <View style={styles.dualNavButtons}>
-                  <TouchableOpacity
-                    style={[styles.secondaryNavBtn, { borderColor: colors.border }]}
-                    onPress={() => {
-                      setCurrentStep(2);
-                      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-                    }}
-                  >
-                    <Ionicons name="arrow-back" size={16} color={colors.text} style={{ marginRight: 6 }} />
-                    <Text style={[styles.secondaryNavBtnText, { color: colors.text }]}>Back to Packaging & Details</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.primaryNavBtn,
-                      styles.flexOne,
-                      { backgroundColor: '#2196F3' },
-                      submitting && { opacity: 0.7 },
-                    ]}
-                    onPress={handleSubmitCustomization}
-                    disabled={submitting}
-                  >
-                    {submitting ? (
-                      <ActivityIndicator color="#ffffff" size="small" />
-                    ) : (
-                      <>
-                        <Text style={styles.primaryNavBtnText}>Submit Customization</Text>
-                        <Ionicons name="checkmark-done" size={18} color="#ffffff" style={{ marginLeft: 6 }} />
-                      </>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-          </ScrollView>
-        )}
-
-        {/* ── Raw Material Selection Modal ── */}
-        <Modal
-          visible={rawMaterialModalVisible}
-          transparent={true}
-          animationType="slide"
-          onRequestClose={() => setRawMaterialModalVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={styles.modalHeaderRow}>
-                <Text style={[styles.modalTitle, { color: colors.text }]}>Select Raw Material</Text>
-                <TouchableOpacity
-                  onPress={() => setRawMaterialModalVisible(false)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons name="close" size={22} color={colors.text} />
-                </TouchableOpacity>
-              </View>
-
+            {!isAshigo ? (
               <View
                 style={[
-                  styles.searchContainer,
-                  {
-                    backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9',
-                    borderColor: colors.border,
-                  },
+                  s.notice,
+                  { backgroundColor: surface, borderColor: border },
                 ]}
               >
-                <Ionicons name="search" size={16} color={colors.textSecondary} />
-                <TextInput
-                  style={[styles.searchInput, { color: colors.text }]}
-                  placeholder="Search raw material name, SKU, or category..."
-                  placeholderTextColor={colors.textSecondary}
-                  value={materialSearchQuery}
-                  onChangeText={setMaterialSearchQuery}
+                <Ionicons
+                  name="information-circle-outline"
+                  size={25}
+                  color="#2196F3"
                 />
+                <View style={s.grow}>
+                  <Text style={[s.noticeTitle, { color: colors.text }]}>
+                    Packages are being prepared
+                  </Text>
+                  <Text style={[s.noticeText, { color: colors.textSecondary }]}>
+                    The new package inquiry flow is configured for AshigoPlus
+                    Coffee Drink Mix only.
+                  </Text>
+                </View>
               </View>
-
-              <ScrollView style={styles.materialListScroll}>
-                {filteredCatalogMaterials.map((mat) => {
-                  const isCurrent =
-                    rawMaterialPickerIndex !== null &&
-                    formulationRows[rawMaterialPickerIndex]?.product_id === mat.product_id;
-
-                  return (
-                    <TouchableOpacity
-                      key={mat.product_id}
-                      style={[
-                        styles.materialItemRow,
-                        { borderBottomColor: isDarkMode ? '#1e293b' : '#f1f5f9' },
-                        isCurrent && { backgroundColor: isDarkMode ? 'rgba(33, 150, 243, 0.15)' : '#eff6ff' },
-                      ]}
-                      onPress={() => handleSelectRawMaterial(mat)}
+            ) : step === 1 ? (
+              <View>
+                <Text style={[s.title, { color: colors.text }]}>
+                  Choose your package
+                </Text>
+                <Text style={[s.lead, { color: colors.textSecondary }]}>
+                  Choose the production package that fits your brand. Formula
+                  and raw-material details remain private to BMANNY Product
+                  Control.
+                </Text>
+                <View
+                  style={[
+                    s.product,
+                    { backgroundColor: surface, borderColor: border },
+                  ]}
+                >
+                  <Image
+                    source={
+                      isAshigo
+                        ? ASHIGO_PRODUCT_IMAGE
+                        : image
+                          ? { uri: image }
+                          : ASHIGO_PRODUCT_IMAGE
+                    }
+                    style={s.productImg}
+                  />
+                  <View style={s.grow}>
+                    <Text style={[s.productName, { color: colors.text }]}>
+                      {productName}
+                    </Text>
+                    <Text style={s.code}>{code}</Text>
+                    <Text style={[s.info, { color: colors.textSecondary }]}>
+                      Purple corn coffee blend with premium herbal ingredients.
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={s.ingredientsToggle}
+                  onPress={() => setShowIngredients(!showIngredients)}
+                >
+                  <Text style={s.ingredientsToggleText}>
+                    {showIngredients
+                      ? "Hide public ingredients"
+                      : "View public ingredients"}
+                  </Text>
+                  <Ionicons
+                    name={showIngredients ? "chevron-up" : "chevron-down"}
+                    size={15}
+                    color="#2196F3"
+                  />
+                </TouchableOpacity>
+                {showIngredients && isAshigo ? (
+                  <View
+                    style={[
+                      s.ingredientsCard,
+                      { backgroundColor: muted, borderColor: border },
+                    ]}
+                  >
+                    <View style={s.ingredientsHeader}>
+                      <Ionicons name="leaf-outline" size={18} color="#2196F3" />
+                      <Text style={[s.ingredientsTitle, { color: colors.text }]}>
+                        Public label ingredients
+                      </Text>
+                    </View>
+                    <Text
+                      style={[s.ingredientsText, { color: colors.textSecondary }]}
                     >
-                      <View style={styles.materialItemInfo}>
-                        <View style={styles.materialNameSkuRow}>
-                          <Text style={[styles.materialItemName, { color: colors.text }]}>{mat.name}</Text>
-                          <Text style={styles.materialSkuBadge}>{mat.sku || 'RM'}</Text>
+                      {ASHIGO_PUBLIC_INGREDIENTS}
+                    </Text>
+                    <Text
+                      style={[s.ingredientsNote, { color: colors.textSecondary }]}
+                    >
+                      Ingredient quantities and the internal formula are reviewed
+                      only by BMANNY Product Control.
+                    </Text>
+                  </View>
+                ) : null}
+                {PACKAGES.map((p) => {
+                  const active = p.id === tier;
+                  return (
+                    <View
+                      key={p.id}
+                      style={[
+                        s.pack,
+                        {
+                          backgroundColor: active
+                            ? isDarkMode
+                              ? "#123557"
+                              : "#edf7ff"
+                            : surface,
+                          borderColor: active ? "#2196F3" : border,
+                        },
+                      ]}
+                    >
+                      <TouchableOpacity
+                        style={s.packSelectArea}
+                        activeOpacity={0.82}
+                        onPress={() => setTier(p.id)}
+                      >
+                      <View style={s.packMain}>
+                        <Image
+                          source={PACKAGE_PREVIEWS[p.id]}
+                          style={s.packagePreview}
+                        />
+                        <View style={s.grow}>
+                          <View style={s.row}>
+                            <View
+                              style={[
+                                s.icon,
+                                { backgroundColor: active ? "#2196F3" : muted },
+                              ]}
+                            >
+                              <Ionicons
+                                name={
+                                  p.id === "starter"
+                                    ? "rocket-outline"
+                                    : p.id === "gold"
+                                      ? "ribbon-outline"
+                                      : "sparkles-outline"
+                                }
+                                size={21}
+                                color={active ? "#fff" : "#2196F3"}
+                              />
+                            </View>
+                            <View style={s.grow}>
+                              <Text
+                                style={[s.packTitle, { color: colors.text }]}
+                              >
+                                {p.title}
+                              </Text>
+                              <Text
+                                style={[
+                                  s.desc,
+                                  { color: colors.textSecondary },
+                                ]}
+                              >
+                                {p.desc}
+                              </Text>
+                            </View>
+                            <Ionicons
+                              name={
+                                active ? "checkmark-circle" : "ellipse-outline"
+                              }
+                              size={24}
+                              color={active ? "#2196F3" : colors.textSecondary}
+                            />
+                          </View>
+                          <View style={[s.line, { backgroundColor: border }]} />
+                          <Text
+                            style={[s.facts, { color: colors.textSecondary }]}
+                          >
+                            {p.moq} · {p.weight} · {p.label}
+                          </Text>
+                          <Text style={s.cost}>{p.cost}</Text>
                         </View>
-                        <Text style={[styles.materialCategoryText, { color: colors.textSecondary }]}>
-                          {mat.category} • Rate: ₱{(mat.rate || mat.price).toFixed(2)} / {mat.unit_of_measure || 'kg'}
-                        </Text>
                       </View>
-
-                      <View style={styles.materialPriceCol}>
-                        <Text style={[styles.materialRateText, { color: '#2196F3' }]}>
-                          ₱{(mat.rate || mat.price).toFixed(2)}
-                        </Text>
-                        <Text style={[styles.materialUnitText, { color: colors.textSecondary }]}>
-                          /{mat.unit_of_measure || 'kg'}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[s.breakdownLink, { borderTopColor: border }]}
+                        onPress={() => setBreakdownPackage(p)}
+                      >
+                        <Text style={s.breakdownLinkText}>View package breakdown</Text>
+                        <Ionicons name="document-text-outline" size={16} color="#2196F3" />
+                      </TouchableOpacity>
+                    </View>
                   );
                 })}
-              </ScrollView>
+                <Button label="Continue" onPress={next} />
+              </View>
+            ) : step === 2 && selected ? (
+              <View>
+                <Text style={[s.title, { color: colors.text }]}>
+                  Tell us about your brand
+                </Text>
+                <Text style={[s.lead, { color: colors.textSecondary }]}>
+                  These details help Sales prepare your package quotation.
+                </Text>
+                <Summary
+                  item={selected}
+                  colors={colors}
+                  surface={surface}
+                  border={border}
+                />
+                <Field
+                  label="Company name *"
+                  value={company}
+                  change={setCompany}
+                  colors={colors}
+                />
+                <Field
+                  label="Contact person *"
+                  value={contact}
+                  change={setContact}
+                  colors={colors}
+                />
+                <Field
+                  label="Brand name *"
+                  value={brand}
+                  change={setBrand}
+                  colors={colors}
+                />
+                <Text style={[s.label, { color: colors.text }]}>
+                  Brand logo / artwork (optional)
+                </Text>
+                <TouchableOpacity
+                  style={[
+                    s.art,
+                    { backgroundColor: muted, borderColor: border },
+                  ]}
+                  onPress={pick}
+                >
+                  {artwork ? (
+                    <Image source={{ uri: artwork }} style={s.artImg} />
+                  ) : (
+                    <>
+                      <Ionicons
+                        name="image-outline"
+                        size={29}
+                        color="#2196F3"
+                      />
+                      <Text style={s.artTitle}>
+                        Attach brand logo or label artwork
+                      </Text>
+                      <Text
+                        style={{ color: colors.textSecondary, fontSize: 12 }}
+                      >
+                        Optional — Sales will review your file.
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+                {selected.allowsRequest ? (
+                  <Field
+                    label="Requested ingredient or desired effect (optional)"
+                    value={request}
+                    change={setRequest}
+                    colors={colors}
+                    multi
+                    placeholder="Example: Please consider cinnamon extract to help reduce bitterness."
+                  />
+                ) : null}
+                <Field
+                  label="Special instructions (optional)"
+                  value={notes}
+                  change={setNotes}
+                  colors={colors}
+                  multi
+                  placeholder="Share packaging, label, or delivery requirements."
+                />
+                <Actions
+                  back={back}
+                  next={review}
+                  label="Review inquiry"
+                  border={border}
+                  text={colors.text}
+                />
+              </View>
+            ) : step === 3 && selected ? (
+              <View>
+                <Text style={[s.title, { color: colors.text }]}>
+                  Review your inquiry
+                </Text>
+                <Text style={[s.lead, { color: colors.textSecondary }]}>
+                  Sales and Product Control will review your request before a
+                  quotation is issued.
+                </Text>
+                <Summary
+                  item={selected}
+                  colors={colors}
+                  surface={surface}
+                  border={border}
+                />
+                <Review
+                  label="Company"
+                  value={company}
+                  colors={colors}
+                  surface={surface}
+                  border={border}
+                />
+                <Review
+                  label="Contact person"
+                  value={contact}
+                  colors={colors}
+                  surface={surface}
+                  border={border}
+                />
+                <Review
+                  label="Brand"
+                  value={brand}
+                  colors={colors}
+                  surface={surface}
+                  border={border}
+                />
+                {selected.allowsRequest && request.trim() ? (
+                  <Review
+                    label="Ingredient request"
+                    value={request}
+                    colors={colors}
+                    surface={surface}
+                    border={border}
+                  />
+                ) : null}
+                {notes.trim() ? (
+                  <Review
+                    label="Special instructions"
+                    value={notes}
+                    colors={colors}
+                    surface={surface}
+                    border={border}
+                  />
+                ) : null}
+                <View
+                  style={[
+                    s.conf,
+                    { backgroundColor: muted, borderColor: border },
+                  ]}
+                >
+                  <Ionicons
+                    name="shield-checkmark-outline"
+                    size={21}
+                    color="#2196F3"
+                  />
+                  <Text style={[s.confText, { color: colors.textSecondary }]}>
+                    BMANNY’s formulation and raw-material details are reviewed
+                    internally and are not shared in this inquiry.
+                  </Text>
+                </View>
+                <View style={s.actions}>
+                  <TouchableOpacity
+                    style={[s.secondary, { borderColor: border }]}
+                    onPress={back}
+                  >
+                    <Text style={{ color: colors.text, fontWeight: "700" }}>
+                      Back
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    disabled={submitting}
+                    style={[s.primary, s.grow, submitting && { opacity: 0.7 }]}
+                    onPress={submit}
+                  >
+                    {submitting ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={s.primaryText}>Submit inquiry</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : null}
+          </ScrollView>
+        )}
+        <Modal
+          visible={Boolean(breakdownPackage)}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setBreakdownPackage(null)}
+        >
+          <View style={s.sheetOverlay}>
+            <View style={[s.breakdownSheet, { backgroundColor: surface }]}>
+              <View style={s.sheetHandle} />
+              {breakdownPackage ? (
+                <>
+                  <View style={s.sheetHeader}>
+                    <View style={s.grow}>
+                      <Text style={[s.sheetEyebrow, { color: "#2196F3" }]}>ASHIGOPLUS PACKAGE</Text>
+                      <Text style={[s.sheetTitle, { color: colors.text }]}>{breakdownPackage.title}</Text>
+                      <Text style={[s.sheetSubtitle, { color: colors.textSecondary }]}>Package details and initial payment breakdown</Text>
+                    </View>
+                    <TouchableOpacity
+                      accessibilityLabel="Close package breakdown"
+                      style={[s.sheetClose, { borderColor: border }]}
+                      onPress={() => setBreakdownPackage(null)}
+                    >
+                      <Ionicons name="close" size={21} color={colors.text} />
+                    </TouchableOpacity>
+                  </View>
+                  <ScrollView contentContainerStyle={s.sheetContent} showsVerticalScrollIndicator={false}>
+                    <Image source={PACKAGE_PREVIEWS[breakdownPackage.id]} style={s.breakdownImage} />
+                    <View style={[s.breakdownCard, { backgroundColor: muted, borderColor: border }]}>
+                      <Text style={[s.breakdownSectionTitle, { color: colors.text }]}>Package specification</Text>
+                      <Text style={[s.breakdownText, { color: colors.textSecondary }]}>{breakdownPackage.moq} · {breakdownPackage.packaging}</Text>
+                      <Text style={[s.breakdownText, { color: colors.textSecondary }]}>{breakdownPackage.label} · {breakdownPackage.weight}</Text>
+                      <Text style={[s.breakdownText, { color: colors.textSecondary }]}>Lead time: {breakdownPackage.lead}</Text>
+                    </View>
+                    <View style={[s.breakdownCard, { backgroundColor: muted, borderColor: border }]}>
+                      <Text style={[s.breakdownSectionTitle, { color: colors.text }]}>Public ingredients</Text>
+                      <Text style={[s.breakdownText, { color: colors.textSecondary }]}>{breakdownPackage.publicIngredients}</Text>
+                    </View>
+                    <View style={[s.breakdownCard, { backgroundColor: muted, borderColor: border }]}>
+                      <Text style={[s.breakdownSectionTitle, { color: colors.text }]}>Package cost breakdown</Text>
+                      {breakdownPackage.costBreakdown.map((line) => (
+                        <View key={line.label} style={s.costLine}>
+                          <View style={s.grow}>
+                            <Text style={[s.costLineLabel, { color: colors.text }]}>{line.label}</Text>
+                            <Text style={[s.costLineQuantity, { color: colors.textSecondary }]}>{line.quantity}</Text>
+                          </View>
+                          <Text style={s.costLineAmount}>{peso(line.amount)}</Text>
+                        </View>
+                      ))}
+                      <View style={[s.costTotal, { borderTopColor: border }]}>
+                        <Text style={[s.costTotalLabel, { color: colors.text }]}>Total package amount</Text>
+                        <Text style={s.costTotalAmount}>{peso(breakdownPackage.initialPrice)}</Text>
+                      </View>
+                    </View>
+                    <View style={[s.balanceCard, { borderColor: "#2196F3" }]}>
+                      <Text style={[s.balanceLabel, { color: colors.text }]}>Payment terms</Text>
+                      <View style={s.paymentMilestone}>
+                        <Text style={[s.costLineLabel, { color: colors.text }]}>Before production (50%)</Text>
+                        <Text style={s.balanceAmount}>{peso(breakdownPackage.initialPrice / 2)}</Text>
+                      </View>
+                      <View style={[s.paymentMilestone, { borderTopColor: border }]}>
+                        <Text style={[s.costLineLabel, { color: colors.text }]}>Before pickup (50%)</Text>
+                        <Text style={s.balanceAmount}>{peso(breakdownPackage.initialPrice / 2)}</Text>
+                      </View>
+                    </View>
+                    <Text style={[s.packageNote, { color: colors.textSecondary }]}>{breakdownPackage.packageNotes}</Text>
+                  </ScrollView>
+                  <TouchableOpacity style={s.primary} onPress={() => setBreakdownPackage(null)}>
+                    <Text style={s.primaryText}>Close breakdown</Text>
+                  </TouchableOpacity>
+                </>
+              ) : null}
             </View>
           </View>
         </Modal>
-
-        {/* ── SweetAlert Success Modal ── */}
-        <Modal
-          visible={successModalVisible}
-          transparent={true}
-          animationType="fade"
-          onRequestClose={() => {
-            setSuccessModalVisible(false);
-            router.push('/home');
-          }}
-        >
-          <View style={styles.sweetAlertOverlay}>
-            <View style={[styles.sweetAlertCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={styles.sweetAlertIconContainer}>
-                <View style={[styles.sparkLine, styles.sparkTopLeft, { backgroundColor: '#2196F3' }]} />
-                <View style={[styles.sparkLine, styles.sparkLeft, { backgroundColor: '#2196F3' }]} />
-                <View style={[styles.sparkLine, styles.sparkBottomLeft, { backgroundColor: '#2196F3' }]} />
-                <View style={[styles.sparkLine, styles.sparkTopRight, { backgroundColor: '#2196F3' }]} />
-                <View style={[styles.sparkLine, styles.sparkRight, { backgroundColor: '#2196F3' }]} />
-                <View style={[styles.sparkLine, styles.sparkBottomRight, { backgroundColor: '#2196F3' }]} />
-
-                <View
-                  style={[
-                    styles.sweetAlertOuterCircle,
-                    {
-                      backgroundColor: isDarkMode ? 'rgba(33, 150, 243, 0.15)' : '#e3f2fd',
-                      borderColor: isDarkMode ? 'rgba(33, 150, 243, 0.3)' : '#bbdefb',
-                    },
-                  ]}
-                >
-                  <View style={[styles.sweetAlertInnerCircle, { backgroundColor: '#2196F3' }]}>
-                    <Ionicons name="checkmark" size={38} color="#ffffff" style={{ fontWeight: 'bold' }} />
-                  </View>
-                </View>
+        <Modal visible={success} transparent animationType="fade">
+          <View style={s.overlay}>
+            <View
+              style={[
+                s.success,
+                { backgroundColor: surface, borderColor: border },
+              ]}
+            >
+              <View style={s.successIcon}>
+                <Ionicons name="checkmark" size={34} color="#fff" />
               </View>
-
-              <Text style={[styles.sweetAlertTitle, { color: colors.text }]}>Customization Submitted! 🎉</Text>
-              <Text style={[styles.sweetAlertDesc, { color: colors.textSecondary }]}>
-                Your starter package specification ({productName}), formulation ingredients, and commercial payment terms
-                have been submitted to the sales team for formal review.
+              <Text style={[s.successTitle, { color: colors.text }]}>
+                Inquiry submitted
               </Text>
-
-              {createdInquiryId && (
-                <View style={[styles.inquiryBadge, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }]}>
-                  <Text style={[styles.inquiryBadgeText, { color: colors.text }]}>
-                    Inquiry Reference: #{createdInquiryId}
-                  </Text>
-                </View>
-              )}
-
-              <View style={styles.sweetAlertButtonsRow}>
-                <TouchableOpacity
-                  style={[styles.sweetAlertButton, { backgroundColor: '#2196F3' }]}
-                  onPress={() => {
-                    setSuccessModalVisible(false);
-                    router.push('/orders');
-                  }}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.sweetAlertButtonText}>Track My Inquiries</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.sweetAlertSecondaryBtn, { borderColor: colors.border }]}
-                  onPress={() => {
-                    setSuccessModalVisible(false);
-                    router.push('/home');
-                  }}
-                >
-                  <Text style={[styles.sweetAlertSecondaryBtnText, { color: colors.text }]}>Back to Home</Text>
-                </TouchableOpacity>
-              </View>
+              <Text style={[s.successText, { color: colors.textSecondary }]}>
+                Your package and brand requirements were sent to Sales for
+                Product Control review.
+              </Text>
+              {inquiryId ? (
+                <Text style={[s.ref, { color: colors.text }]}>
+                  Inquiry reference #{inquiryId}
+                </Text>
+              ) : null}
+              <Button
+                label="Track my inquiries"
+                onPress={() => {
+                  setSuccess(false);
+                  router.push("/orders");
+                }}
+              />
+              <TouchableOpacity
+                style={s.link}
+                onPress={() => {
+                  setSuccess(false);
+                  router.push("/home");
+                }}
+              >
+                <Text style={s.linkText}>Back to home</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </Modal>
@@ -1397,910 +860,397 @@ export default function ProductCustomizationScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
-  keyboardContainer: {
-    flex: 1,
-  },
-  headerBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
+function Button({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={s.primary} onPress={onPress}>
+      <Text style={s.primaryText}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+function Summary({
+  item,
+  colors,
+  surface,
+  border,
+}: {
+  item: Pack;
+  colors: any;
+  surface: string;
+  border: string;
+}) {
+  return (
+    <View
+      style={[s.summary, { backgroundColor: surface, borderColor: border }]}
+    >
+      <Text style={[s.packTitle, { color: colors.text }]}>{item.title}</Text>
+      <Text style={[s.summaryText, { color: colors.textSecondary }]}>
+        {item.moq} · {item.weight}
+      </Text>
+      <Text style={[s.summaryText, { color: colors.textSecondary }]}>
+        {item.packaging}
+      </Text>
+      <Text style={[s.summaryText, { color: colors.textSecondary }]}>
+        {item.label} · {item.lead}
+      </Text>
+      <Text style={s.cost}>{item.cost}</Text>
+    </View>
+  );
+}
+function Field({
+  label,
+  value,
+  change,
+  colors,
+  multi = false,
+  placeholder = "",
+}: {
+  label: string;
+  value: string;
+  change: (x: string) => void;
+  colors: any;
+  multi?: boolean;
+  placeholder?: string;
+}) {
+  return (
+    <View style={s.field}>
+      <Text style={[s.label, { color: colors.text }]}>{label}</Text>
+      <TextInput
+        value={value}
+        onChangeText={change}
+        multiline={multi}
+        placeholder={placeholder}
+        placeholderTextColor={colors.textSecondary}
+        style={[
+          s.input,
+          multi && s.area,
+          {
+            color: colors.text,
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+          },
+        ]}
+      />
+    </View>
+  );
+}
+function Review({
+  label,
+  value,
+  colors,
+  surface,
+  border,
+}: {
+  label: string;
+  value: string;
+  colors: any;
+  surface: string;
+  border: string;
+}) {
+  return (
+    <View style={[s.review, { backgroundColor: surface, borderColor: border }]}>
+      <Text style={[s.reviewLabel, { color: colors.textSecondary }]}>
+        {label}
+      </Text>
+      <Text style={[s.reviewValue, { color: colors.text }]}>{value}</Text>
+    </View>
+  );
+}
+function Actions({
+  back,
+  next,
+  label,
+  border,
+  text,
+}: {
+  back: () => void;
+  next: () => void;
+  label: string;
+  border: string;
+  text: string;
+}) {
+  return (
+    <View style={s.actions}>
+      <TouchableOpacity
+        style={[s.secondary, { borderColor: border }]}
+        onPress={back}
+      >
+        <Text style={{ color: text, fontWeight: "700" }}>Back</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={[s.primary, s.grow]} onPress={next}>
+        <Text style={s.primaryText}>{label}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+const s = StyleSheet.create({
+  safe: { flex: 1 },
+  grow: { flex: 1 },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
   },
-  backBtn: {
-    width: 38,
-    height: 38,
+  back: {
+    width: 40,
+    height: 40,
     borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  headerTitleWrap: {
-    flex: 1,
-  },
-  screenTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  screenSubtitle: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 30,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 13,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  pageBlock: {
-    gap: 16,
-  },
-  sectionHeaderIntro: {
-    marginBottom: 2,
-  },
-  modalHeadline: {
-    fontSize: 19,
-    fontWeight: '800',
-    letterSpacing: -0.3,
-  },
-  modalSubheadline: {
-    fontSize: 13,
-    marginTop: 4,
-    lineHeight: 18,
-  },
-
-  /* ── Page 1: Composite Product Card ── */
-  compositeProductCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 14,
-    flexDirection: 'column',
+  headerTitle: { fontSize: 19, fontWeight: "800" },
+  sub: { fontSize: 12.5, marginTop: 2 },
+  loading: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
+  content: { padding: 18, paddingBottom: 44 },
+  title: { fontSize: 27, lineHeight: 33, fontWeight: "800" },
+  lead: { fontSize: 14.5, lineHeight: 21, marginTop: 6, marginBottom: 19 },
+  notice: {
+    flexDirection: "row",
     gap: 12,
+    padding: 18,
+    borderWidth: 1,
+    borderRadius: 16,
   },
-  compositeLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  noticeTitle: { fontSize: 16, fontWeight: "800" },
+  noticeText: { fontSize: 14, lineHeight: 20, marginTop: 4 },
+  product: {
+    flexDirection: "row",
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 13,
     gap: 12,
+    marginBottom: 16,
   },
-  compositeIconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 10,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  compositeInfo: {
-    flex: 1,
-  },
-  compositeProductName: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  compositeProductCode: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#2196F3',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    marginTop: 2,
-  },
-  compositeCategoryNote: {
-    fontSize: 11,
-    marginTop: 2,
-  },
-  compositeRight: {
-    backgroundColor: 'rgba(33, 150, 243, 0.08)',
-    borderRadius: 10,
-    padding: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  costLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  costValueRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-  },
-  costCurrencySymbol: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#2196F3',
-  },
-  costValueNumber: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#2196F3',
-    letterSpacing: -0.5,
-  },
-  costPerUnit: {
-    fontSize: 12,
-    marginLeft: 3,
-  },
-
-  /* ── Recipe Table ── */
-  recipeTableContainer: {
-    borderRadius: 14,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  tableHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderBottomWidth: 1,
-  },
-  tableColHeader: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#94a3b8',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  colIndex: {
-    width: 22,
-    textAlign: 'center',
-  },
-  colItem: {
-    flex: 2.2,
-    paddingLeft: 6,
-  },
-  colQty: {
-    flex: 1.4,
-    textAlign: 'center',
-  },
-  colRate: {
-    flex: 1.1,
-    textAlign: 'right',
-  },
-  colAmount: {
-    flex: 1.2,
-    textAlign: 'right',
-    paddingRight: 4,
-  },
-  colAction: {
-    width: 24,
-  },
-  tableDataRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    borderBottomWidth: 1,
-  },
-  cellIndex: {
-    width: 22,
-    fontSize: 11,
-    fontWeight: '700',
-    textAlign: 'center',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  },
-  cellItem: {
-    flex: 2.2,
-    paddingLeft: 6,
-  },
-  materialDropdownBtn: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-  },
-  materialDropdownText: {
-    fontSize: 11,
-    fontWeight: '600',
-    flex: 1,
-  },
-  cellQty: {
-    flex: 1.4,
-    paddingHorizontal: 4,
-  },
-  qtyInputWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-  },
-  qtyInputText: {
-    fontSize: 11,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    fontWeight: '600',
-    flex: 1,
-    padding: 0,
-    textAlign: 'center',
-  },
-  qtyUnitLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    marginLeft: 2,
-  },
-  cellRate: {
-    flex: 1.1,
-    fontSize: 11,
-    textAlign: 'right',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  },
-  cellAmount: {
-    flex: 1.2,
-    fontSize: 11,
-    fontWeight: '800',
-    textAlign: 'right',
-    paddingRight: 4,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  },
-  cellActionBtn: {
-    width: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addMaterialFooter: {
-    padding: 12,
-  },
-  addMaterialBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-  },
-  addMaterialBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#2196F3',
-  },
-
-  /* ── Form Cards (Packaging & Terms) ── */
-  formCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 16,
-  },
-  fieldLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  inputField: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 13,
-  },
-  inputFieldReadOnly: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  readOnlyText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  packagingGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  packagingCardItem: {
-    width: '48%',
-    borderRadius: 10,
-    borderWidth: 1,
-    padding: 10,
-  },
-  pkgHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  pkgItemName: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  rowTwoCols: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  colHalf: {
-    flex: 1,
-  },
-  moqRowHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  moqBadge: {
-    backgroundColor: 'rgba(33, 150, 243, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-    marginTop: 10,
-  },
-  moqBadgeText: {
-    color: '#2196F3',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  qtyField: {
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    fontWeight: '700',
-    fontSize: 15,
-  },
-  uploadLogoBox: {
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderRadius: 10,
-    padding: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  uploadPlaceholderInner: {
-    alignItems: 'center',
+  productImg: { width: 72, height: 72, borderRadius: 11, resizeMode: "cover" },
+  imgFallback: { alignItems: "center", justifyContent: "center" },
+  productName: { fontSize: 16, fontWeight: "800" },
+  code: { fontSize: 12, color: "#2196F3", fontWeight: "700", marginTop: 2 },
+  info: { fontSize: 12, lineHeight: 17, marginTop: 5 },
+  ingredientsToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
     gap: 4,
-  },
-  uploadLogoPrompt: {
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  uploadedLogoWrap: {
-    alignItems: 'center',
-  },
-  uploadedLogoImg: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-  },
-  changeLogoText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#2196F3',
-    marginTop: 4,
-  },
-
-  /* ── Terms Selection Card ── */
-  termSelectCard: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-  },
-  termSelectCardActive: {
-    borderWidth: 1.5,
-  },
-  termRadioRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  termMainText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  termSubText: {
-    fontSize: 11,
-    marginTop: 4,
-    lineHeight: 16,
-  },
-  methodChipsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  methodChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  methodChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  accountInfoCard: {
-    marginTop: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 12,
-    gap: 3,
-  },
-  accountIconRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
-  accountTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  accountDetailLine: {
-    fontSize: 12,
-  },
-  accountBold: {
-    fontWeight: '700',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  },
-
-  /* ════════════════════════════════════════════════════════════════════
-      PAGE 4: OFFICIAL DETAILS SHEET (WITHOUT IMAGE / PRESENTATION COLUMN)
-     ════════════════════════════════════════════════════════════════════ */
-  sheetHorizontalScroll: {
-    borderRadius: 8,
-  },
-  sheetTableContainer: {
-    width: 520,
-    borderWidth: 1.5,
-    backgroundColor: '#ffffff',
-  },
-  sheetPinkHeaderRow: {
-    backgroundColor: '#fce7f3',
-    borderBottomWidth: 1,
-    borderColor: '#475569',
-    paddingVertical: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sheetPinkHeaderText: {
-    fontSize: 11,
-    fontWeight: '900',
-    color: '#0f172a',
-    letterSpacing: 0.8,
-  },
-  sheetInfoGrid: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderColor: '#475569',
-  },
-  sheetInfoColLeft: {
-    flex: 1,
-    borderRightWidth: 1,
-    borderColor: '#475569',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    gap: 2,
-  },
-  sheetInfoColRight: {
-    flex: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    gap: 2,
-  },
-  sheetInfoLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  sheetInfoLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#0f172a',
-    width: 105,
-  },
-  sheetInfoVal: {
-    fontSize: 10,
-    fontWeight: '500',
-    color: '#0f172a',
-    flex: 1,
-  },
-  sheetYellowBannerRow: {
-    backgroundColor: '#fef08a',
-    borderBottomWidth: 1,
-    borderColor: '#475569',
-    paddingVertical: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sheetYellowBannerText: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: '#0f172a',
-    letterSpacing: 0.5,
-  },
-  sheetColHeaderRow: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderColor: '#475569',
-    backgroundColor: '#ffffff',
-  },
-  sheetTh: {
-    borderRightWidth: 1,
-    borderColor: '#475569',
-    paddingVertical: 4,
-    paddingHorizontal: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sheetThText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#0f172a',
-    textAlign: 'center',
-  },
-  sheetColPkgDetails: {
-    width: 230,
-  },
-  sheetColMoq: {
-    width: 85,
-  },
-  sheetColPriceUnit: {
-    width: 95,
-  },
-  sheetColPriceTotal: {
-    width: 110,
-    borderRightWidth: 0,
-  },
-  sheetDataRow: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderColor: '#475569',
-    backgroundColor: '#ffffff',
-  },
-  sheetTd: {
-    borderRightWidth: 1,
-    borderColor: '#475569',
-  },
-  sheetDetailsPadding: {
-    padding: 6,
-    gap: 4,
-  },
-  sheetSpecItem: {
-    flexDirection: 'column',
-    gap: 1,
-  },
-  sheetSpecLabel: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  sheetSpecValueRed: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#dc2626',
-    letterSpacing: -0.2,
-  },
-  sheetIngredientsRedItalic: {
-    fontStyle: 'italic',
-    lineHeight: 14,
-  },
-
-  sheetCenterAlign: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 4,
-  },
-  sheetValueRedBold: {
-    fontSize: 11,
-    fontWeight: '900',
-    color: '#dc2626',
-    textAlign: 'center',
-  },
-  sheetTermsBlockRow: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderColor: '#475569',
-    backgroundColor: '#ffffff',
+    marginTop: -6,
+    marginBottom: 12,
     paddingVertical: 5,
-    paddingHorizontal: 8,
-    alignItems: 'center',
   },
-  sheetTermsLabelCol: {
-    width: 120,
-  },
-  sheetTermsBlockLabel: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  sheetTermsTextCol: {
-    flex: 1.5,
-    gap: 1,
-  },
-  sheetLeadTimeCol: {
-    flex: 1.2,
-    alignItems: 'flex-start',
-  },
-  sheetTermLine: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  sheetFobVatRow: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderColor: '#475569',
-    backgroundColor: '#ffffff',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    gap: 24,
-  },
-  sheetFobVatItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  sheetFobLabel: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  sheetBankDetailsRow: {
-    backgroundColor: '#ffffff',
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 1,
-  },
-  sheetBankAcntText: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#dc2626',
-  },
-  sheetBankNameText: {
-    fontSize: 9,
-    fontWeight: '800',
-    fontStyle: 'italic',
-    color: '#dc2626',
-  },
-
-  /* ── Step-by-Step Navigation Buttons ── */
-  primaryNavBtn: {
-    borderRadius: 14,
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#2196F3',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  primaryNavBtnText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  secondaryNavBtn: {
-    borderRadius: 14,
+  ingredientsToggleText: { color: "#2196F3", fontSize: 13, fontWeight: "800" },
+  ingredientsCard: {
     borderWidth: 1,
-    paddingVertical: 14,
+    borderRadius: 13,
+    padding: 13,
+    marginBottom: 14,
+  },
+  ingredientsHeader: { flexDirection: "row", alignItems: "center", gap: 7 },
+  ingredientsTitle: { fontSize: 14, fontWeight: "800" },
+  ingredientsText: { fontSize: 12.5, lineHeight: 19, marginTop: 8 },
+  ingredientsNote: { fontSize: 11.5, fontStyle: "italic", lineHeight: 17, marginTop: 9 },
+  pack: { borderWidth: 1, borderRadius: 16, padding: 13, marginBottom: 12 },
+  packSelectArea: { borderRadius: 12 },
+  packMain: { flexDirection: "row", gap: 13 },
+  packagePreview: {
+    width: 92,
+    height: 128,
+    borderRadius: 11,
+    backgroundColor: "#f7f2e9",
+    // Preserve the entire supplied package reference instead of cropping its edges.
+    resizeMode: "contain",
+  },
+  row: { flexDirection: "row", alignItems: "flex-start", gap: 11 },
+  icon: {
+    width: 43,
+    height: 43,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  packTitle: { fontSize: 17, fontWeight: "800" },
+  desc: { fontSize: 12.5, lineHeight: 18, marginTop: 2 },
+  line: { height: 1, marginVertical: 13 },
+  facts: { fontSize: 11.5, lineHeight: 18 },
+  cost: { color: "#2196F3", fontSize: 14, fontWeight: "800", marginTop: 10 },
+  breakdownLink: {
+    minHeight: 42,
+    marginTop: 11,
+    paddingTop: 11,
+    borderTopWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+  },
+  breakdownLinkText: { color: "#2196F3", fontSize: 13, fontWeight: "800" },
+  primary: {
+    backgroundColor: "#2196F3",
+    minHeight: 52,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 16,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginTop: 8,
   },
-  secondaryNavBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
+  primaryText: { color: "#fff", fontSize: 15, fontWeight: "800" },
+  summary: { borderWidth: 1, borderRadius: 15, padding: 14, marginBottom: 20 },
+  summaryText: { fontSize: 12.5, lineHeight: 20 },
+  field: { marginBottom: 15 },
+  label: { fontSize: 13.5, fontWeight: "700", marginBottom: 7 },
+  input: {
+    minHeight: 48,
+    borderWidth: 1,
+    borderRadius: 12,
+    fontSize: 15,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
   },
-  dualNavButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  area: { minHeight: 100, textAlignVertical: "top" },
+  art: {
+    minHeight: 118,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 14,
+    marginBottom: 16,
+  },
+  artImg: { width: 94, height: 94, borderRadius: 10 },
+  artTitle: { color: "#2196F3", fontSize: 14, fontWeight: "800", marginTop: 8 },
+  actions: { flexDirection: "row", gap: 10, marginTop: 8 },
+  secondary: {
+    minHeight: 51,
+    minWidth: 86,
+    borderWidth: 1,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 14,
+  },
+  review: { borderWidth: 1, borderRadius: 13, padding: 14, marginBottom: 10 },
+  reviewLabel: { fontSize: 12, fontWeight: "700", textTransform: "uppercase" },
+  reviewValue: {
+    fontSize: 15,
+    fontWeight: "600",
+    marginTop: 5,
+    lineHeight: 21,
+  },
+  conf: {
+    flexDirection: "row",
     gap: 10,
+    borderWidth: 1,
+    borderRadius: 13,
+    padding: 13,
     marginTop: 6,
+    marginBottom: 16,
   },
-  flexOne: {
+  confText: { flex: 1, fontSize: 12.5, lineHeight: 18 },
+  overlay: {
     flex: 1,
-  },
-
-  /* ── Modals ── */
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-    justifyContent: 'flex-end',
-  },
-  modalCard: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    borderWidth: 1,
-    maxHeight: '80%',
-    padding: 20,
-  },
-  modalHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  modalTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    gap: 8,
-    marginBottom: 12,
-  },
-  searchInput: {
-    fontSize: 13,
-    flex: 1,
-    padding: 0,
-  },
-  materialListScroll: {
-    maxHeight: 350,
-  },
-  materialItemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    paddingHorizontal: 6,
-  },
-  materialItemInfo: {
-    flex: 1,
-  },
-  materialNameSkuRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  materialItemName: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  materialSkuBadge: {
-    fontSize: 10,
-    color: '#2196F3',
-    backgroundColor: 'rgba(33, 150, 243, 0.1)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    fontWeight: '700',
-  },
-  materialCategoryText: {
-    fontSize: 11,
-    marginTop: 2,
-  },
-  materialPriceCol: {
-    alignItems: 'flex-end',
-  },
-  materialRateText: {
-    fontSize: 13,
-    fontWeight: '800',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  },
-  materialUnitText: {
-    fontSize: 10,
-  },
-
-  /* ── SweetAlert Success Modal ── */
-  sweetAlertOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(3,10,24,.7)",
+    alignItems: "center",
+    justifyContent: "center",
     padding: 24,
   },
-  sweetAlertCard: {
-    width: '100%',
-    maxWidth: 360,
-    borderRadius: 24,
-    padding: 26,
-    alignItems: 'center',
+  sheetOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(3,10,24,.7)",
+    justifyContent: "flex-end",
+  },
+  breakdownSheet: {
+    maxHeight: "91%",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: 22,
+  },
+  sheetHandle: {
+    width: 48,
+    height: 5,
+    borderRadius: 4,
+    backgroundColor: "#7083a1",
+    alignSelf: "center",
+    marginBottom: 15,
+  },
+  sheetHeader: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
+  sheetEyebrow: { fontSize: 11, fontWeight: "800", letterSpacing: 1.1 },
+  sheetTitle: { fontSize: 23, fontWeight: "800", marginTop: 4 },
+  sheetSubtitle: { fontSize: 13, lineHeight: 18, marginTop: 3 },
+  sheetClose: {
+    width: 43,
+    height: 43,
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
-    elevation: 10,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  sweetAlertIconContainer: {
-    width: 88,
-    height: 88,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    position: 'relative',
+  sheetContent: { paddingTop: 17, paddingBottom: 8 },
+  breakdownImage: {
+    width: "100%",
+    height: 160,
+    borderRadius: 14,
+    backgroundColor: "#f7f2e9",
+    resizeMode: "contain",
+    marginBottom: 13,
   },
-  sweetAlertOuterCircle: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sweetAlertInnerCircle: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#2196F3',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  sparkLine: {
-    position: 'absolute',
-    borderRadius: 2,
-  },
-  sparkTopLeft: { width: 4, height: 10, top: 4, left: 16, transform: [{ rotate: '-35deg' }] },
-  sparkLeft: { width: 10, height: 4, left: 2, top: 40 },
-  sparkBottomLeft: { width: 4, height: 10, bottom: 4, left: 16, transform: [{ rotate: '35deg' }] },
-  sparkTopRight: { width: 4, height: 10, top: 4, right: 16, transform: [{ rotate: '35deg' }] },
-  sparkRight: { width: 10, height: 4, right: 2, top: 40 },
-  sparkBottomRight: { width: 4, height: 10, bottom: 4, right: 16, transform: [{ rotate: '-35deg' }] },
-  sweetAlertTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  sweetAlertDesc: {
-    fontSize: 13,
-    textAlign: 'center',
-    lineHeight: 19,
-    marginBottom: 16,
-  },
-  inquiryBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginBottom: 20,
-  },
-  inquiryBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  sweetAlertButtonsRow: {
-    width: '100%',
+  breakdownCard: { borderWidth: 1, borderRadius: 14, padding: 14, marginBottom: 11 },
+  breakdownSectionTitle: { fontSize: 15, fontWeight: "800", marginBottom: 7 },
+  breakdownText: { fontSize: 13, lineHeight: 20 },
+  costLine: { flexDirection: "row", gap: 10, paddingVertical: 9 },
+  costLineLabel: { fontSize: 13.5, fontWeight: "700" },
+  costLineQuantity: { fontSize: 11.5, marginTop: 2 },
+  costLineAmount: { color: "#2196F3", fontSize: 14, fontWeight: "800" },
+  costTotal: {
+    borderTopWidth: 1,
+    marginTop: 5,
+    paddingTop: 13,
+    flexDirection: "row",
+    justifyContent: "space-between",
     gap: 10,
   },
-  sweetAlertButton: {
-    width: '100%',
-    paddingVertical: 14,
-    borderRadius: 14,
-    alignItems: 'center',
+  costTotalLabel: { fontSize: 13, fontWeight: "800", flex: 1 },
+  costTotalAmount: { color: "#2196F3", fontSize: 16, fontWeight: "800" },
+  balanceCard: { borderWidth: 1, borderRadius: 14, padding: 14, marginBottom: 13 },
+  balanceLabel: { fontSize: 14, fontWeight: "800" },
+  balanceAmount: { color: "#2196F3", fontSize: 23, fontWeight: "800", marginTop: 4 },
+  paymentMilestone: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 12,
+    paddingTop: 12,
+    marginTop: 4,
+    borderTopWidth: 1,
   },
-  sweetAlertButtonText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  sweetAlertSecondaryBtn: {
-    width: '100%',
-    paddingVertical: 12,
-    borderRadius: 14,
+  balanceNote: { fontSize: 12, lineHeight: 18, marginTop: 6 },
+  packageNote: { fontSize: 12, lineHeight: 18, paddingHorizontal: 3, marginBottom: 8 },
+  success: {
+    width: "100%",
+    maxWidth: 390,
     borderWidth: 1,
-    alignItems: 'center',
+    borderRadius: 20,
+    alignItems: "center",
+    padding: 23,
   },
-  sweetAlertSecondaryBtnText: {
+  successIcon: {
+    width: 65,
+    height: 65,
+    borderRadius: 33,
+    backgroundColor: "#2196F3",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
+  },
+  successTitle: { fontSize: 23, fontWeight: "800" },
+  successText: {
     fontSize: 14,
-    fontWeight: '700',
+    lineHeight: 21,
+    textAlign: "center",
+    marginTop: 7,
   },
+  ref: { fontSize: 13.5, fontWeight: "800", marginTop: 14 },
+  link: { paddingVertical: 15 },
+  linkText: { color: "#2196F3", fontSize: 14, fontWeight: "700" },
 });

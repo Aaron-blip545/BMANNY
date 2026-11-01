@@ -409,7 +409,7 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                         value={metrics.outOfStock}
                         description="Zero stock on hand"
                         icon={CircleX}
-                        accent="navy"
+                        accent="red"
                     />
                 </div>
 

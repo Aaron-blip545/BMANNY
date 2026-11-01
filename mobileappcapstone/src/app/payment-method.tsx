@@ -12,15 +12,9 @@ interface PaymentMethod {
 
 const paymentMethods: PaymentMethod[] = [
   {
-    id: 'gcash',
-    name: 'GCash',
-    description: 'Pay via GCash app or QR (0917 500 2815)',
-    icon: require('@/assets/images/paymentmethodimage/gcash.png'),
-  },
-  {
     id: 'bank_transfer',
-    name: 'Bank Transfer (BDO)',
-    description: 'BDO UNIBANK Savings Acnt #: 010050028154',
+    name: 'Bank Transfer',
+    description: 'Transfer through BPI or GoTyme Bank, then upload your proof of payment.',
     icon: require('@/assets/images/paymentmethodimage/mastercard.png'),
   },
 ];

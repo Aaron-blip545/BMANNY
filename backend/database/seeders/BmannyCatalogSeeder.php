@@ -21,7 +21,7 @@ class BmannyCatalogSeeder extends Seeder
                 'category_code' => 'Health & Wellness',
                 'description' => 'Antioxidant-packed coffee base for total body wellness and rebranding.',
                 'formulation_notes' => 'Available for custom branding and packaging quotation.',
-                'image_url' => 'https://bmanny.com/wp-content/uploads/2026/03/purple-corn-rebrand.png',
+                'image_url' => '/images/products/ashigo-plus.jpg',
             ],
             [
                 'name' => 'Herbal Capsule',
