@@ -39,7 +39,7 @@ class QuotationController extends Controller
         // reviewed, responded, closed). 'responded' is the closest valid
         // match - the sales agent has now responded with a price.
         if ($inquiry) {
-            $inquiry->update(['status' => 'responded']);
+            $inquiry->update(['status' => 'quotation_sent']);
 
             if ($inquiry->client && $inquiry->client->user) {
                 NotificationService::send(

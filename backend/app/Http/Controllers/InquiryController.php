@@ -34,9 +34,7 @@ class InquiryController extends Controller
             $inquiry = Inquiry::create([
                 // FIXED: column is client_id (see inquiries migration)
                 'client_id' => $request->client_id,
-                // FIXED: 'Pending Review' isn't in the inquiries.status enum
-                // (pending, reviewed, responded, closed) - insert would fail.
-                'status' => 'pending',
+                'status' => 'new',
             ]);
 
             // Save Customization & Packaging Requirements
@@ -211,7 +209,7 @@ class InquiryController extends Controller
         }
 
         // Allow: no quotation yet (pending/reviewed) OR quotation sent but unpaid
-        if ($quotation === null && ! in_array($inquiry->status, ['pending', 'reviewed'], true)) {
+        if ($quotation === null && ! in_array($inquiry->status, ['new', 'for_quotation', 'follow_up'], true)) {
             return response()->json(['message' => 'This inquiry cannot be cancelled in its current state.'], 422);
         }
 
@@ -274,7 +272,7 @@ class InquiryController extends Controller
             // Create new inquiry
             $newInquiry = Inquiry::create([
                 'client_id' => $client->client_id,
-                'status'    => 'pending',
+                'status'    => 'new',
             ]);
 
             // Clone each customization from the original inquiry

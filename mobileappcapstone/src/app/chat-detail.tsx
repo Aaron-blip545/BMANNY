@@ -6,7 +6,6 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  SafeAreaView,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -15,6 +14,7 @@ import {
   Modal,
   Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { getConversation, sendMessage, markConversationRead, resolveImageUrl } from '../services/api';
@@ -123,6 +123,10 @@ export default function ChatDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoiding}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
@@ -228,7 +232,6 @@ export default function ChatDetailScreen() {
       )}
 
       {/* Input bar */}
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         {isConversationClosed && (
           <View style={[styles.closedNotice, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
             <Text style={[styles.closedNoticeText, { color: colors.textSecondary }]}>This conversation was closed by an administrator and is now read-only.</Text>
@@ -249,6 +252,7 @@ export default function ChatDetailScreen() {
             placeholderTextColor={colors.textSecondary}
             value={text}
             onChangeText={setText}
+            onFocus={() => scrollRef.current?.scrollToEnd({ animated: true })}
             onSubmitEditing={handleSend}
             returnKeyType="send"
             multiline
@@ -299,6 +303,9 @@ export default function ChatDetailScreen() {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  keyboardAvoiding: {
     flex: 1,
   },
   header: {

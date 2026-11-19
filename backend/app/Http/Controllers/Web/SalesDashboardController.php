@@ -7,19 +7,17 @@ use App\Models\BusinessClient;
 use App\Models\Inquiry;
 use App\Models\Quotation;
 use App\Models\Order;
-use App\Services\AnalyticsService;
-use Carbon\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class SalesDashboardController extends Controller
 {
-    public function index(AnalyticsService $analytics): Response
+    public function index(): Response
     {
         return Inertia::render('sales/dashboard', [
             'stats' => [
                 'inquiries'       => Inquiry::count(),
-                'pendingReview'   => Inquiry::where('status', 'pending')->count(),
+                'pendingReview'   => Inquiry::where('status', 'new')->count(),
                 'quotations'      => Quotation::count(),
                 'businessClients' => BusinessClient::count(),
             ],
@@ -33,10 +31,6 @@ class SalesDashboardController extends Controller
                     'created_at' => $i->created_at,
                     'client'     => $i->client ? ['business_name' => $i->client->business_name] : null,
                 ]),
-            'analytics' => [
-                'periods' => $analytics->periods(),
-            ],
-            'topBuyers' => $analytics->topBuyers(),
         ]);
     }
 

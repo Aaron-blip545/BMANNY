@@ -34,7 +34,7 @@ function getNotificationMeta(notification: AppNotificationItem, role: WebRole) {
     const data = notification.data ?? {};
     const canOpenInquiry = role === 'admin' || role === 'sales_agent';
     const inquiryUrl = data.inquiry_id && canOpenInquiry
-        ? `/inquiries/${data.inquiry_id}/chat`
+        ? `/inquiries?inquiry_id=${data.inquiry_id}`
         : canOpenInquiry ? '/inquiries' : dashboardUrl(role);
     const conversationUrl = data.inquiry_id && canOpenInquiry
         ? `/inquiries/${data.inquiry_id}/chat`
@@ -100,9 +100,9 @@ export function NotificationBell({ className }: { className?: string }) {
     const role = auth?.user?.role ?? '';
     const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
 
-    const handleItemClick = (item: AppNotificationItem) => {
+    const handleItemClick = async (item: AppNotificationItem) => {
         if (!item.is_read) {
-            markAsRead(item.notification_id);
+            await markAsRead(item.notification_id);
         }
         setOpen(false);
 

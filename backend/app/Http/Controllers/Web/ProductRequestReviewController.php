@@ -51,7 +51,6 @@ class ProductRequestReviewController extends Controller
             ]
         );
 
-        $inquiry->update(['status' => 'reviewed']);
         NotificationService::sendToRoles(['product_controller'], 'product_request', 'Product request awaiting review', "Inquiry #{$inquiry->inquiry_id} needs an availability review.", ['inquiry_id' => $inquiry->inquiry_id]);
 
         return back()->with('success', 'Product request sent to the Product Controller.');
@@ -72,6 +71,15 @@ class ProductRequestReviewController extends Controller
             'reviewed_by' => $request->user('web')->user_id,
             'reviewed_at' => now(),
         ]);
+
+        // A completed Product Control decision advances the lead automatically.
+        // A request BMANNY cannot accommodate is closed; an available request
+        // or alternative is ready for Sales to quote.
+        if ($review->inquiry) {
+            $review->inquiry->update([
+                'status' => $data['status'] === 'unavailable' ? 'closed' : 'for_quotation',
+            ]);
+        }
 
         if ($review->inquiry?->client?->user) {
             NotificationService::send(

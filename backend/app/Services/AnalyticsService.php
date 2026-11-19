@@ -43,7 +43,7 @@ class AnalyticsService
             ->keyBy('client_id');
 
         // 3. Find clients with open (pending/reviewed) inquiries that have no order yet
-        $clientsWithOpenInquiries = Inquiry::whereIn('status', ['pending', 'reviewed'])
+        $clientsWithOpenInquiries = Inquiry::whereIn('status', ['new', 'for_quotation', 'follow_up'])
             ->whereNull('cancelled_at')
             ->whereDoesntHave('quotation', fn ($q) => $q->whereHas('order'))
             ->pluck('client_id')

@@ -20,6 +20,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Cloudflare forwards presentation-tunnel requests to the local
+        // Laravel server over HTTP while preserving the original HTTPS scheme
+        // in proxy headers. Trusting that header prevents generated Vite asset
+        // URLs from being downgraded to HTTP (and blocked by browsers).
+        $middleware->trustProxies(at: '*');
+
         $middleware->web(append: [
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,

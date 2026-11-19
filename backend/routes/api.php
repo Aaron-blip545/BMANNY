@@ -21,6 +21,18 @@ Route::get('/products', [ProductController::class, 'index']);
 Route::get('/product-categories', [ProductController::class, 'categories']);
 Route::get('/customization-materials', [ProductController::class, 'customizationMaterials']);
 
+// Reverb's application key is intended for clients. This endpoint exposes
+// only public connection details; private-channel access still requires the
+// authenticated broadcasting endpoint below.
+Route::get('/realtime/public-config', function () {
+    return response()->json([
+        'app_key' => config('broadcasting.connections.reverb.key'),
+        'host'    => env('REVERB_PUBLIC_HOST'),
+        'port'    => (int) env('REVERB_PUBLIC_PORT', config('broadcasting.connections.reverb.options.port')),
+        'scheme'  => env('REVERB_PUBLIC_SCHEME', config('broadcasting.connections.reverb.options.scheme')),
+    ]);
+});
+
 // Protected Routes (Must be authenticated via Sanctum)
 Route::middleware(['auth:sanctum', 'active.api'])->group(function () {
 
@@ -38,8 +50,12 @@ Route::middleware(['auth:sanctum', 'active.api'])->group(function () {
     Route::get('/realtime/config', function (Request $request) {
         return response()->json([
             'app_key' => config('broadcasting.connections.reverb.key'),
-            'port'    => (int) config('broadcasting.connections.reverb.options.port'),
-            'scheme'  => config('broadcasting.connections.reverb.options.scheme'),
+            // Presentation tunnels expose Reverb separately from the API.
+            // Keep these null during normal LAN development so the mobile
+            // client can safely fall back to the API host.
+            'host'    => env('REVERB_PUBLIC_HOST'),
+            'port'    => (int) env('REVERB_PUBLIC_PORT', config('broadcasting.connections.reverb.options.port')),
+            'scheme'  => env('REVERB_PUBLIC_SCHEME', config('broadcasting.connections.reverb.options.scheme')),
         ]);
     });
 

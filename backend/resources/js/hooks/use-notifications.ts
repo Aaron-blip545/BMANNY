@@ -49,6 +49,9 @@ export function useNotifications() {
     );
 
     const markAsRead = async (notificationId: number) => {
+        const target = notifications.find((notification) => notification.notification_id === notificationId);
+        if (target?.is_read) return true;
+
         try {
             // Optimistic update
             setNotifications((prev) =>
@@ -59,7 +62,7 @@ export function useNotifications() {
             // Get CSRF token
             const token = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content;
 
-            await fetch(`/notifications/${notificationId}/read`, {
+            const response = await fetch(`/notifications/${notificationId}/read`, {
                 method: 'PATCH',
                 headers: {
                     Accept: 'application/json',
@@ -68,8 +71,17 @@ export function useNotifications() {
                     ...(token ? { 'X-CSRF-TOKEN': token } : {}),
                 },
             });
+
+            if (!response.ok) {
+                await fetchNotifications();
+                return false;
+            }
+
+            return true;
         } catch (err) {
             console.error('Failed to mark notification as read:', err);
+            await fetchNotifications();
+            return false;
         }
     };
 
