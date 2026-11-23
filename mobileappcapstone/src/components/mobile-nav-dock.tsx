@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
+import { getNotifications, markNotificationRead } from '../services/api';
+import { subscribeToRealtime } from '../services/realtime';
 
 interface MobileNavDockProps {
   activeTab: 'home' | 'orders' | 'messages' | 'profile';
@@ -16,6 +18,49 @@ interface MobileNavDockProps {
 
 export function MobileNavDock({ activeTab }: MobileNavDockProps) {
   const { colors, isDarkMode } = useTheme();
+  const [attention, setAttention] = useState({ orders: 0, messages: 0 });
+
+  const loadAttention = useCallback(async () => {
+    try {
+      const data = await getNotifications();
+      const unread = (data.notifications ?? []).filter((item: any) => !item.is_read);
+      setAttention({
+        messages: unread.filter((item: any) => item.type === 'message').length,
+        // The Orders tab contains inquiries, quotations, and orders, so one
+        // count here tells the customer which tab has an update to review.
+        orders: unread.filter((item: any) => ['inquiry', 'quotation', 'order', 'product_request', 'follow_up'].includes(item.type)).length,
+      });
+    } catch {
+      // Navigation stays usable if the notification request is temporarily unavailable.
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAttention();
+    return subscribeToRealtime((event) => {
+      if (event.type === 'notification.created' || event.type === 'chat.message.created') {
+        loadAttention();
+      }
+    });
+  }, [loadAttention]);
+
+  const clearTabAttention = useCallback(async (tab: 'orders' | 'messages') => {
+    const types = tab === 'messages'
+      ? ['message']
+      : ['inquiry', 'quotation', 'order', 'product_request', 'follow_up'];
+
+    setAttention((current) => ({ ...current, [tab]: 0 }));
+
+    try {
+      const data = await getNotifications();
+      const relevantUnread = (data.notifications ?? []).filter(
+        (item: any) => !item.is_read && types.includes(item.type),
+      );
+      await Promise.all(relevantUnread.map((item: any) => markNotificationRead(item.notification_id)));
+    } finally {
+      await loadAttention();
+    }
+  }, [loadAttention]);
 
   const navItems: Array<{
     id: 'home' | 'orders' | 'messages' | 'profile';
@@ -64,11 +109,16 @@ export function MobileNavDock({ activeTab }: MobileNavDockProps) {
       <View style={styles.navRow}>
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
+          const count = item.id === 'messages' ? attention.messages : item.id === 'orders' ? attention.orders : 0;
+          const hasAttention = count > 0;
           return (
             <TouchableOpacity
               key={item.id}
               style={styles.navItem}
               onPress={() => {
+                if (item.id === 'orders' || item.id === 'messages') {
+                  void clearTabAttention(item.id);
+                }
                 if (!isActive) {
                   router.push(item.route as any);
                 }
@@ -94,13 +144,14 @@ export function MobileNavDock({ activeTab }: MobileNavDockProps) {
                 </View>
               ) : (
                 <View style={styles.inactiveTab}>
+                  {hasAttention && <View style={styles.attentionLine} />}
                   <Ionicons
                     name={item.iconOutline}
                     size={21}
-                    color={colors.textSecondary}
+                    color={hasAttention ? '#2196F3' : colors.textSecondary}
                   />
-                  <Text style={[styles.inactiveLabel, { color: colors.textSecondary }]}>
-                    {item.label}
+                  <Text style={[styles.inactiveLabel, { color: hasAttention ? '#2196F3' : colors.textSecondary }]}>
+                    {item.label}{hasAttention ? ` ${count > 99 ? '99+' : count}` : ''}
                   </Text>
                 </View>
               )}
@@ -145,11 +196,20 @@ const styles = StyleSheet.create({
     minWidth: 64,
   },
   inactiveTab: {
+    position: 'relative',
     paddingVertical: 5,
     paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 54,
+  },
+  attentionLine: {
+    position: 'absolute',
+    top: 0,
+    width: 18,
+    height: 2,
+    borderRadius: 2,
+    backgroundColor: '#2196F3',
   },
   activeLabel: {
     fontSize: 11,

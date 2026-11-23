@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 
 // Uses a local .env.local value for a physical device or tunnel. The emulator
 // fallback remains available when no environment value is configured.
@@ -7,6 +8,10 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://10.0.2.2:8000/ap
 const TOKEN_KEY = 'bmanny_auth_token';
 
 async function getToken(): Promise<string | null> {
+    if (Platform.OS === 'web') {
+        return globalThis.localStorage?.getItem(TOKEN_KEY) ?? null;
+    }
+
     return SecureStore.getItemAsync(TOKEN_KEY);
 }
 
@@ -19,10 +24,20 @@ export function getApiBaseUrl(): string {
 }
 
 async function setToken(token: string): Promise<void> {
+    if (Platform.OS === 'web') {
+        globalThis.localStorage?.setItem(TOKEN_KEY, token);
+        return;
+    }
+
     await SecureStore.setItemAsync(TOKEN_KEY, token);
 }
 
 export async function clearToken(): Promise<void> {
+    if (Platform.OS === 'web') {
+        globalThis.localStorage?.removeItem(TOKEN_KEY);
+        return;
+    }
+
     await SecureStore.deleteItemAsync(TOKEN_KEY);
 }
 

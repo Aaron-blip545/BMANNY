@@ -1,177 +1,61 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BmannyMetricCard } from '@/components/bmanny-metric-card';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head } from '@inertiajs/react';
-import { AlertCircle, Boxes, CircleCheck, History, PackageCheck } from 'lucide-react';
-
-interface DashboardStats {
-    totalConfigurations: number | null;
-    availableConfigurations: number | null;
-    unavailableConfigurations: number | null;
-    moqAttention: number | null;
-    recentlyUpdated: number | null;
-}
-
-interface ProductUpdate {
-    id: number;
-    configurationName: string;
-    action: string;
-    updatedBy: string | null;
-    updatedAt: string;
-}
-
-interface MoqAlert {
-    id: number;
-    configurationName: string;
-    currentMoq: number | null;
-    status: string;
-}
-
-interface ConfigurationStatus {
-    available: number;
-    unavailable: number;
-    moqAttention: number;
-}
+import { Head, Link } from '@inertiajs/react';
+import { ArrowRightLeft, CircleCheck, CircleX, ClipboardList, Inbox } from 'lucide-react';
 
 interface Props {
-    stats: DashboardStats;
-    recentUpdates: ProductUpdate[];
-    moqAlerts: MoqAlert[];
-    configurationStatus: ConfigurationStatus | null;
-}
-
-interface StatCardProps {
-    label: string;
-    value: number | null;
-    description: string;
+    stats: { pending: number; available: number; alternative: number; unavailable: number };
+    recentRequests: Array<{
+        id: number;
+        inquiryId: number;
+        businessName: string;
+        requestedConfiguration: string;
+        status: 'pending' | 'available' | 'alternative' | 'unavailable';
+        submittedAt: string | null;
+    }>;
 }
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Product Controller', href: '/product-controller/dashboard' }];
+const statusLabel = { pending: 'Awaiting review', available: 'Available', alternative: 'Alternative offered', unavailable: 'Unavailable' };
 
-function StatCard({ label, value, description }: StatCardProps) {
-    const metric = label.includes('Available')
-        ? { icon: CircleCheck, accent: 'green' as const }
-        : label.includes('Unavailable')
-            ? { icon: PackageCheck, accent: 'red' as const }
-            : label.includes('MOQ')
-                ? { icon: AlertCircle, accent: 'gold' as const }
-                : label.includes('Updated')
-                    ? { icon: History, accent: 'blue' as const }
-                    : { icon: Boxes, accent: 'blue' as const };
-
-    return <BmannyMetricCard label={label} value={value ?? '—'} description={description} icon={metric.icon} accent={metric.accent} />;
-
-    /* Legacy markup kept below temporarily for reference. */
-    return (
-        <Card className="bmanny-summary-cell border-0 bg-transparent shadow-none">
-            <CardHeader className="space-y-0 p-0">
-                <CardDescription className="text-[11px] font-semibold uppercase tracking-[0.08em]">{label}</CardDescription>
-                <CardTitle className="text-3xl font-semibold tracking-tight">{value ?? '—'}</CardTitle>
-            </CardHeader>
-            <CardContent className="mt-2 p-0 text-[13px] text-muted-foreground">{description}</CardContent>
-        </Card>
-    );
-}
-
-function EmptyState({ children }: { children: React.ReactNode }) {
-    return <p className="border-t border-border px-5 py-5 text-sm text-muted-foreground">{children}</p>;
-}
-
-export default function ProductControllerDashboard({ stats, recentUpdates, moqAlerts, configurationStatus }: Props) {
+export default function ProductControllerDashboard({ stats, recentRequests }: Props) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Product Controller Dashboard" />
-
+            <Head title="Product Request Review" />
             <main className="bmanny-page">
                 <div className="bmanny-page-inner space-y-5">
-                    <section className="bmanny-page-header">
-                        <p className="bmanny-page-eyebrow">Product Controller</p>
-                        <h1 className="text-2xl font-semibold tracking-tight text-slate-950 dark:text-foreground">Dashboard</h1>
-                        <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-                            Manage and maintain product configurations, packaging, customization options, and MOQ.
-                        </p>
-                    </section>
-
-                    <section aria-label="Configuration summary" className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-                        <StatCard label="Total Product Configurations" value={stats.totalConfigurations} description="All product configurations" />
-                        <StatCard label="Available Configurations" value={stats.availableConfigurations} description="Currently marked available" />
-                        <StatCard label="Unavailable Configurations" value={stats.unavailableConfigurations} description="Currently marked unavailable" />
-                        <StatCard label="MOQ Attention" value={stats.moqAttention} description="Configurations needing MOQ review" />
-                        <StatCard label="Recently Updated" value={stats.recentlyUpdated} description="Recently modified configurations" />
-                    </section>
-
-                    <section className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(18rem,1fr)]">
-                        <Card id="recent-product-updates" className="bmanny-workspace self-start overflow-hidden">
-                            <CardHeader className="border-b border-border p-5">
-                                <CardTitle className="text-base">Recent Product Updates</CardTitle>
-                                <CardDescription>Changes to product configuration records.</CardDescription>
-                            </CardHeader>
-                            {recentUpdates.length === 0 ? (
-                                <EmptyState>No product updates available.</EmptyState>
-                            ) : (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full min-w-[42rem] text-left text-sm">
-                                        <thead className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
-                                            <tr>
-                                                <th className="px-5 py-3 font-medium">Product Configuration</th>
-                                                <th className="px-5 py-3 font-medium">Action</th>
-                                                <th className="px-5 py-3 font-medium">Updated By</th>
-                                                <th className="px-5 py-3 font-medium">Date &amp; Time</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {recentUpdates.map((update) => (
-                                                <tr key={update.id} className="border-b border-border/70 last:border-0 hover:bg-muted/40">
-                                                    <td className="px-5 py-4 font-medium">{update.configurationName}</td>
-                                                    <td className="px-5 py-4 text-muted-foreground">{update.action}</td>
-                                                    <td className="px-5 py-4 text-muted-foreground">{update.updatedBy ?? '—'}</td>
-                                                    <td className="px-5 py-4 text-muted-foreground">{update.updatedAt}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
-                        </Card>
-
-                        <div className="space-y-6">
-                            <Card id="configuration-status" className="bmanny-workspace overflow-hidden">
-                                <CardHeader className="border-b border-border p-5">
-                                    <CardTitle className="text-base">Configuration Status</CardTitle>
-                                    <CardDescription>Availability and MOQ review status.</CardDescription>
-                                </CardHeader>
-                                {configurationStatus ? (
-                                    <dl className="divide-y divide-border px-5">
-                                        <div className="flex items-center justify-between py-3 text-sm"><dt className="text-muted-foreground">Available</dt><dd className="font-medium">{configurationStatus.available}</dd></div>
-                                        <div className="flex items-center justify-between py-3 text-sm"><dt className="text-muted-foreground">Unavailable</dt><dd className="font-medium">{configurationStatus.unavailable}</dd></div>
-                                        <div className="flex items-center justify-between py-3 text-sm"><dt className="text-muted-foreground">MOQ requiring attention</dt><dd className="font-medium">{configurationStatus.moqAttention}</dd></div>
-                                    </dl>
-                                ) : (
-                                    <EmptyState>No configuration data available.</EmptyState>
-                                )}
-                            </Card>
-
-                            <Card id="moq-attention" className="bmanny-workspace overflow-hidden">
-                                <CardHeader className="border-b border-border p-5">
-                                    <CardTitle className="text-base">MOQ Attention</CardTitle>
-                                    <CardDescription>Configurations requiring MOQ review.</CardDescription>
-                                </CardHeader>
-                                {moqAlerts.length === 0 ? (
-                                    <EmptyState>No MOQ alerts.</EmptyState>
-                                ) : (
-                                    <ul className="divide-y divide-border">
-                                        {moqAlerts.map((alert) => (
-                                            <li key={alert.id} className="flex items-start justify-between gap-4 px-5 py-4 text-sm">
-                                                <div><p className="font-medium">{alert.configurationName}</p><p className="mt-1 text-muted-foreground">Current MOQ: {alert.currentMoq ?? '—'}</p></div>
-                                                <span className="text-muted-foreground">{alert.status}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </Card>
+                    <section className="bmanny-page-header flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                            <p className="bmanny-page-eyebrow">Product Controller</p>
+                            <h1 className="text-2xl font-semibold tracking-tight">Product request review</h1>
+                            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">Review package and customization requests forwarded by Sales before a quotation is prepared.</p>
                         </div>
+                        <Button asChild><Link href={route('product-controller.requests.index')}><ClipboardList className="mr-2 h-4 w-4" />Review requests</Link></Button>
                     </section>
+
+                    <section aria-label="Request review summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                        <BmannyMetricCard label="Awaiting Review" value={stats.pending} description="Requests needing your decision" icon={Inbox} accent="gold" />
+                        <BmannyMetricCard label="Available" value={stats.available} description="Approved as requested" icon={CircleCheck} accent="green" />
+                        <BmannyMetricCard label="Alternative Needed" value={stats.alternative} description="Needs a recommended option" icon={ArrowRightLeft} accent="blue" />
+                        <BmannyMetricCard label="Unavailable" value={stats.unavailable} description="Cannot be accommodated" icon={CircleX} accent="red" />
+                    </section>
+
+                    <Card className="bmanny-workspace overflow-hidden">
+                        <CardHeader className="flex flex-row items-start justify-between gap-4 border-b border-border p-5">
+                            <div><CardTitle className="text-base">Request review queue</CardTitle><CardDescription>Customer package and customization requests waiting for Product Control.</CardDescription></div>
+                            <Button variant="outline" size="sm" asChild><Link href={route('product-controller.requests.index')}>View all</Link></Button>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            {recentRequests.length === 0 ? (
+                                <div className="bmanny-empty-state py-14 text-muted-foreground"><ClipboardList /><h2 className="text-base font-semibold text-foreground">No requests to review</h2><p className="mt-1 text-sm">Sales has not forwarded any package requests yet.</p></div>
+                            ) : (
+                                <div className="overflow-x-auto"><table className="w-full min-w-[48rem] text-left text-sm"><thead className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground"><tr><th className="p-4 font-medium">Inquiry</th><th className="p-4 font-medium">Customer</th><th className="p-4 font-medium">Requested package</th><th className="p-4 font-medium">Decision</th><th className="p-4 font-medium">Received</th></tr></thead><tbody>{recentRequests.map((request) => <tr key={request.id} className="border-b border-border/50 last:border-0 hover:bg-muted/50"><td className="p-4 font-medium">#{request.inquiryId}</td><td className="p-4">{request.businessName}</td><td className="p-4 text-muted-foreground">{request.requestedConfiguration}</td><td className="p-4"><span className="rounded-full bg-muted px-2 py-1 text-xs font-medium">{statusLabel[request.status]}</span></td><td className="p-4 text-muted-foreground">{request.submittedAt ?? '-'}</td></tr>)}</tbody></table></div>
+                            )}
+                        </CardContent>
+                    </Card>
                 </div>
             </main>
         </AppLayout>

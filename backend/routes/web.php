@@ -159,6 +159,10 @@ Route::middleware(['backend.auth'])->group(function () {
         Route::get('orders/{id}/payment-receipt/{milestone}', [PaymentReceiptController::class, 'show'])->name('orders.payment-receipt');
         Route::post('inquiries/{inquiry_id}/product-request', [ProductRequestReviewController::class, 'submit'])
             ->name('inquiries.product-request.submit');
+        Route::post('inquiries/{inquiry_id}/follow-ups', [SalesAgentController::class, 'storeFollowUp'])
+            ->name('inquiries.follow-ups.store');
+        Route::patch('follow-ups/{follow_up_id}/complete', [SalesAgentController::class, 'completeFollowUp'])
+            ->name('follow-ups.complete');
 
         // Chat: one thread per inquiry
         Route::get('conversations/with/{user_id}', [ChatController::class, 'openConversationWith'])->name('chat.with-user');

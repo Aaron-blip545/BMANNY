@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, TextInput, Dimensions, Modal, RefreshControl, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, TextInput, Dimensions, Modal, RefreshControl, KeyboardAvoidingView, Platform, ActivityIndicator, Linking } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { useTheme } from '../contexts/ThemeContext';
@@ -273,6 +273,12 @@ export default function HomeScreen() {
     return () => clearInterval(interval);
   }, [carouselIndex, width]);
 
+  const handleBannerPress = () => {
+    Linking.openURL('https://www.facebook.com/bmanny.manufacturing').catch((err) => {
+      console.error('Failed to open Facebook page:', err);
+    });
+  };
+
   const getProductImage = (product: CatalogProductItem, index: number) => {
     if (product.image_url) {
       const uri = product.image_url.startsWith('http')
@@ -420,7 +426,13 @@ export default function HomeScreen() {
               scrollEventThrottle={16}
             >
               {carouselImages.map((image, index) => (
-                <Image key={index} source={image} style={styles.carouselImage} />
+                <TouchableOpacity
+                  key={index}
+                  activeOpacity={0.9}
+                  onPress={handleBannerPress}
+                >
+                  <Image source={image} style={styles.carouselImage} />
+                </TouchableOpacity>
               ))}
             </ScrollView>
             <View style={styles.carouselDots}>

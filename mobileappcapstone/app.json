@@ -15,6 +15,7 @@
     },
     "android": {
       "backgroundColor": "#ffffff",
+      "softwareKeyboardLayoutMode": "resize",
       "splash": {
         "backgroundColor": "#ffffff",
         "image": "./assets/images/splash-icon.png",

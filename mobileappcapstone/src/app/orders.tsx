@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   Image,
   RefreshControl,
   ActivityIndicator,
@@ -15,6 +14,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import { getMyOrders, getMyInquiries, cancelInquiry } from '../services/api';
@@ -234,14 +234,14 @@ export default function OrdersScreen() {
 
   const inquiryStatusColor = (inq: Inquiry) => {
     if (inq.cancelled_at) return '#E53935';
-    if (inq.status === 'responded') return '#4CAF50';
-    if (inq.status === 'reviewed') return '#2196F3';
+    if (inq.status === 'quotation_sent' || inq.status === 'converted') return '#4CAF50';
+    if (inq.status === 'for_quotation' || inq.status === 'follow_up') return '#2196F3';
     return '#78909C'; // pending → gray
   };
 
   const inquiryStatusLabel = (inq: Inquiry) => {
     if (inq.cancelled_at) return 'Cancelled';
-    return inq.status.charAt(0).toUpperCase() + inq.status.slice(1);
+    return inq.status.split('_').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
   const manufacturingReviewMeta = (inq: Inquiry) => {

@@ -1,5 +1,4 @@
 import { Breadcrumbs } from '@/components/breadcrumbs';
-import AppearanceToggleDropdown from '@/components/appearance-dropdown';
 import { NotificationBell } from '@/components/notification-bell';
 import { UserGuideDrawer } from '@/components/user-guide-drawer';
 import { SidebarTrigger } from '@/components/ui/sidebar';
@@ -15,7 +14,6 @@ export function AppSidebarHeader({ breadcrumbs = [] }: { breadcrumbs?: Breadcrum
             <div className="ml-auto flex items-center gap-2">
                 <UserGuideDrawer />
                 <NotificationBell />
-                <AppearanceToggleDropdown />
             </div>
         </header>
     );

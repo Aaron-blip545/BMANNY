@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Models\Inquiry;
+use App\Models\InquiryFollowup;
 use App\Models\ConversationArchive;
 use App\Models\Order;
 use App\Models\Quotation;
 use App\Models\ProductPackage;
 use App\Services\NotificationService;
+use App\Services\FollowUpReminderService;
 use App\Services\QuotationSpecificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +25,8 @@ class SalesAgentController extends Controller
      */
     public function inquiries(Request $request): Response
     {
+        app(FollowUpReminderService::class)->sendDueReminders();
+
         $archiveQuery = ConversationArchive::where('user_id', $request->user('web')->user_id);
         $archivedCustomerIds = (clone $archiveQuery)
             ->whereNotNull('customer_user_id')
@@ -36,6 +40,7 @@ class SalesAgentController extends Controller
             'customizations',    // packaging specs
             'productRequestReview.suggestedVariant.productType',
             'productRequestReview.suggestedPackaging',
+            'followUps.creator',
         ])
         ->whereNotIn('inquiry_id', $legacyArchivedInquiryIds)
         ->when($archivedCustomerIds->isNotEmpty(), fn ($query) => $query->whereHas(
@@ -48,6 +53,61 @@ class SalesAgentController extends Controller
         return Inertia::render('sales/inquiries', [
             'inquiries' => $inquiries,
         ]);
+    }
+
+    /** Schedule and record the next action for an active lead. */
+    public function storeFollowUp(Request $request, int $inquiryId)
+    {
+        $data = $request->validate([
+            'follow_up_date' => ['required', 'date', 'after_or_equal:now'],
+            'note' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $inquiry = Inquiry::findOrFail($inquiryId);
+        if (in_array($inquiry->status, ['converted', 'closed'], true)) {
+            return back()->withErrors(['follow_up' => 'Follow-ups can only be scheduled for active leads.']);
+        }
+
+        InquiryFollowup::create([
+            'inquiry_id' => $inquiry->inquiry_id,
+            'created_by' => $request->user('web')->user_id,
+            'follow_up_date' => $data['follow_up_date'],
+            'note' => $data['note'],
+        ]);
+
+        $inquiry->update(['status' => 'follow_up']);
+
+        return back()->with('success', 'Follow-up scheduled.');
+    }
+
+    /** Keep a completed follow-up in the lead history. */
+    public function completeFollowUp(Request $request, int $followUpId)
+    {
+        $data = $request->validate([
+            'completion_note' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $followUp = InquiryFollowup::findOrFail($followUpId);
+        if ($followUp->completed_at) {
+            return back()->with('success', 'Follow-up was already completed.');
+        }
+
+        $followUp->update([
+            'completed_at' => now(),
+            'completion_note' => $data['completion_note'] ?? null,
+        ]);
+
+        // The next status comes from the workflow, not a manual selection.
+        // If a quote exists, Sales is waiting on the customer's response;
+        // otherwise the lead is ready for quotation.
+        $inquiry = $followUp->inquiry;
+        if ($inquiry?->status === 'follow_up') {
+            $inquiry->update([
+                'status' => $inquiry->quotation()->exists() ? 'quotation_sent' : 'for_quotation',
+            ]);
+        }
+
+        return back()->with('success', 'Follow-up marked complete.');
     }
 
     public function archivedChats(Request $request): Response
@@ -71,10 +131,10 @@ class SalesAgentController extends Controller
      */
     public function createQuotation(Request $request): Response
     {
-        // Pass the list of pending/reviewed inquiries that don't yet have
+        // Pass leads ready for quotation that do not yet have one.
         // a quotation, so the sales agent can pick one from a dropdown.
         $pendingInquiries = Inquiry::with(['client.user', 'customizations', 'productRequestReview.suggestedVariant.productType', 'productRequestReview.suggestedVariant.currentMoq', 'productRequestReview.suggestedPackaging'])
-            ->whereIn('status', ['pending', 'reviewed'])
+            ->whereIn('status', ['new', 'for_quotation', 'follow_up'])
             ->whereDoesntHave('quotation')
             ->orderByDesc('created_at')
             ->get();
@@ -87,7 +147,7 @@ class SalesAgentController extends Controller
     }
 
     /**
-     * Store a new quotation and mark the linked inquiry as "responded".
+     * Store a new quotation and mark the linked lead as quotation sent.
      */
     public function storeQuotation(Request $request)
     {
@@ -109,9 +169,9 @@ class SalesAgentController extends Controller
             'status'       => 'sent',
         ]);
 
-        // Mark the inquiry as responded now that a quote has been sent.
+        // Mark the lead as quotation sent once the client can review it.
         if ($inquiry) {
-            $inquiry->update(['status' => 'responded']);
+            $inquiry->update(['status' => 'quotation_sent']);
 
             if ($inquiry->client && $inquiry->client->user) {
                 NotificationService::send(
@@ -198,6 +258,7 @@ class SalesAgentController extends Controller
 
             $quotation->status = 'accepted';
             $quotation->save();
+            $quotation->inquiry->update(['status' => 'converted']);
         });
 
         // Notify client that payment was accepted and order created

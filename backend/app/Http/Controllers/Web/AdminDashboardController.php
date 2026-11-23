@@ -235,7 +235,7 @@ class AdminDashboardController extends Controller
         if (! $client || $business === '') {
             throw ValidationException::withMessages(['file' => "Inquiry for '{$business}' cannot be imported because the business does not exist."]);
         }
-        if (! in_array($status, ['pending', 'reviewed', 'responded', 'closed', 'cancelled'], true)) {
+        if (! in_array($status, ['new', 'for_quotation', 'quotation_sent', 'follow_up', 'converted', 'closed', 'cancelled'], true)) {
             throw ValidationException::withMessages(['file' => "Inquiry status '{$row['status']}' is invalid."]);
         }
         $subject = 'Imported inquiry #' . $row['inquiry_id'];

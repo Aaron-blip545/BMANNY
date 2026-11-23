@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { Head, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 type Variant = { variant_id: number; name: string; sku?: string | null; is_available?: boolean; product_type?: { name: string } };
 type Packaging = { packaging_id: number; name: string; category: string };
@@ -60,6 +60,7 @@ function detailValue(value: string | null | undefined) {
 
 export default function ProductRequests({ requests, productTypes }: { requests: Review[]; productTypes: Product[] }) {
     const [editing, setEditing] = useState<Review | null>(null);
+    const reviewPanelRef = useRef<HTMLDivElement>(null);
     const form = useForm({ status: 'available', suggested_variant_id: '', suggested_packaging_id: '', response_notes: '' });
     const availableVariants = productTypes.flatMap((product) => product.variants.map((variant) => ({ ...variant, product_name: product.name })));
     const packaging = productTypes
@@ -76,6 +77,16 @@ export default function ProductRequests({ requests, productTypes }: { requests: 
     };
     const submit = () =>
         editing && form.patch(route('product-controller.requests.review', editing.product_request_review_id), { onSuccess: () => setEditing(null) });
+
+    useEffect(() => {
+        if (!editing) return;
+
+        const frame = window.requestAnimationFrame(() => {
+            reviewPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+
+        return () => window.cancelAnimationFrame(frame);
+    }, [editing]);
 
     return (
         <AppLayout
@@ -163,6 +174,7 @@ export default function ProductRequests({ requests, productTypes }: { requests: 
                         </CardContent>
                     </Card>
                     {editing && (
+                        <div ref={reviewPanelRef} tabIndex={-1} className="scroll-mt-5 focus:outline-none">
                         <Card className="bmanny-workspace">
                             <CardHeader>
                                 <CardTitle>Respond to inquiry #{editing.inquiry.inquiry_id}</CardTitle>
@@ -327,6 +339,7 @@ export default function ProductRequests({ requests, productTypes }: { requests: 
                                 </div>
                             </CardContent>
                         </Card>
+                        </div>
                     )}
                 </div>
             </main>

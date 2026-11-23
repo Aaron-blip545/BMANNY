@@ -47,4 +47,11 @@ class Inquiry extends Model
     {
         return $this->hasOne(ProductRequestReview::class, 'inquiry_id', 'inquiry_id');
     }
+
+    public function followUps()
+    {
+        return $this->hasMany(InquiryFollowup::class, 'inquiry_id', 'inquiry_id')
+            ->orderBy('completed_at')
+            ->orderBy('follow_up_date');
+    }
 }
