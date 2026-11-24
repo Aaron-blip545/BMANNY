@@ -1,108 +1,365 @@
+import InputError from '@/components/input-error';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useInitials } from '@/hooks/use-initials';
 import AppLayout from '@/layouts/app-layout';
-import { Head, useForm } from '@inertiajs/react';
-import { LoaderCircle } from 'lucide-react';
+import { roleBadgeClasses, roleDescription, roleLabel } from '@/lib/role-dashboard';
+import { cn } from '@/lib/utils';
+import { Head, Link, useForm } from '@inertiajs/react';
+import {
+    ArrowLeft,
+    BadgeCheck,
+    Briefcase,
+    Check,
+    Crown,
+    Eye,
+    EyeOff,
+    KeyRound,
+    Layers,
+    LoaderCircle,
+    Mail,
+    PackageCheck,
+    Phone,
+    ShieldCheck,
+    Sparkles,
+    User as UserIcon,
+    UserPlus,
+    X,
+} from 'lucide-react';
+import { useState } from 'react';
 
-const ROLES = ['customer', 'sales_agent', 'product_controller', 'order_manager', 'admin'];
+const ROLE_OPTIONS = [
+    { value: 'admin', label: 'Administrator', hint: 'Full system control & reports', icon: Crown },
+    { value: 'sales_agent', label: 'Sales Agent', hint: 'Inquiries, chat & quotations', icon: Sparkles },
+    { value: 'order_manager', label: 'Order Manager', hint: 'Production & delivery tracking', icon: PackageCheck },
+    { value: 'product_controller', label: 'Product Controller', hint: 'Catalog, BOM, MOQ & inventory', icon: Layers },
+    { value: 'customer', label: 'Customer', hint: 'Mobile app business client', icon: Briefcase },
+];
 
 export default function CreateUser() {
+    const getInitials = useInitials();
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
+
     const { data, setData, post, processing, errors } = useForm({
         full_name: '',
         email: '',
         phone_number: '',
-        role: '',
+        role: 'sales_agent',
         password: '',
         password_confirmation: '',
     });
 
-   function submit(e) {
-    e.preventDefault();
-    post(route('users.store')); 
-}
+    function submit(e) {
+        e.preventDefault();
+        post(route('users.store'));
+    }
+
+    const previewName = data.full_name.trim() || 'New Account Holder';
+    const previewEmail = data.email.trim() || 'user@bmanny.com';
+    const previewPhone = data.phone_number.trim() || 'Not provided';
+    const passwordsMatch = data.password.length > 0 && data.password === data.password_confirmation;
 
     return (
-        <AppLayout breadcrumbs={[{ title: 'Manage Users', href: '/users' }, { title: 'Add Account', href: '/users/create' }]}>
-            <Head title="Add Account" />
+        <AppLayout
+            breadcrumbs={[
+                { title: 'Manage Users', href: '/users' },
+                { title: 'Provision Account', href: '/users/create' },
+            ]}
+        >
+            <Head title="Provision Account" />
 
-            <main className="bmanny-page">
-                <div className="mx-auto max-w-xl">
-                    <header className="bmanny-page-header">
-                        <p className="bmanny-page-eyebrow">Administration</p>
-                        <h1 className="text-2xl font-semibold tracking-tight">Add Account</h1>
-                        <p className="mt-1 text-sm text-muted-foreground">Create access for a customer or staff member.</p>
-                    </header>
-                <Card className="bmanny-form-card">
-                    <CardHeader className="border-b border-border">
-                        <CardTitle>Add New Account</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <form onSubmit={submit} className="space-y-5">
-                            <div className="grid gap-2">
-                                <Label htmlFor="full_name">Full Name</Label>
-                                <Input id="full_name" value={data.full_name} onChange={(e) => setData('full_name', e.target.value)} />
-                                {errors.full_name && <p className="text-sm text-red-600">{errors.full_name}</p>}
+            <main className="bmanny-page pb-12">
+                <div className="bmanny-page-inner max-w-6xl space-y-6">
+                    {/* Navy Hero Header */}
+                    <section className="relative overflow-hidden rounded-2xl border border-[#1d407b]/60 bg-gradient-to-br from-[#06183d] via-[#0a2459] to-[#123b83] px-6 py-6 text-white shadow-[0_12px_32px_rgba(7,29,73,0.2)] sm:px-8">
+                        <div
+                            aria-hidden="true"
+                            className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#d4a72c] via-[#f2cf66] to-[#d4a72c]/30"
+                        />
+                        <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <p className="text-[11px] font-semibold tracking-[0.18em] text-[#f2cf66] uppercase">
+                                    BMANNY Administration
+                                </p>
+                                <h1 className="mt-1 text-2xl font-bold tracking-tight text-white">Provision New Account</h1>
+                                <p className="mt-1 text-sm text-blue-100/80">
+                                    Assign a role and create login credentials for a staff member or customer.
+                                </p>
+                            </div>
+                            <Link
+                                href={route('users.index')}
+                                className="inline-flex w-fit items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold text-white backdrop-blur-md transition-colors hover:border-[#e5b93f]/60 hover:bg-white/15"
+                            >
+                                <ArrowLeft className="size-4 text-[#f2cf66]" />
+                                <span>Back to Directory</span>
+                            </Link>
+                        </div>
+                    </section>
+
+                    <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(310px,0.85fr)] xl:items-start">
+                        {/* Left: Provision Form */}
+                        <section className="bmanny-form-card overflow-hidden">
+                            <div className="border-b border-border px-6 py-5">
+                                <div className="flex items-center gap-3">
+                                    <div className="flex size-10 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+                                        <UserPlus className="size-5" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-base font-bold text-foreground">Account Details &amp; Role Access</h2>
+                                        <p className="text-xs text-muted-foreground">
+                                            All required fields are validated before the account is created.
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
 
-                            <div className="grid gap-2">
-                                <Label htmlFor="email">Email</Label>
-                                <Input id="email" type="email" value={data.email} onChange={(e) => setData('email', e.target.value)} />
-                                {errors.email && <p className="text-sm text-red-600">{errors.email}</p>}
-                            </div>
+                            <form onSubmit={submit}>
+                                <div className="space-y-6 p-6">
+                                    {/* Identity Fields */}
+                                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                                        <div className="space-y-2 sm:col-span-2">
+                                            <Label htmlFor="full_name" className="text-xs font-semibold tracking-wide uppercase">
+                                                Full Name <span className="text-destructive">*</span>
+                                            </Label>
+                                            <div className="relative">
+                                                <UserIcon className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                                                <Input
+                                                    id="full_name"
+                                                    value={data.full_name}
+                                                    onChange={(e) => setData('full_name', e.target.value)}
+                                                    placeholder="e.g. Maria Santos"
+                                                    maxLength={100}
+                                                    required
+                                                    className="h-11 rounded-xl pl-10"
+                                                />
+                                            </div>
+                                            <InputError message={errors.full_name} />
+                                        </div>
 
-                            <div className="grid gap-2">
-                                <Label htmlFor="phone_number">Phone Number</Label>
-                                <Input id="phone_number" value={data.phone_number} onChange={(e) => setData('phone_number', e.target.value)} />
-                            </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="email" className="text-xs font-semibold tracking-wide uppercase">
+                                                Email Address <span className="text-destructive">*</span>
+                                            </Label>
+                                            <div className="relative">
+                                                <Mail className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                                                <Input
+                                                    id="email"
+                                                    type="email"
+                                                    value={data.email}
+                                                    onChange={(e) => setData('email', e.target.value)}
+                                                    placeholder="name@bmanny.com"
+                                                    maxLength={150}
+                                                    required
+                                                    className="h-11 rounded-xl pl-10"
+                                                />
+                                            </div>
+                                            <InputError message={errors.email} />
+                                        </div>
 
-                            <div className="grid gap-2">
-                                <Label>Role</Label>
-                                <Select value={data.role} onValueChange={(value) => setData('role', value)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select a role" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {ROLES.map((r) => (
-                                            <SelectItem key={r} value={r} className="capitalize">
-                                                {r.replace('_', ' ')}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                {errors.role && <p className="text-sm text-red-600">{errors.role}</p>}
-                            </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="phone_number" className="text-xs font-semibold tracking-wide uppercase">
+                                                Phone Number <span className="font-normal normal-case text-muted-foreground">(Optional)</span>
+                                            </Label>
+                                            <div className="relative">
+                                                <Phone className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                                                <Input
+                                                    id="phone_number"
+                                                    type="tel"
+                                                    value={data.phone_number}
+                                                    onChange={(e) => setData('phone_number', e.target.value)}
+                                                    placeholder="0917 123 4567"
+                                                    maxLength={20}
+                                                    className="h-11 rounded-xl pl-10"
+                                                />
+                                            </div>
+                                            <InputError message={errors.phone_number} />
+                                        </div>
+                                    </div>
 
-                            <div className="grid gap-2">
-                                <Label htmlFor="password">Password</Label>
-                                <Input
-                                    id="password"
-                                    type="password"
-                                    value={data.password}
-                                    onChange={(e) => setData('password', e.target.value)}
+                                    {/* Visual Role Selector */}
+                                    <div className="space-y-2.5">
+                                        <Label className="text-xs font-semibold tracking-wide uppercase">
+                                            Assign Role <span className="text-destructive">*</span>
+                                        </Label>
+                                        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                                            {ROLE_OPTIONS.map((option) => {
+                                                const Icon = option.icon;
+                                                const isSelected = data.role === option.value;
+                                                return (
+                                                    <button
+                                                        key={option.value}
+                                                        type="button"
+                                                        onClick={() => setData('role', option.value)}
+                                                        className={cn(
+                                                            'flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 text-left transition-all',
+                                                            isSelected
+                                                                ? 'border-[#d4a72c] bg-primary/[0.04] ring-2 ring-[#d4a72c]/25'
+                                                                : 'border-border bg-card hover:border-primary/40 hover:bg-muted/30',
+                                                        )}
+                                                    >
+                                                        <span
+                                                            className={cn(
+                                                                'flex size-8 shrink-0 items-center justify-center rounded-lg border',
+                                                                isSelected
+                                                                    ? 'border-[#d4a72c]/50 bg-[#071d49] text-[#f2cf66] dark:bg-[#163b78]'
+                                                                    : 'border-border bg-muted/50 text-muted-foreground',
+                                                            )}
+                                                        >
+                                                            <Icon className="size-4" />
+                                                        </span>
+                                                        <span className="min-w-0 flex-1">
+                                                            <span className="block text-xs font-bold text-foreground">{option.label}</span>
+                                                            <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                                                                {option.hint}
+                                                            </span>
+                                                        </span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                        <InputError message={errors.role} />
+                                    </div>
+
+                                    <div className="border-t border-dashed border-border" />
+
+                                    {/* Credentials */}
+                                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="password" className="text-xs font-semibold tracking-wide uppercase">
+                                                Initial Password <span className="text-destructive">*</span>
+                                            </Label>
+                                            <div className="relative">
+                                                <KeyRound className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                                                <Input
+                                                    id="password"
+                                                    type={showPassword ? 'text' : 'password'}
+                                                    value={data.password}
+                                                    onChange={(e) => setData('password', e.target.value)}
+                                                    placeholder="Minimum 6 characters"
+                                                    required
+                                                    className="h-11 rounded-xl pr-10 pl-10"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowPassword((prev) => !prev)}
+                                                    className="absolute top-1/2 right-2.5 -translate-y-1/2 rounded-lg p-1.5 text-muted-foreground hover:text-foreground"
+                                                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                                >
+                                                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                                                </button>
+                                            </div>
+                                            <InputError message={errors.password} />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label htmlFor="password_confirmation" className="text-xs font-semibold tracking-wide uppercase">
+                                                Confirm Password <span className="text-destructive">*</span>
+                                            </Label>
+                                            <div className="relative">
+                                                <KeyRound className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                                                <Input
+                                                    id="password_confirmation"
+                                                    type={showConfirm ? 'text' : 'password'}
+                                                    value={data.password_confirmation}
+                                                    onChange={(e) => setData('password_confirmation', e.target.value)}
+                                                    placeholder="Repeat password"
+                                                    required
+                                                    className="h-11 rounded-xl pr-10 pl-10"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowConfirm((prev) => !prev)}
+                                                    className="absolute top-1/2 right-2.5 -translate-y-1/2 rounded-lg p-1.5 text-muted-foreground hover:text-foreground"
+                                                    aria-label={showConfirm ? 'Hide confirmation' : 'Show confirmation'}
+                                                >
+                                                    {showConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                                                </button>
+                                            </div>
+                                            {data.password_confirmation.length > 0 && (
+                                                <p
+                                                    className={cn(
+                                                        'flex items-center gap-1 text-xs font-medium',
+                                                        passwordsMatch ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive',
+                                                    )}
+                                                >
+                                                    {passwordsMatch ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+                                                    {passwordsMatch ? 'Passwords match' : 'Passwords do not match'}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-end gap-3 border-t border-border bg-muted/30 px-6 py-4">
+                                    <Button variant="outline" asChild className="rounded-xl">
+                                        <Link href={route('users.index')}>Cancel</Link>
+                                    </Button>
+                                    <Button type="submit" disabled={processing} className="gap-2 rounded-xl px-5">
+                                        {processing ? <LoaderCircle className="size-4 animate-spin" /> : <UserPlus className="size-4" />}
+                                        <span>{processing ? 'Creating…' : 'Create Account'}</span>
+                                    </Button>
+                                </div>
+                            </form>
+                        </section>
+
+                        {/* Right: Live Credential Pass Preview */}
+                        <aside className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_12px_32px_rgba(7,29,73,0.09)]">
+                            <div className="relative bg-gradient-to-r from-[#071d49] via-[#0e2d6e] to-[#123b83] px-5 pt-5 pb-10 text-white">
+                                <div
+                                    aria-hidden="true"
+                                    className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-[#d4a72c] via-[#f2cf66] to-[#d4a72c]"
                                 />
-                                {errors.password && <p className="text-sm text-red-600">{errors.password}</p>}
+                                <p className="text-[10px] font-bold tracking-[0.2em] text-[#f2cf66] uppercase">New Account Preview</p>
+                                <p className="mt-0.5 text-xs text-blue-100/75">BMANNY Portal Credential</p>
                             </div>
 
-                            <div className="grid gap-2">
-                                <Label htmlFor="password_confirmation">Confirm Password</Label>
-                                <Input
-                                    id="password_confirmation"
-                                    type="password"
-                                    value={data.password_confirmation}
-                                    onChange={(e) => setData('password_confirmation', e.target.value)}
-                                />
-                            </div>
+                            <div className="px-5 pb-5">
+                                <div className="-mt-7 mb-3 flex items-end justify-between">
+                                    <div className="rounded-full bg-card p-1 shadow-md">
+                                        <Avatar className="size-14 border-2 border-[#d4a72c]/70">
+                                            <AvatarFallback className="bg-[#071d49] text-base font-bold text-white dark:bg-[#163b78]">
+                                                {getInitials(previewName)}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                    </div>
+                                    <span
+                                        className={cn(
+                                            'inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold',
+                                            roleBadgeClasses(data.role),
+                                        )}
+                                    >
+                                        <BadgeCheck className="size-3.5" />
+                                        {roleLabel(data.role)}
+                                    </span>
+                                </div>
 
-                            <Button type="submit" disabled={processing} className="w-full">
-                                {processing && <LoaderCircle className="h-4 w-4 animate-spin" />}
-                                Create Account
-                            </Button>
-                        </form>
-                    </CardContent>
-                </Card>
+                                <h3 className="truncate text-base font-bold text-foreground">{previewName}</h3>
+                                <p className="truncate text-xs text-muted-foreground">{previewEmail}</p>
+
+                                <div className="mt-4 space-y-2 rounded-xl border border-border bg-muted/25 p-3.5 text-xs">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-muted-foreground">Phone</span>
+                                        <span className="font-medium text-foreground">{previewPhone}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-muted-foreground">Initial Status</span>
+                                        <span className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
+                                            <ShieldCheck className="size-3.5" />
+                                            Active
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <p className="mt-3 rounded-xl border border-dashed border-border bg-background/60 p-3 text-[11px] leading-relaxed text-muted-foreground">
+                                    <span className="font-semibold text-foreground">Role scope: </span>
+                                    {roleDescription(data.role)}
+                                </p>
+                            </div>
+                        </aside>
+                    </div>
                 </div>
             </main>
         </AppLayout>

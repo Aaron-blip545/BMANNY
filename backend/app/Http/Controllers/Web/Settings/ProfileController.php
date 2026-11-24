@@ -29,15 +29,11 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user('web')->fill($request->validated());
+        $user = $request->user('web');
+        $user->fill($request->validated());
+        $user->save();
 
-        if ($request->user('web')->isDirty('email')) {
-            $request->user('web')->email_verified_at = null;
-        }
-
-        $request->user('web')->save();
-
-        return to_route('profile.edit');
+        return to_route('profile.edit')->with('status', 'profile-updated');
     }
 
     /**
@@ -46,12 +42,12 @@ class ProfileController extends Controller
     public function destroy(Request $request): RedirectResponse
     {
         $request->validate([
-            'password' => ['required', 'current_password'],
+            'password' => ['required', 'current_password:web'],
         ]);
 
-        $user = $request->user();
+        $user = $request->user('web');
 
-        Auth::logout();
+        Auth::guard('web')->logout();
 
         $user->delete();
 

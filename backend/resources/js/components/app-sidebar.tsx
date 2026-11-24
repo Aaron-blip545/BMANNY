@@ -58,7 +58,7 @@ export function AppSidebar() {
         { title: 'Product Requests', url: '/product-controller/requests', icon: ClipboardCheck },
         { title: 'Notifications', url: '/notifications/page', icon: Bell },
         { title: 'User Guide', url: '/user-guide', icon: BookOpen },
-        { title: 'Profile', url: '/settings/profile', icon: Settings },
+        { title: 'Settings', url: '/settings/profile', icon: Settings },
     ];
 
     const mainNavItems = isProductController ? productControllerNavItems : standardNavItems;

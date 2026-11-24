@@ -1,9 +1,9 @@
-import { DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { UserInfo } from '@/components/user-info';
 import { useMobileNavigation } from '@/hooks/use-mobile-navigation';
 import { type User } from '@/types';
 import { Link, router } from '@inertiajs/react';
-import { LogOut } from 'lucide-react';
+import { KeyRound, LogOut, Palette, UserCog } from 'lucide-react';
 
 interface UserMenuContentProps {
     user: User;
@@ -15,14 +15,38 @@ export function UserMenuContent({ user }: UserMenuContentProps) {
     return (
         <>
             <DropdownMenuLabel className="p-0 font-normal">
-                <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                    <UserInfo user={user} showEmail={true} />
+                <div className="flex items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm">
+                    <UserInfo user={user} showEmail={true} showRole={true} variant="popover" />
                 </div>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild className="cursor-pointer data-[highlighted]:bg-rose-50 data-[highlighted]:text-rose-800 dark:data-[highlighted]:bg-rose-950/40 dark:data-[highlighted]:text-rose-300">
+            <DropdownMenuSeparator className="my-1" />
+            <DropdownMenuGroup>
+                <DropdownMenuItem asChild className="cursor-pointer rounded-md px-2.5 py-2 text-sm">
+                    <Link className="flex w-full items-center gap-2.5" href={route('profile.edit')} prefetch onClick={cleanup}>
+                        <UserCog className="size-4 text-muted-foreground" />
+                        <span>Profile settings</span>
+                    </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="cursor-pointer rounded-md px-2.5 py-2 text-sm">
+                    <Link className="flex w-full items-center gap-2.5" href={route('password.edit')} prefetch onClick={cleanup}>
+                        <KeyRound className="size-4 text-muted-foreground" />
+                        <span>Password &amp; security</span>
+                    </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="cursor-pointer rounded-md px-2.5 py-2 text-sm">
+                    <Link className="flex w-full items-center gap-2.5" href={route('appearance')} prefetch onClick={cleanup}>
+                        <Palette className="size-4 text-muted-foreground" />
+                        <span>Appearance</span>
+                    </Link>
+                </DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator className="my-1" />
+            <DropdownMenuItem
+                asChild
+                className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-foreground data-[highlighted]:bg-muted data-[highlighted]:text-foreground"
+            >
                 <Link
-                    className="block w-full rounded-sm px-2 py-1.5 transition-colors hover:bg-rose-50 hover:text-rose-800 dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
+                    className="flex w-full items-center gap-2.5 font-medium"
                     method="post"
                     href={route('logout')}
                     as="button"
@@ -32,8 +56,8 @@ export function UserMenuContent({ user }: UserMenuContentProps) {
                         window.location.replace('/login');
                     }}
                 >
-                    <LogOut className="mr-2" />
-                    Log out
+                    <LogOut className="size-4" />
+                    <span>Log out</span>
                 </Link>
             </DropdownMenuItem>
         </>

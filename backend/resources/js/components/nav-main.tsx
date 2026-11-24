@@ -10,7 +10,13 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
     const managementItems = items.filter((item) => item.title === 'Settings' || item.title === 'Manage Users' || item.title === 'Profile');
     const primaryItems = items.filter((item) => !managementItems.includes(item));
 
-    const isItemActive = (url: string) => currentPath === url || (url !== '/' && currentPath.startsWith(`${url}/`));
+    const isItemActive = (url: string) => {
+        if (url.startsWith('/settings/')) {
+            return currentPath === '/settings' || currentPath.startsWith('/settings/');
+        }
+
+        return currentPath === url || (url !== '/' && currentPath.startsWith(`${url}/`));
+    };
 
     // Keep attention tied to the section where the staff member can act.
     // The number is deliberately plain text rather than a decorative badge.

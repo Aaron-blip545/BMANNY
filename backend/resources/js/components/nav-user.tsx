@@ -12,16 +12,16 @@ export function NavUser() {
     const { state } = useSidebar();
     const isMobile = useIsMobile();
 
-    // The dashboard is available without login while its UI is being built.
-    // Avoid rendering account controls until a real authenticated user exists.
     if (!auth.user) {
         return (
             <SidebarMenu>
                 <SidebarMenuItem>
-                    <SidebarMenuButton size="lg" className="cursor-default rounded-md px-2 text-sidebar-foreground">
-                        <span className="flex size-9 items-center justify-center rounded-full border border-[#d6a72c] bg-sidebar-accent text-xs font-semibold text-sidebar-accent-foreground">A</span>
+                    <SidebarMenuButton size="lg" className="cursor-default rounded-lg px-2 text-sidebar-foreground">
+                        <span className="flex size-9 items-center justify-center rounded-full border border-[#d6a72c] bg-sidebar-accent text-xs font-semibold text-sidebar-accent-foreground">
+                            A
+                        </span>
                         <span className="grid flex-1 text-left text-sm leading-tight">
-                            <span className="truncate font-semibold">Admin preview</span>
+                            <span className="truncate font-semibold text-white">Admin preview</span>
                             <span className="truncate text-xs text-sidebar-foreground/60">Local development</span>
                         </span>
                     </SidebarMenuButton>
@@ -35,15 +35,19 @@ export function NavUser() {
             <SidebarMenuItem>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <SidebarMenuButton size="lg" className="group rounded-md px-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[state=open]:bg-sidebar-accent">
-                            <UserInfo user={auth.user} />
-                            <ChevronsUpDown className="ml-auto size-4" />
+                        <SidebarMenuButton
+                            size="lg"
+                            className="group h-13 rounded-lg border border-transparent bg-white/[0.04] px-2.5 text-sidebar-foreground transition-colors hover:border-white/10 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[state=open]:border-[#d4a72c]/40 data-[state=open]:bg-sidebar-accent group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!"
+                        >
+                            <UserInfo user={auth.user} showRole={true} variant="sidebar" />
+                            <ChevronsUpDown className="ml-auto size-4 shrink-0 text-sidebar-foreground/65 transition-colors group-hover:text-white group-data-[collapsible=icon]:hidden" />
                         </SidebarMenuButton>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
-                        className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
+                        className="w-(--radix-dropdown-menu-trigger-width) min-w-60 rounded-xl border border-border bg-popover p-1.5 shadow-lg"
                         align="end"
-                        side={isMobile ? 'bottom' : state === 'collapsed' ? 'left' : 'bottom'}
+                        sideOffset={8}
+                        side={isMobile ? 'bottom' : state === 'collapsed' ? 'right' : 'top'}
                     >
                         <UserMenuContent user={auth.user} />
                     </DropdownMenuContent>

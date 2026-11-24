@@ -6,21 +6,36 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class UserManagementController extends Controller
 {
     public function index(Request $request)
     {
-        $query = User::query();
+        $query = User::query()->orderByDesc('created_at');
 
         if ($request->filled('role') && $request->input('role') !== 'all') {
             $query->where('role', $request->input('role'));
         }
 
+        $allUsers = User::query()->select(['role', 'is_active'])->get();
+
+        $roleCounts = [
+            'all' => $allUsers->count(),
+            'active' => $allUsers->where('is_active', true)->count(),
+            'inactive' => $allUsers->where('is_active', false)->count(),
+            'admin' => $allUsers->where('role', 'admin')->count(),
+            'sales_agent' => $allUsers->where('role', 'sales_agent')->count(),
+            'product_controller' => $allUsers->where('role', 'product_controller')->count(),
+            'order_manager' => $allUsers->where('role', 'order_manager')->count(),
+            'customer' => $allUsers->where('role', 'customer')->count(),
+        ];
+
         return Inertia::render('users/index', [
             'users' => $query->get(),
             'activeRole' => $request->input('role', 'all'),
+            'roleCounts' => $roleCounts,
         ]);
     }
 
@@ -33,10 +48,10 @@ class UserManagementController extends Controller
     {
         $validated = $request->validate([
             'full_name' => 'required|string|max:100',
-            'email' => 'required|email|unique:users,email',
+            'email' => 'required|email|max:150|unique:users,email',
             'password' => 'required|min:6|confirmed',
             'role' => 'required|in:admin,sales_agent,product_controller,order_manager,customer',
-            'phone_number' => 'nullable|string|max:20',
+            'phone_number' => ['nullable', 'string', 'max:20', Rule::unique(User::class, 'phone_number')],
         ]);
 
         User::create([
@@ -47,7 +62,7 @@ class UserManagementController extends Controller
             'phone_number' => $validated['phone_number'] ?? null,
         ]);
 
-        return redirect()->route('users.index')->with('success', 'Account created.');
+        return redirect()->route('users.index')->with('success', 'Account created successfully.');
     }
 
     public function edit($id)
@@ -63,30 +78,30 @@ class UserManagementController extends Controller
 
         $validated = $request->validate([
             'full_name' => 'required|string|max:100',
-            'email' => 'required|email|unique:users,email,' . $user->user_id . ',user_id',
+            'email' => ['required', 'email', 'max:150', Rule::unique(User::class, 'email')->ignore($user->user_id, 'user_id')],
             'role' => 'required|in:admin,sales_agent,product_controller,order_manager,customer',
-            'phone_number' => 'nullable|string|max:20',
+            'phone_number' => ['nullable', 'string', 'max:20', Rule::unique(User::class, 'phone_number')->ignore($user->user_id, 'user_id')],
             'password' => 'nullable|min:6|confirmed',
         ]);
 
         $user->full_name = $validated['full_name'];
         $user->email = $validated['email'];
         $user->role = $validated['role'];
-        $user->phone_number = $validated['phone_number'] ?? $user->phone_number;
+        $user->phone_number = $validated['phone_number'] ?? null;
 
-        if (!empty($validated['password'])) {
+        if (! empty($validated['password'])) {
             $user->password = Hash::make($validated['password']);
         }
 
         $user->save();
 
-        return redirect()->route('users.index')->with('success', 'Account updated.');
+        return redirect()->route('users.index')->with('success', 'Account updated successfully.');
     }
 
     public function toggleActive($id)
     {
         $user = User::findOrFail($id);
-        $user->is_active = !$user->is_active;
+        $user->is_active = ! $user->is_active;
         $user->save();
 
         if (! $user->is_active) {
@@ -94,6 +109,6 @@ class UserManagementController extends Controller
             $user->tokens()->delete();
         }
 
-        return redirect()->route('users.index')->with('success', 'Status updated.');
+        return redirect()->route('users.index')->with('success', $user->is_active ? 'Account reactivated.' : 'Account deactivated.');
     }
 }
