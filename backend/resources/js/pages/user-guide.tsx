@@ -1,249 +1,25 @@
-import { useState, useMemo } from 'react';
-import { Head, Link, usePage } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
-import { type BreadcrumbItem } from '@/types';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import {
-    BookOpen,
-    Search,
-    ExternalLink,
-    Lightbulb,
-    CheckCircle2,
-    ShieldCheck,
-    BarChart3,
-    Users as UsersIcon,
-    FileText,
-    ShieldAlert,
-    House,
-    CircleHelp,
-    Package,
-    ClipboardCheck,
-    Box,
-    SlidersHorizontal,
-    PackageCheck,
-    PackageMinus,
-    ArrowRight,
-    Sparkles,
-    BadgeCheck,
-    Eye,
-    ListOrdered,
-    Workflow,
-} from 'lucide-react';
-import { USER_GUIDES, RoleGuide, GuideModule } from '@/lib/user-guides-data';
 import { GuideVisualPreview } from '@/components/guide-visual-preview';
+import { Button } from '@/components/ui/button';
+import AppLayout from '@/layouts/app-layout';
+import { roleDashboardHref } from '@/lib/role-dashboard';
+import { type GuideModule, USER_GUIDES } from '@/lib/user-guides-data';
 import { cn } from '@/lib/utils';
+import { type BreadcrumbItem } from '@/types';
+import { Head, Link, usePage } from '@inertiajs/react';
+import {
+    ArrowDown,
+    ArrowRight,
+    BookOpen,
+    ExternalLink,
+    ImageIcon,
+    Lightbulb,
+    Maximize2,
+    Search,
+    X,
+} from 'lucide-react';
+import { Fragment, useMemo, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'User Guide', href: '/user-guide' }];
-
-function renderGuideIcon(iconName: string, className = 'h-5 w-5') {
-    switch (iconName) {
-        case 'BarChart3':
-            return <BarChart3 className={className} />;
-        case 'UsersIcon':
-            return <UsersIcon className={className} />;
-        case 'FileText':
-            return <FileText className={className} />;
-        case 'ShieldAlert':
-            return <ShieldAlert className={className} />;
-        case 'House':
-            return <House className={className} />;
-        case 'CircleHelp':
-            return <CircleHelp className={className} />;
-        case 'ShieldCheck':
-            return <ShieldCheck className={className} />;
-        case 'Package':
-            return <Package className={className} />;
-        case 'ClipboardCheck':
-            return <ClipboardCheck className={className} />;
-        case 'Box':
-            return <Box className={className} />;
-        case 'SlidersHorizontal':
-            return <SlidersHorizontal className={className} />;
-        case 'PackageCheck':
-            return <PackageCheck className={className} />;
-        case 'PackageMinus':
-            return <PackageMinus className={className} />;
-        default:
-            return <BookOpen className={className} />;
-    }
-}
-
-// Visual Flowchart Pipeline per role
-function RoleVisualFlowchart({ roleId }: { roleId: string }) {
-    switch (roleId) {
-        case 'sales_agent':
-            return (
-                <div className="rounded-2xl border border-blue-500/30 bg-blue-500/[0.03] p-4 sm:p-5 mb-8 shadow-xs">
-                    <div className="flex items-center gap-2 mb-3">
-                        <Workflow className="h-4 w-4 text-blue-500" />
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
-                            Visual End-to-End Sales Agent Workflow
-                        </h3>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 text-center">
-                        <div className="rounded-xl border border-blue-500/20 bg-card p-3 relative shadow-xs">
-                            <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 block mb-1">Step 1</span>
-                            <div className="h-8 w-8 mx-auto rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center font-bold text-sm mb-1.5">💬</div>
-                            <span className="text-xs font-bold text-foreground block">Client Chat</span>
-                            <span className="text-[10px] text-muted-foreground block mt-0.5">Answer inquiry & check specs</span>
-                        </div>
-
-                        <div className="rounded-xl border border-blue-500/20 bg-card p-3 relative shadow-xs">
-                            <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 block mb-1">Step 2</span>
-                            <div className="h-8 w-8 mx-auto rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center font-bold text-sm mb-1.5">📄</div>
-                            <span className="text-xs font-bold text-foreground block">Issue Quote</span>
-                            <span className="text-[10px] text-muted-foreground block mt-0.5">Set items, MOQ & pricing</span>
-                        </div>
-
-                        <div className="rounded-xl border border-blue-500/20 bg-card p-3 relative shadow-xs">
-                            <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 block mb-1">Step 3</span>
-                            <div className="h-8 w-8 mx-auto rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center font-bold text-sm mb-1.5">💳</div>
-                            <span className="text-xs font-bold text-foreground block">Check Payment</span>
-                            <span className="text-[10px] text-muted-foreground block mt-0.5">Inspect client bank slip</span>
-                        </div>
-
-                        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.08] p-3 relative shadow-xs">
-                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 block mb-1">Step 4</span>
-                            <div className="h-8 w-8 mx-auto rounded-lg bg-emerald-500/20 text-emerald-600 flex items-center justify-center font-bold text-sm mb-1.5">🚀</div>
-                            <span className="text-xs font-bold text-foreground block">To Production</span>
-                            <span className="text-[10px] text-muted-foreground block mt-0.5">Order goes to factory!</span>
-                        </div>
-                    </div>
-                </div>
-            );
-
-        case 'order_manager':
-            return (
-                <div className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.03] p-4 sm:p-5 mb-8 shadow-xs">
-                    <div className="flex items-center gap-2 mb-3">
-                        <Workflow className="h-4 w-4 text-amber-500" />
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                            Visual Production & Delivery Milestone Pipeline
-                        </h3>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 text-center">
-                        <div className="rounded-xl border border-amber-500/20 bg-card p-3 relative shadow-xs">
-                            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 block mb-1">Milestone 1</span>
-                            <div className="h-8 w-8 mx-auto rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold text-sm mb-1.5">📋</div>
-                            <span className="text-xs font-bold text-foreground block">Confirmed</span>
-                            <span className="text-[10px] text-muted-foreground block mt-0.5">Verify order specs & address</span>
-                        </div>
-
-                        <div className="rounded-xl border border-amber-500/20 bg-card p-3 relative shadow-xs">
-                            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 block mb-1">Milestone 2</span>
-                            <div className="h-8 w-8 mx-auto rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold text-sm mb-1.5">⚙️</div>
-                            <span className="text-xs font-bold text-foreground block">In Production</span>
-                            <span className="text-[10px] text-muted-foreground block mt-0.5">Factory starts crafting</span>
-                        </div>
-
-                        <div className="rounded-xl border border-amber-500/20 bg-card p-3 relative shadow-xs">
-                            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 block mb-1">Milestone 3</span>
-                            <div className="h-8 w-8 mx-auto rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold text-sm mb-1.5">🔍</div>
-                            <span className="text-xs font-bold text-foreground block">Quality QA</span>
-                            <span className="text-[10px] text-muted-foreground block mt-0.5">Inspect prints & finish</span>
-                        </div>
-
-                        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.08] p-3 relative shadow-xs">
-                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 block mb-1">Milestone 4</span>
-                            <div className="h-8 w-8 mx-auto rounded-lg bg-emerald-500/20 text-emerald-600 flex items-center justify-center font-bold text-sm mb-1.5">🚚</div>
-                            <span className="text-xs font-bold text-foreground block">Delivery Dispatch</span>
-                            <span className="text-[10px] text-muted-foreground block mt-0.5">Courier shipping & completed</span>
-                        </div>
-                    </div>
-                </div>
-            );
-
-        case 'product_controller':
-            return (
-                <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.03] p-4 sm:p-5 mb-8 shadow-xs">
-                    <div className="flex items-center gap-2 mb-3">
-                        <Workflow className="h-4 w-4 text-emerald-500" />
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                            Visual Product Catalog & Customization Flow
-                        </h3>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 text-center">
-                        <div className="rounded-xl border border-emerald-500/20 bg-card p-3 relative shadow-xs">
-                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 block mb-1">Stage 1</span>
-                            <div className="h-8 w-8 mx-auto rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold text-sm mb-1.5">📥</div>
-                            <span className="text-xs font-bold text-foreground block">Review Requests</span>
-                            <span className="text-[10px] text-muted-foreground block mt-0.5">Approve agent feasibility tickets</span>
-                        </div>
-
-                        <div className="rounded-xl border border-emerald-500/20 bg-card p-3 relative shadow-xs">
-                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 block mb-1">Stage 2</span>
-                            <div className="h-8 w-8 mx-auto rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold text-sm mb-1.5">🛍️</div>
-                            <span className="text-xs font-bold text-foreground block">Manage Products</span>
-                            <span className="text-[10px] text-muted-foreground block mt-0.5">Upload photos, SKUs & base price</span>
-                        </div>
-
-                        <div className="rounded-xl border border-emerald-500/20 bg-card p-3 relative shadow-xs">
-                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 block mb-1">Stage 3</span>
-                            <div className="h-8 w-8 mx-auto rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold text-sm mb-1.5">🏷️</div>
-                            <span className="text-xs font-bold text-foreground block">MOQ & Bulk Tiers</span>
-                            <span className="text-[10px] text-muted-foreground block mt-0.5">Set volume discount brackets</span>
-                        </div>
-
-                        <div className="rounded-xl border border-emerald-500/20 bg-card p-3 relative shadow-xs">
-                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 block mb-1">Stage 4</span>
-                            <div className="h-8 w-8 mx-auto rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold text-sm mb-1.5">🎁</div>
-                            <span className="text-xs font-bold text-foreground block">Packaging & Finishes</span>
-                            <span className="text-[10px] text-muted-foreground block mt-0.5">Configure boxes & engraving fees</span>
-                        </div>
-                    </div>
-                </div>
-            );
-
-        case 'admin':
-            return (
-                <div className="rounded-2xl border border-purple-500/30 bg-purple-500/[0.03] p-4 sm:p-5 mb-8 shadow-xs">
-                    <div className="flex items-center gap-2 mb-3">
-                        <Workflow className="h-4 w-4 text-purple-500" />
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">
-                            Visual Administration & Oversight Framework
-                        </h3>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 text-center">
-                        <div className="rounded-xl border border-purple-500/20 bg-card p-3 relative shadow-xs">
-                            <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 block mb-1">Pillar 1</span>
-                            <div className="h-8 w-8 mx-auto rounded-lg bg-purple-500/10 text-purple-600 flex items-center justify-center font-bold text-sm mb-1.5">📊</div>
-                            <span className="text-xs font-bold text-foreground block">KPIs & Revenue</span>
-                            <span className="text-[10px] text-muted-foreground block mt-0.5">Track financial health & trends</span>
-                        </div>
-
-                        <div className="rounded-xl border border-purple-500/20 bg-card p-3 relative shadow-xs">
-                            <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 block mb-1">Pillar 2</span>
-                            <div className="h-8 w-8 mx-auto rounded-lg bg-purple-500/10 text-purple-600 flex items-center justify-center font-bold text-sm mb-1.5">👥</div>
-                            <span className="text-xs font-bold text-foreground block">User Management</span>
-                            <span className="text-[10px] text-muted-foreground block mt-0.5">Create & assign staff roles</span>
-                        </div>
-
-                        <div className="rounded-xl border border-purple-500/20 bg-card p-3 relative shadow-xs">
-                            <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 block mb-1">Pillar 3</span>
-                            <div className="h-8 w-8 mx-auto rounded-lg bg-purple-500/10 text-purple-600 flex items-center justify-center font-bold text-sm mb-1.5">📑</div>
-                            <span className="text-xs font-bold text-foreground block">Export Reports</span>
-                            <span className="text-[10px] text-muted-foreground block mt-0.5">Download CSV & PDF financials</span>
-                        </div>
-
-                        <div className="rounded-xl border border-purple-500/20 bg-card p-3 relative shadow-xs">
-                            <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 block mb-1">Pillar 4</span>
-                            <div className="h-8 w-8 mx-auto rounded-lg bg-purple-500/10 text-purple-600 flex items-center justify-center font-bold text-sm mb-1.5">🛡️</div>
-                            <span className="text-xs font-bold text-foreground block">Chat Moderation</span>
-                            <span className="text-[10px] text-muted-foreground block mt-0.5">Audit flagged conversations</span>
-                        </div>
-                    </div>
-                </div>
-            );
-
-        default:
-            return null;
-    }
-}
 
 export default function UserGuidePage() {
     const { auth } = usePage().props as { auth?: { user?: { role?: string } } };
@@ -258,18 +34,19 @@ export default function UserGuidePage() {
 
     const [activeTab, setActiveTab] = useState<string>(defaultRoleKey);
     const [searchQuery, setSearchQuery] = useState('');
-    const [viewMode, setViewMode] = useState<'visual' | 'compact'>('visual');
+    const [lightboxImage, setLightboxImage] = useState<{ src: string; title: string; caption?: string } | null>(null);
 
-    const rolesList = useMemo(() => {
-        return [
-            { id: 'admin', label: 'Admin', count: USER_GUIDES['admin'].modules.length },
-            { id: 'sales_agent', label: 'Sales Agent', count: USER_GUIDES['sales_agent'].modules.length },
-            { id: 'product_controller', label: 'Product Controller', count: USER_GUIDES['product_controller'].modules.length },
-            { id: 'order_manager', label: 'Order Manager', count: USER_GUIDES['order_manager'].modules.length },
-        ];
-    }, []);
+    const rolesList = useMemo(
+        () => [
+            { id: 'sales_agent', label: 'Sales Agent' },
+            { id: 'product_controller', label: 'Product Controller' },
+            { id: 'order_manager', label: 'Order Manager' },
+            { id: 'admin', label: 'Admin' },
+        ],
+        [],
+    );
 
-    const activeRoleGuide = USER_GUIDES[activeTab] ?? USER_GUIDES['sales_agent'];
+    const activeRoleGuide = USER_GUIDES[activeTab] ?? USER_GUIDES.sales_agent;
 
     const filteredModules = useMemo(() => {
         const query = searchQuery.trim().toLowerCase();
@@ -286,235 +63,284 @@ export default function UserGuidePage() {
         });
     }, [activeRoleGuide, searchQuery]);
 
+    const scrollToModule = (id: string) => {
+        const el = document.getElementById(`guide-step-${id}`);
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Visual User Guide - BMANNY" />
+            <Head title={`User Guide — ${activeRoleGuide.roleName}`} />
 
-            <div className="bmanny-page max-w-7xl mx-auto pb-16">
-                {/* Header */}
-                <header className="bmanny-page-header">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <main className="bmanny-page pb-16">
+                <div className="mx-auto w-full max-w-5xl space-y-6">
+                    {/* Clean Page Header */}
+                    <header className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-end sm:justify-between">
                         <div>
-                            <p className="bmanny-page-eyebrow flex items-center gap-1.5">
-                                <Sparkles className="h-3.5 w-3.5 text-primary" />
-                                <span>Interactive Visual Documentation</span>
+                            <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                                Visual Manual
                             </p>
-                            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-                                Visual User Guide
+                            <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground">
+                                {activeRoleGuide.roleName} User Guide
                             </h1>
-                            <p className="mt-1 text-sm text-muted-foreground max-w-2xl">
-                                Clear UI diagrams, step-by-step visual walkthroughs, and annotated screenshots for every module.
+                            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                                {activeRoleGuide.description}
                             </p>
                         </div>
 
-                        {/* Search & Mode Controls */}
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                            <div className="relative w-full sm:w-64">
-                                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                <input
-                                    type="text"
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    placeholder="Search visual guides…"
-                                    className="w-full rounded-xl border border-input bg-card py-2 pl-9 pr-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring shadow-xs"
-                                />
-                            </div>
+                        <Button variant="outline" size="sm" asChild className="w-fit shrink-0 rounded-lg">
+                            <Link href={roleDashboardHref(userRole)}>Back to Dashboard</Link>
+                        </Button>
+                    </header>
 
-                            <div className="flex p-1 bg-muted/60 rounded-xl border border-border/60">
+                    {/* Role Tabs + Search */}
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex flex-wrap gap-1.5">
+                            {rolesList.map((tab) => {
+                                const isCurrent = activeTab === tab.id;
+                                const isUserRole = userRole === tab.id;
+
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        type="button"
+                                        onClick={() => {
+                                            setActiveTab(tab.id);
+                                            setSearchQuery('');
+                                        }}
+                                        className={cn(
+                                            'cursor-pointer rounded-lg border px-3.5 py-2 text-xs font-semibold transition-colors',
+                                            isCurrent
+                                                ? 'border-[#071d49] bg-[#071d49] text-white dark:border-[#163b78] dark:bg-[#163b78]'
+                                                : 'border-border bg-card text-foreground hover:bg-muted',
+                                        )}
+                                    >
+                                        {tab.label}
+                                        {isUserRole && <span className="ml-1 opacity-70">(You)</span>}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <div className="relative w-full sm:w-64">
+                            <Search className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Search guide…"
+                                className="w-full rounded-lg border border-border bg-card py-2 pr-8 pl-8 text-xs text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+                            />
+                            {searchQuery && (
                                 <button
-                                    onClick={() => setViewMode('visual')}
-                                    className={cn(
-                                        'px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer',
-                                        viewMode === 'visual'
-                                            ? 'bg-background text-foreground shadow-xs'
-                                            : 'text-muted-foreground hover:text-foreground',
-                                    )}
+                                    type="button"
+                                    onClick={() => setSearchQuery('')}
+                                    className="absolute top-1/2 right-2.5 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                    aria-label="Clear search"
                                 >
-                                    <Eye className="h-3.5 w-3.5" />
-                                    <span>Visual Mode</span>
+                                    <X className="size-3.5" />
                                 </button>
-                                <button
-                                    onClick={() => setViewMode('compact')}
-                                    className={cn(
-                                        'px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer',
-                                        viewMode === 'compact'
-                                            ? 'bg-background text-foreground shadow-xs'
-                                            : 'text-muted-foreground hover:text-foreground',
-                                    )}
-                                >
-                                    <ListOrdered className="h-3.5 w-3.5" />
-                                    <span>Steps Only</span>
-                                </button>
-                            </div>
+                            )}
                         </div>
                     </div>
-                </header>
 
-                {/* Role Tabs */}
-                <div className="mb-6 flex flex-wrap gap-2 p-1.5 bg-muted/40 rounded-2xl border border-border/60">
-                    {rolesList.map((tab) => {
-                        const isCurrent = activeTab === tab.id;
-                        const isUserRole = userRole === tab.id;
-
-                        return (
-                            <button
-                                key={tab.id}
-                                type="button"
-                                onClick={() => setActiveTab(tab.id)}
-                                className={cn(
-                                    'flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold transition-all cursor-pointer',
-                                    isCurrent
-                                        ? 'bg-background text-foreground shadow-md border border-border/80'
-                                        : 'text-muted-foreground hover:text-foreground hover:bg-background/50',
-                                )}
-                            >
-                                <span>{tab.label}</span>
-                                <span className={cn(
-                                    'rounded-full px-2 py-0.5 text-[11px] font-bold',
-                                    isCurrent ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
-                                )}>
-                                    {tab.count}
-                                </span>
-                                {isUserRole && (
-                                    <span className="rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] px-1.5 py-0.5 font-bold uppercase">
-                                        Your Role
-                                    </span>
-                                )}
-                            </button>
-                        );
-                    })}
-                </div>
-
-                {/* Visual Flowchart Timeline */}
-                <RoleVisualFlowchart roleId={activeTab} />
-
-                {/* Modules Grid */}
-                {filteredModules.length === 0 ? (
-                    <div className="bmanny-empty-state py-16 text-muted-foreground text-center">
-                        <BookOpen className="h-10 w-10 mx-auto text-muted-foreground mb-3 opacity-60" />
-                        <h3 className="text-base font-semibold text-foreground">No matching guides found</h3>
-                        <p className="mt-1 text-sm">
-                            Try searching for terms like "permit", "payment", "quotation", "order", or "moq".
+                    {/* Simple Horizontal Flowchart Overview */}
+                    <nav
+                        aria-label="Workflow overview"
+                        className="rounded-xl border border-border bg-card px-4 py-3.5 shadow-2xs"
+                    >
+                        <p className="mb-2.5 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+                            Workflow Overview — Click any step to jump
                         </p>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setSearchQuery('')}
-                            className="mt-4"
-                        >
-                            Clear Search
-                        </Button>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {filteredModules.map((module) => (
-                            <Card
-                                key={module.id}
-                                className="bmanny-workspace overflow-hidden border border-border/80 hover:border-primary/40 transition-all shadow-xs hover:shadow-md flex flex-col justify-between"
-                            >
-                                <CardContent className="p-5 sm:p-6 space-y-4">
-                                    {/* Module Header */}
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="flex items-start gap-3">
-                                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20 shadow-xs">
-                                                {renderGuideIcon(module.iconName, 'h-5 w-5')}
-                                            </div>
-                                            <div>
-                                                <h3 className="text-base font-bold text-foreground">
-                                                    {module.title}
-                                                </h3>
-                                                <p className="text-xs text-muted-foreground mt-0.5">
-                                                    {module.summary}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <Link
-                                            href={module.route}
-                                            className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-border bg-muted/40 px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all"
-                                            title={`Go to ${module.title}`}
-                                        >
-                                            <span>Open</span>
-                                            <ExternalLink className="h-3 w-3" />
-                                        </Link>
-                                    </div>
-
-                                    {/* Visual UI Wireframe / Live Preview */}
-                                    {viewMode === 'visual' && (
-                                        <div className="pt-1">
-                                            <GuideVisualPreview moduleId={module.id} />
-                                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            {activeRoleGuide.modules.map((mod, idx) => (
+                                <Fragment key={mod.id}>
+                                    <button
+                                        type="button"
+                                        onClick={() => scrollToModule(mod.id)}
+                                        className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
+                                    >
+                                        <span className="flex size-5 items-center justify-center rounded-full bg-[#071d49] text-[10px] font-bold text-white dark:bg-[#163b78]">
+                                            {idx + 1}
+                                        </span>
+                                        <span>{mod.shortTitle}</span>
+                                    </button>
+                                    {idx < activeRoleGuide.modules.length - 1 && (
+                                        <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
                                     )}
+                                </Fragment>
+                            ))}
+                        </div>
+                    </nav>
 
-                                    {/* When to use */}
-                                    <div className="rounded-xl bg-muted/30 border border-border/50 p-3 text-xs leading-relaxed">
-                                        <span className="font-bold text-foreground">💡 Purpose: </span>
-                                        <span className="text-muted-foreground">{module.whenToUse}</span>
-                                    </div>
+                    {/* Clean Vertical Flowchart Cards */}
+                    {filteredModules.length === 0 ? (
+                        <div className="rounded-xl border border-border bg-card px-6 py-14 text-center">
+                            <BookOpen className="mx-auto mb-3 size-8 text-muted-foreground" />
+                            <h3 className="text-sm font-bold text-foreground">No matching steps found</h3>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                Try a different keyword or clear the search box.
+                            </p>
+                            <Button variant="outline" size="sm" onClick={() => setSearchQuery('')} className="mt-4 rounded-lg">
+                                Clear Search
+                            </Button>
+                        </div>
+                    ) : (
+                        <div className="space-y-0">
+                            {filteredModules.map((module: GuideModule, index: number) => {
+                                const isLast = index === filteredModules.length - 1;
 
-                                    {/* Numbered Step-by-Step Flow */}
-                                    <div className="space-y-2.5">
-                                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                                            Step-by-Step Action Plan:
-                                        </p>
-                                        <div className="space-y-2">
-                                            {module.steps.map((step) => (
-                                                <div
-                                                    key={step.number}
-                                                    className="flex items-start gap-2.5 text-xs rounded-lg p-2 bg-card border border-border/40 shadow-2xs"
-                                                >
-                                                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 font-bold text-primary text-[11px] border border-primary/20">
-                                                        {step.number}
+                                return (
+                                    <div key={module.id} id={`guide-step-${module.id}`} className="scroll-mt-6">
+                                        <article className="overflow-hidden rounded-xl border border-border bg-card shadow-2xs">
+                                            {/* Simple Card Header */}
+                                            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4 sm:px-6">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#071d49] text-xs font-bold text-white dark:bg-[#163b78]">
+                                                        {index + 1}
                                                     </span>
-                                                    <div className="min-w-0 pt-0.5">
-                                                        <h4 className="font-semibold text-foreground text-xs">
-                                                            {step.title}
-                                                        </h4>
-                                                        <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                                                            {step.description}
-                                                        </p>
+                                                    <div>
+                                                        <h2 className="text-base font-bold text-foreground">{module.title}</h2>
+                                                        <p className="text-xs text-muted-foreground">{module.summary}</p>
                                                     </div>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    </div>
 
-                                    {/* Pro Tip Callout */}
-                                    {module.tips.length > 0 && (
-                                        <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-3 text-xs text-amber-950 dark:text-amber-300">
-                                            <div className="flex items-center gap-1.5 font-bold mb-1">
-                                                <Lightbulb className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                                                <span>Best Practice</span>
+                                                <Button variant="outline" size="sm" asChild className="rounded-lg text-xs">
+                                                    <Link href={module.route}>
+                                                        <span>Open Page</span>
+                                                        <ExternalLink className="ml-1.5 size-3.5" />
+                                                    </Link>
+                                                </Button>
                                             </div>
-                                            <ul className="list-disc pl-4 space-y-1">
-                                                {module.tips.map((tip, idx) => (
-                                                    <li key={idx} className="leading-relaxed">
-                                                        {tip}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    )}
-                                </CardContent>
 
-                                {/* Footer link */}
-                                <div className="border-t border-border/50 px-5 py-3 bg-muted/20 flex items-center justify-between text-xs">
-                                    <span className="text-muted-foreground font-mono text-[11px]">
-                                        Route: {module.route}
-                                    </span>
-                                    <Link
-                                        href={module.route}
-                                        className="font-semibold text-primary hover:underline inline-flex items-center gap-1"
-                                    >
-                                        <span>Jump to workspace</span>
-                                        <ArrowRight className="h-3 w-3" />
-                                    </Link>
-                                </div>
-                            </Card>
-                        ))}
+                                            {/* Consistent 2-Column Content: Screenshot Left, Steps Right */}
+                                            <div className="grid grid-cols-1 gap-6 p-5 sm:p-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:items-start">
+                                                {/* Screenshot */}
+                                                <div>
+                                                    {module.imageSrc ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setLightboxImage({
+                                                                    src: module.imageSrc!,
+                                                                    title: module.title,
+                                                                    caption: module.imageCaption || module.summary,
+                                                                })
+                                                            }
+                                                            className="group relative block w-full cursor-zoom-in overflow-hidden rounded-lg border border-border bg-muted/20 text-left"
+                                                            title="Click to enlarge"
+                                                        >
+                                                            <img
+                                                                src={module.imageSrc}
+                                                                alt={module.title}
+                                                                className="h-auto w-full object-contain transition-transform duration-200 group-hover:scale-[1.01]"
+                                                                loading="lazy"
+                                                            />
+                                                            <span className="absolute right-2.5 bottom-2.5 inline-flex items-center gap-1 rounded-md bg-black/70 px-2 py-1 text-[11px] font-medium text-white">
+                                                                <Maximize2 className="size-3" />
+                                                                Zoom
+                                                            </span>
+                                                        </button>
+                                                    ) : (
+                                                        <div className="rounded-lg border border-dashed border-border bg-muted/20 p-3">
+                                                            <div className="mb-2 flex items-center justify-between text-[11px] text-muted-foreground">
+                                                                <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+                                                                    <ImageIcon className="size-3.5" />
+                                                                    Preview
+                                                                </span>
+                                                                <span>Screenshot pending</span>
+                                                            </div>
+                                                            <GuideVisualPreview moduleId={module.id} />
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Simple Numbered Steps + Tip */}
+                                                <div className="space-y-4">
+                                                    <ol className="space-y-3">
+                                                        {module.steps.map((step) => (
+                                                            <li key={step.number} className="flex items-start gap-3">
+                                                                <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-xs font-bold text-foreground">
+                                                                    {step.number}
+                                                                </span>
+                                                                <div className="min-w-0 text-xs leading-relaxed">
+                                                                    <p className="font-semibold text-foreground">{step.title}</p>
+                                                                    <p className="mt-0.5 text-muted-foreground">{step.description}</p>
+                                                                </div>
+                                                            </li>
+                                                        ))}
+                                                    </ol>
+
+                                                    {module.tips.length > 0 && (
+                                                        <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-3 text-xs leading-relaxed text-muted-foreground">
+                                                            <Lightbulb className="mt-0.5 size-3.5 shrink-0 text-foreground" />
+                                                            <p>
+                                                                <strong className="font-semibold text-foreground">Tip: </strong>
+                                                                {module.tips[0]}
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </article>
+
+                                        {/* Minimal Downward Flowchart Arrow */}
+                                        {!isLast && (
+                                            <div className="flex flex-col items-center py-2.5 text-muted-foreground" aria-hidden="true">
+                                                <div className="h-4 w-px bg-border" />
+                                                <ArrowDown className="size-4" />
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            </main>
+
+            {/* Fullscreen Zoom Modal */}
+            {lightboxImage && (
+                <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={lightboxImage.title}
+                    onClick={() => setLightboxImage(null)}
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-xs"
+                >
+                    <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="relative max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-xl border border-border bg-card shadow-2xl"
+                    >
+                        <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
+                            <div>
+                                <h3 className="text-sm font-bold text-foreground">{lightboxImage.title}</h3>
+                                {lightboxImage.caption && (
+                                    <p className="mt-0.5 text-xs text-muted-foreground">{lightboxImage.caption}</p>
+                                )}
+                            </div>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setLightboxImage(null)}
+                                aria-label="Close preview"
+                                className="shrink-0 rounded-lg"
+                            >
+                                <X className="size-4" />
+                            </Button>
+                        </div>
+                        <div className="max-h-[78vh] overflow-auto bg-muted/30 p-4">
+                            <img
+                                src={lightboxImage.src}
+                                alt={lightboxImage.title}
+                                className="mx-auto h-auto max-w-full rounded-lg border border-border"
+                            />
+                        </div>
                     </div>
-                )}
-            </div>
+                </div>
+            )}
         </AppLayout>
     );
 }
