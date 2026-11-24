@@ -81,19 +81,19 @@ export default function CreateUser() {
                         />
                         <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                                <p className="text-[11px] font-semibold tracking-[0.18em] text-[#f2cf66] uppercase">
+                                <p className="text-[11px] font-semibold tracking-[0.18em] text-white/80 uppercase">
                                     BMANNY Administration
                                 </p>
                                 <h1 className="mt-1 text-2xl font-bold tracking-tight text-white">Provision New Account</h1>
-                                <p className="mt-1 text-sm text-blue-100/80">
+                                <p className="mt-1 text-sm text-white/75">
                                     Assign a role and create login credentials for a staff member or customer.
                                 </p>
                             </div>
                             <Link
                                 href={route('users.index')}
-                                className="inline-flex w-fit items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold text-white backdrop-blur-md transition-colors hover:border-[#e5b93f]/60 hover:bg-white/15"
+                                className="inline-flex w-fit items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold text-white backdrop-blur-md transition-colors hover:border-white/40 hover:bg-white/15"
                             >
-                                <ArrowLeft className="size-4 text-[#f2cf66]" />
+                                <ArrowLeft className="size-4 text-white" />
                                 <span>Back to Directory</span>
                             </Link>
                         </div>
@@ -104,7 +104,7 @@ export default function CreateUser() {
                         <section className="bmanny-form-card overflow-hidden">
                             <div className="border-b border-border px-6 py-5">
                                 <div className="flex items-center gap-3">
-                                    <div className="flex size-10 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+                                    <div className="flex size-10 items-center justify-center rounded-xl border border-border bg-muted text-foreground">
                                         <UserPlus className="size-5" />
                                     </div>
                                     <div>
@@ -122,7 +122,7 @@ export default function CreateUser() {
                                     <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                                         <div className="space-y-2 sm:col-span-2">
                                             <Label htmlFor="full_name" className="text-xs font-semibold tracking-wide uppercase">
-                                                Full Name <span className="text-destructive">*</span>
+                                                Full Name <span className="text-muted-foreground">*</span>
                                             </Label>
                                             <div className="relative">
                                                 <UserIcon className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -141,7 +141,7 @@ export default function CreateUser() {
 
                                         <div className="space-y-2">
                                             <Label htmlFor="email" className="text-xs font-semibold tracking-wide uppercase">
-                                                Email Address <span className="text-destructive">*</span>
+                                                Email Address <span className="text-muted-foreground">*</span>
                                             </Label>
                                             <div className="relative">
                                                 <Mail className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -182,7 +182,7 @@ export default function CreateUser() {
                                     {/* Visual Role Selector */}
                                     <div className="space-y-2.5">
                                         <Label className="text-xs font-semibold tracking-wide uppercase">
-                                            Assign Role <span className="text-destructive">*</span>
+                                            Assign Role <span className="text-muted-foreground">*</span>
                                         </Label>
                                         <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                                             {ROLE_OPTIONS.map((option) => {
@@ -204,7 +204,7 @@ export default function CreateUser() {
                                                             className={cn(
                                                                 'flex size-8 shrink-0 items-center justify-center rounded-lg border',
                                                                 isSelected
-                                                                    ? 'border-[#d4a72c]/50 bg-[#071d49] text-[#f2cf66] dark:bg-[#163b78]'
+                                                                    ? 'border-[#d4a72c]/50 bg-[#071d49] text-white dark:bg-[#163b78]'
                                                                     : 'border-border bg-muted/50 text-muted-foreground',
                                                             )}
                                                         >
@@ -229,7 +229,7 @@ export default function CreateUser() {
                                     <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                                         <div className="space-y-2">
                                             <Label htmlFor="password" className="text-xs font-semibold tracking-wide uppercase">
-                                                Initial Password <span className="text-destructive">*</span>
+                                                Initial Password <span className="text-muted-foreground">*</span>
                                             </Label>
                                             <div className="relative">
                                                 <KeyRound className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -256,7 +256,7 @@ export default function CreateUser() {
 
                                         <div className="space-y-2">
                                             <Label htmlFor="password_confirmation" className="text-xs font-semibold tracking-wide uppercase">
-                                                Confirm Password <span className="text-destructive">*</span>
+                                                Confirm Password <span className="text-muted-foreground">*</span>
                                             </Label>
                                             <div className="relative">
                                                 <KeyRound className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -279,12 +279,7 @@ export default function CreateUser() {
                                                 </button>
                                             </div>
                                             {data.password_confirmation.length > 0 && (
-                                                <p
-                                                    className={cn(
-                                                        'flex items-center gap-1 text-xs font-medium',
-                                                        passwordsMatch ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive',
-                                                    )}
-                                                >
+                                                <p className="flex items-center gap-1 text-xs font-medium text-foreground">
                                                     {passwordsMatch ? <Check className="size-3.5" /> : <X className="size-3.5" />}
                                                     {passwordsMatch ? 'Passwords match' : 'Passwords do not match'}
                                                 </p>
@@ -312,8 +307,8 @@ export default function CreateUser() {
                                     aria-hidden="true"
                                     className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-[#d4a72c] via-[#f2cf66] to-[#d4a72c]"
                                 />
-                                <p className="text-[10px] font-bold tracking-[0.2em] text-[#f2cf66] uppercase">New Account Preview</p>
-                                <p className="mt-0.5 text-xs text-blue-100/75">BMANNY Portal Credential</p>
+                                <p className="text-[10px] font-bold tracking-[0.2em] text-white/80 uppercase">New Account Preview</p>
+                                <p className="mt-0.5 text-xs text-white/70">BMANNY Portal Credential</p>
                             </div>
 
                             <div className="px-5 pb-5">
@@ -346,7 +341,7 @@ export default function CreateUser() {
                                     </div>
                                     <div className="flex items-center justify-between">
                                         <span className="text-muted-foreground">Initial Status</span>
-                                        <span className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
+                                        <span className="inline-flex items-center gap-1 font-semibold text-foreground">
                                             <ShieldCheck className="size-3.5" />
                                             Active
                                         </span>

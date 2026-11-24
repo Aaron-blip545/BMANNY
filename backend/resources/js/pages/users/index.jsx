@@ -140,16 +140,16 @@ export default function UsersIndex({ users = [], activeRole = 'all', roleCounts 
                             <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-2">
-                                        <span className="text-[11px] font-semibold tracking-[0.18em] text-[#f2cf66] uppercase">
+                                        <span className="text-[11px] font-semibold tracking-[0.18em] text-white/80 uppercase">
                                             BMANNY Administration
                                         </span>
                                         <span className="text-white/30">•</span>
-                                        <span className="text-[11px] font-medium text-blue-200/80">Access Control</span>
+                                        <span className="text-[11px] font-medium text-white/75">Access Control</span>
                                     </div>
                                     <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
                                         User Access Directory
                                     </h1>
-                                    <p className="max-w-xl text-sm text-blue-100/80">
+                                    <p className="max-w-xl text-sm text-white/75">
                                         Provision staff accounts, manage role permissions, and control active portal sessions across BMANNY.
                                     </p>
                                 </div>
@@ -157,7 +157,7 @@ export default function UsersIndex({ users = [], activeRole = 'all', roleCounts 
                                 <div className="flex flex-wrap items-center gap-3">
                                     <Link
                                         href={route('users.create')}
-                                        className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#d4a72c] to-[#e5b93f] px-5 py-2.5 text-sm font-bold text-[#071d49] shadow-[0_6px_20px_rgba(212,167,44,0.35)] transition-all hover:-translate-y-0.5 hover:brightness-105"
+                                        className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-[#071d49] shadow-md transition-all hover:-translate-y-0.5 hover:bg-white/90"
                                     >
                                         <UserPlus className="size-4" />
                                         <span>Provision Account</span>
@@ -168,30 +168,30 @@ export default function UsersIndex({ users = [], activeRole = 'all', roleCounts 
                             {/* Telemetry Strip */}
                             <div className="relative z-10 mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
                                 <div className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 backdrop-blur-xs">
-                                    <div className="flex items-center justify-between text-xs text-blue-200/80">
+                                    <div className="flex items-center justify-between text-xs text-white/75">
                                         <span>Total Accounts</span>
-                                        <Users className="size-3.5 text-[#f2cf66]" />
+                                        <Users className="size-3.5 text-white/80" />
                                     </div>
                                     <p className="mt-1 text-xl font-bold tabular-nums text-white">{totalCount}</p>
                                 </div>
                                 <div className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 backdrop-blur-xs">
-                                    <div className="flex items-center justify-between text-xs text-blue-200/80">
+                                    <div className="flex items-center justify-between text-xs text-white/75">
                                         <span>Active Access</span>
-                                        <UserCheck className="size-3.5 text-emerald-400" />
+                                        <UserCheck className="size-3.5 text-white/80" />
                                     </div>
-                                    <p className="mt-1 text-xl font-bold tabular-nums text-emerald-300">{activeCount}</p>
+                                    <p className="mt-1 text-xl font-bold tabular-nums text-white">{activeCount}</p>
                                 </div>
                                 <div className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 backdrop-blur-xs">
-                                    <div className="flex items-center justify-between text-xs text-blue-200/80">
+                                    <div className="flex items-center justify-between text-xs text-white/75">
                                         <span>Deactivated</span>
-                                        <UserX className="size-3.5 text-rose-400" />
+                                        <UserX className="size-3.5 text-white/80" />
                                     </div>
-                                    <p className="mt-1 text-xl font-bold tabular-nums text-rose-300">{inactiveCount}</p>
+                                    <p className="mt-1 text-xl font-bold tabular-nums text-white">{inactiveCount}</p>
                                 </div>
                                 <div className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 backdrop-blur-xs">
-                                    <div className="flex items-center justify-between text-xs text-blue-200/80">
+                                    <div className="flex items-center justify-between text-xs text-white/75">
                                         <span>Internal Staff</span>
-                                        <ShieldCheck className="size-3.5 text-sky-300" />
+                                        <ShieldCheck className="size-3.5 text-white/80" />
                                     </div>
                                     <p className="mt-1 text-xl font-bold tabular-nums text-white">{staffCount}</p>
                                 </div>
@@ -220,7 +220,7 @@ export default function UsersIndex({ users = [], activeRole = 'all', roleCounts 
                                                         : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground',
                                                 )}
                                             >
-                                                <Icon className={cn('size-3.5', isActive ? 'text-[#f2cf66]' : 'text-muted-foreground')} />
+                                                <Icon className={cn('size-3.5', isActive ? 'text-white' : 'text-muted-foreground')} />
                                                 <span>{tab.label}</span>
                                                 {typeof count === 'number' && (
                                                     <span
@@ -288,7 +288,7 @@ export default function UsersIndex({ users = [], activeRole = 'all', roleCounts 
                                             className={cn(
                                                 'cursor-pointer rounded-lg p-1.5 transition-colors',
                                                 viewMode === 'table'
-                                                    ? 'bg-background text-primary shadow-2xs'
+                                                    ? 'bg-background text-foreground shadow-2xs'
                                                     : 'text-muted-foreground hover:text-foreground',
                                             )}
                                             title="Table view"
@@ -302,7 +302,7 @@ export default function UsersIndex({ users = [], activeRole = 'all', roleCounts 
                                             className={cn(
                                                 'cursor-pointer rounded-lg p-1.5 transition-colors',
                                                 viewMode === 'cards'
-                                                    ? 'bg-background text-primary shadow-2xs'
+                                                    ? 'bg-background text-foreground shadow-2xs'
                                                     : 'text-muted-foreground hover:text-foreground',
                                             )}
                                             title="ID cards view"
@@ -318,8 +318,8 @@ export default function UsersIndex({ users = [], activeRole = 'all', roleCounts 
 
                     {/* Flash Feedback */}
                     {flash?.success && (
-                        <div className="flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-950/35 dark:text-emerald-300">
-                            <CheckCircle2 className="size-4 shrink-0" />
+                        <div className="flex items-center gap-2.5 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium text-foreground shadow-xs">
+                            <CheckCircle2 className="size-4 shrink-0 text-foreground" />
                             <span>{flash.success}</span>
                         </div>
                     )}
@@ -387,7 +387,7 @@ export default function UsersIndex({ users = [], activeRole = 'all', roleCounts 
                                                                         {user.full_name}
                                                                     </span>
                                                                     {isSelf && (
-                                                                        <span className="rounded-full bg-[#d4a72c]/20 px-2 py-0.5 text-[10px] font-bold text-[#9a7310] dark:text-[#f2cf66]">
+                                                                        <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-bold text-foreground">
                                                                             You
                                                                         </span>
                                                                     )}
@@ -413,14 +413,7 @@ export default function UsersIndex({ users = [], activeRole = 'all', roleCounts 
                                                         </span>
                                                     </td>
                                                     <td className="px-5 py-4">
-                                                        <span
-                                                            className={cn(
-                                                                'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold',
-                                                                user.is_active
-                                                                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
-                                                                    : 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300',
-                                                            )}
-                                                        >
+                                                        <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-2.5 py-1 text-xs font-semibold text-foreground">
                                                             <span
                                                                 className={cn(
                                                                     'size-1.5 rounded-full',
@@ -442,12 +435,7 @@ export default function UsersIndex({ users = [], activeRole = 'all', roleCounts 
                                                                 variant="ghost"
                                                                 size="sm"
                                                                 onClick={() => handleToggleActive(user)}
-                                                                className={cn(
-                                                                    'h-8 rounded-lg px-2.5 text-xs font-semibold',
-                                                                    user.is_active
-                                                                        ? 'text-rose-700 hover:bg-rose-50 hover:text-rose-800 dark:text-rose-400 dark:hover:bg-rose-950/40'
-                                                                        : 'text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950/40',
-                                                                )}
+                                                                className="h-8 rounded-lg px-2.5 text-xs font-semibold text-foreground hover:bg-muted"
                                                             >
                                                                 <Power className="mr-1.5 size-3.5" />
                                                                 {user.is_active ? 'Deactivate' : 'Reactivate'}
@@ -474,17 +462,10 @@ export default function UsersIndex({ users = [], activeRole = 'all', roleCounts 
                                         className="group overflow-hidden rounded-2xl border border-border bg-card shadow-xs transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
                                     >
                                         <div className="relative flex items-center justify-between bg-gradient-to-r from-[#071d49] to-[#123b83] px-4 py-3 text-white">
-                                            <span className="font-mono text-[11px] font-semibold tracking-wider text-[#f2cf66]">
+                                            <span className="font-mono text-[11px] font-semibold tracking-wider text-white/85">
                                                 {code}
                                             </span>
-                                            <span
-                                                className={cn(
-                                                    'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                                                    user.is_active
-                                                        ? 'bg-emerald-400/15 text-emerald-200'
-                                                        : 'bg-rose-400/20 text-rose-200',
-                                                )}
-                                            >
+                                            <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white">
                                                 <span
                                                     className={cn(
                                                         'size-1.5 rounded-full',
@@ -506,7 +487,7 @@ export default function UsersIndex({ users = [], activeRole = 'all', roleCounts 
                                                     <div className="flex items-center gap-1.5">
                                                         <h3 className="truncate text-sm font-bold text-foreground">{user.full_name}</h3>
                                                         {isSelf && (
-                                                            <span className="rounded-full bg-[#d4a72c]/20 px-1.5 py-0.5 text-[10px] font-bold text-[#9a7310] dark:text-[#f2cf66]">
+                                                            <span className="rounded-full border border-border bg-muted px-1.5 py-0.5 text-[10px] font-bold text-foreground">
                                                                 You
                                                             </span>
                                                         )}
@@ -546,12 +527,7 @@ export default function UsersIndex({ users = [], activeRole = 'all', roleCounts 
                                                     variant="ghost"
                                                     size="sm"
                                                     onClick={() => handleToggleActive(user)}
-                                                    className={cn(
-                                                        'h-8 flex-1 rounded-lg text-xs font-semibold',
-                                                        user.is_active
-                                                            ? 'text-rose-700 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40'
-                                                            : 'text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/40',
-                                                    )}
+                                                    className="h-8 flex-1 rounded-lg text-xs font-semibold text-foreground hover:bg-muted"
                                                 >
                                                     <Power className="mr-1.5 size-3.5" />
                                                     {user.is_active ? 'Deactivate' : 'Reactivate'}
