@@ -131,11 +131,14 @@ class SalesAgentController extends Controller
      */
     public function createQuotation(Request $request): Response
     {
-        // Pass leads ready for quotation that do not yet have one.
-        // a quotation, so the sales agent can pick one from a dropdown.
+        // Pass leads ready for quotation that have been reviewed by the Product Controller
+        // and do not yet have a quotation, so the sales agent can pick one from a dropdown.
         $pendingInquiries = Inquiry::with(['client.user', 'customizations', 'productRequestReview.suggestedVariant.productType', 'productRequestReview.suggestedVariant.currentMoq', 'productRequestReview.suggestedPackaging'])
             ->whereIn('status', ['new', 'for_quotation', 'follow_up'])
             ->whereDoesntHave('quotation')
+            ->whereHas('productRequestReview', function ($query) {
+                $query->whereIn('status', ['available', 'alternative']);
+            })
             ->orderByDesc('created_at')
             ->get();
 
@@ -158,7 +161,11 @@ class SalesAgentController extends Controller
             'item_details' => 'nullable|string',
         ]);
 
-        $inquiry = Inquiry::with('client.user')->findOrFail($validated['inquiry_id']);
+        $inquiry = Inquiry::with(['client.user', 'productRequestReview'])->findOrFail($validated['inquiry_id']);
+
+        if (!$inquiry->productRequestReview || !in_array($inquiry->productRequestReview->status, ['available', 'alternative'], true)) {
+            return back()->withErrors(['inquiry_id' => 'The inquiry must be reviewed by the Product Controller before a quotation can be created.']);
+        }
 
         $quotation = Quotation::create([
             'inquiry_id'   => $validated['inquiry_id'],
