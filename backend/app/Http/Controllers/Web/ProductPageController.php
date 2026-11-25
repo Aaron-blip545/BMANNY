@@ -7,6 +7,8 @@ use App\Models\Category;
 use App\Models\Product;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -25,9 +27,17 @@ class ProductPageController extends Controller
             ->orderBy('name')
             ->get();
 
+        $nextSequence = ((int) Product::max('product_id')) + 1;
+        $nextSku = sprintf('RM-%04d', $nextSequence);
+        while (Product::where('sku', $nextSku)->exists()) {
+            $nextSequence++;
+            $nextSku = sprintf('RM-%04d', $nextSequence);
+        }
+
         return Inertia::render('products/index', [
             'products' => $products,
             'categories' => Category::orderBy('name')->get(['category_id', 'name']),
+            'nextSku' => $nextSku,
         ]);
     }
 
@@ -40,7 +50,6 @@ class ProductPageController extends Controller
 
         $data = $request->validate([
             'name'            => 'required|string|max:200',
-            'sku'             => 'required|string|max:50|unique:products,sku',
             'category_id'     => 'nullable|exists:categories,category_id',
             'price'           => 'required|numeric|min:0',
             'stock_quantity'  => 'required|numeric',
@@ -53,7 +62,20 @@ class ProductPageController extends Controller
         $data['reorder_level'] = $data['reorder_level'] ?? 0;
         $data['unit_of_measure'] = $data['unit_of_measure'] ?? 'kg';
 
-        Product::create($data);
+        DB::transaction(function () use ($data) {
+            // SKU is system-generated from the auto-increment product_id.
+            $data['sku'] = 'RM-TMP-' . Str::uuid();
+            $product = Product::create($data);
+
+            $sequence = (int) $product->product_id;
+            $sku = sprintf('RM-%04d', $sequence);
+            while (Product::where('sku', $sku)->where('product_id', '!=', $product->product_id)->exists()) {
+                $sequence++;
+                $sku = sprintf('RM-%04d', $sequence);
+            }
+
+            $product->update(['sku' => $sku]);
+        });
 
         return back()->with('success', 'Raw material added to inventory successfully.');
     }
@@ -69,7 +91,6 @@ class ProductPageController extends Controller
 
         $data = $request->validate([
             'name'            => 'required|string|max:200',
-            'sku'             => 'required|string|max:50|unique:products,sku,' . $id . ',product_id',
             'category_id'     => 'nullable|exists:categories,category_id',
             'price'           => 'required|numeric|min:0',
             'stock_quantity'  => 'required|numeric',

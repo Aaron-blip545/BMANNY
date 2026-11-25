@@ -70,6 +70,7 @@ interface Category {
 interface Props {
     products: Product[];
     categories: Category[];
+    nextSku?: string;
     error?: string | null;
 }
 
@@ -113,7 +114,7 @@ function getStockStatus(stock: number, reorder: number = 0) {
     };
 }
 
-export default function ProductsIndex({ products = [], categories = [], error }: Props) {
+export default function ProductsIndex({ products = [], categories = [], nextSku = 'RM-0001', error }: Props) {
     const { auth } = usePage().props as any;
     const userRole: string = auth?.user?.role ?? '';
     const canManageInventory = ['product_controller', 'admin'].includes(userRole);
@@ -134,7 +135,6 @@ export default function ProductsIndex({ products = [], categories = [], error }:
 
     const form = useForm({
         name: '',
-        sku: '',
         category_id: '' as string | number,
         price: '',
         stock_quantity: '',
@@ -271,7 +271,6 @@ export default function ProductsIndex({ products = [], categories = [], error }:
         form.clearErrors();
         form.setData({
             name: '',
-            sku: '',
             category_id: '',
             price: '',
             stock_quantity: '',
@@ -299,7 +298,6 @@ export default function ProductsIndex({ products = [], categories = [], error }:
         form.clearErrors();
         form.setData({
             name: product.name,
-            sku: product.sku,
             category_id: product.category_id ? String(product.category_id) : '',
             price: String(product.price),
             stock_quantity: String(product.stock_quantity),
@@ -785,27 +783,15 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1.5">
-                                        <div className="flex items-center justify-between">
-                                            <Label htmlFor="create-sku" className="text-xs font-semibold text-foreground">
-                                                SKU / Code <span className="text-muted-foreground">*</span>
-                                            </Label>
-                                            {form.data.sku.length > 0 && (
-                                                <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
-                                                    {form.data.sku.trim().length >= 2 ? <CheckCircle2 className="size-3" /> : <X className="size-3" />}
-                                                    {form.data.sku.trim().length >= 2 ? 'Accepted' : 'Min 2 chars'}
-                                                </span>
-                                            )}
-                                        </div>
+                                        <Label htmlFor="create-sku" className="text-xs font-semibold text-foreground">
+                                            SKU / Code
+                                        </Label>
                                         <Input
                                             id="create-sku"
-                                            maxLength={50}
-                                            value={form.data.sku}
-                                            onChange={(e) => form.setData('sku', e.target.value)}
-                                            placeholder="e.g. R-DEXAN-01"
-                                            required
-                                            className="rounded-lg"
+                                            value={nextSku}
+                                            readOnly
+                                            className="rounded-lg bg-muted/50 font-mono text-muted-foreground cursor-not-allowed"
                                         />
-                                        {form.errors.sku && <p className="text-xs text-destructive">{form.errors.sku}</p>}
                                     </div>
                                     <div className="space-y-1.5">
                                         <Label htmlFor="create-category" className="text-xs font-semibold text-foreground">
@@ -976,26 +962,15 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1.5">
-                                        <div className="flex items-center justify-between">
-                                            <Label htmlFor="edit-sku" className="text-xs font-semibold text-foreground">
-                                                SKU / Code <span className="text-muted-foreground">*</span>
-                                            </Label>
-                                            {form.data.sku.length > 0 && (
-                                                <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
-                                                    {form.data.sku.trim().length >= 2 ? <CheckCircle2 className="size-3" /> : <X className="size-3" />}
-                                                    {form.data.sku.trim().length >= 2 ? 'Accepted' : 'Min 2 chars'}
-                                                </span>
-                                            )}
-                                        </div>
+                                        <Label htmlFor="edit-sku" className="text-xs font-semibold text-foreground">
+                                            SKU / Code
+                                        </Label>
                                         <Input
                                             id="edit-sku"
-                                            maxLength={50}
-                                            value={form.data.sku}
-                                            onChange={(e) => form.setData('sku', e.target.value)}
-                                            required
-                                            className="rounded-lg"
+                                            value={activeProduct?.sku ?? ''}
+                                            readOnly
+                                            className="rounded-lg bg-muted/50 font-mono text-muted-foreground cursor-not-allowed"
                                         />
-                                        {form.errors.sku && <p className="text-xs text-destructive">{form.errors.sku}</p>}
                                     </div>
                                     <div className="space-y-1.5">
                                         <Label htmlFor="edit-category" className="text-xs font-semibold text-foreground">
