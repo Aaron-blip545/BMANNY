@@ -19,7 +19,13 @@ class QuotationController extends Controller
             'valid_until' => 'nullable|date',
             'item_details' => 'nullable|string',
         ]);
-        $inquiry = Inquiry::with('client.user')->findOrFail($validated['inquiry_id']);
+        $inquiry = Inquiry::with(['client.user', 'productRequestReview'])->findOrFail($validated['inquiry_id']);
+
+        if (!$inquiry->productRequestReview || !in_array($inquiry->productRequestReview->status, ['available', 'alternative'], true)) {
+            return response()->json([
+                'message' => 'The inquiry must be reviewed by the Product Controller before generating a quotation.',
+            ], 422);
+        }
 
         // Create the quotation
         $quotation = Quotation::create([

@@ -1,6 +1,4 @@
-import { BmannyMetricCard } from '@/components/bmanny-metric-card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
@@ -25,9 +23,8 @@ import { Head, router, useForm, usePage } from '@inertiajs/react';
 import {
     AlertCircle,
     AlertTriangle,
-    Archive,
     ArrowUpDown,
-    CheckCircle2,
+    ChevronDown,
     ChevronLeft,
     ChevronRight,
     CircleAlert,
@@ -36,13 +33,11 @@ import {
     ClipboardList,
     FlaskConical,
     Layers,
-    Package,
     PackageSearch,
     Pencil,
     Plus,
     Search,
     Trash2,
-    X,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
@@ -101,24 +96,18 @@ function getStockStatus(stock: number, reorder: number = 0) {
     if (stock <= 0) {
         return {
             label: 'Out of Stock',
-            badgeClass: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20',
-            dotClass: 'bg-rose-500',
-            textClass: 'text-rose-500 dark:text-rose-400',
+            pill: 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300',
         };
     }
     if (reorder > 0 && stock <= reorder) {
         return {
             label: 'Reorder Alert',
-            badgeClass: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20',
-            dotClass: 'bg-amber-500',
-            textClass: 'text-amber-500 dark:text-amber-400',
+            pill: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
         };
     }
     return {
         label: 'In Stock',
-        badgeClass: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20',
-        dotClass: 'bg-emerald-500',
-        textClass: 'text-emerald-500 dark:text-emerald-400',
+        pill: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
     };
 }
 
@@ -354,73 +343,76 @@ export default function ProductsIndex({ products = [], categories = [], error }:
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Inventory - Raw Materials" />
 
-            <div className="bmanny-page space-y-6">
-                {/* ─── Header ────────────────────────────────────────────── */}
-                <header className="bmanny-page-header flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
-                                <FlaskConical className="size-3.5" /> Factory Inventory
-                            </span>
-                            <span className="text-xs text-muted-foreground">Location: CDO Main Factory</span>
-                        </div>
-                        <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground">
-                            Raw Materials Inventory
-                        </h1>
-                        <p className="text-sm text-muted-foreground">
-                            Track formulation ingredients, extracts, powders, and reorder levels for manufacturing.
-                        </p>
+            <div className="bmanny-page">
+                {/* Header Banner */}
+                <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="border-l-4 border-amber-400 pl-3.5">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Sales Workspace</p>
+                        <h1 className="text-2xl font-black uppercase tracking-tight text-foreground sm:text-3xl">RAW MATERIALS INVENTORY</h1>
+                        <p className="text-xs text-muted-foreground sm:text-sm">Track formulation ingredients, extracts, powders, and reorder levels for manufacturing</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2.5">
                         {canManageInventory && (
-                            <Button id="add-material-btn" type="button" onClick={openAddModal} className="shadow-sm">
-                                <Plus className="mr-2 h-4 w-4" />
+                            <Button
+                                id="add-material-btn"
+                                type="button"
+                                onClick={openAddModal}
+                                className="h-10 rounded-lg bg-blue-600 px-4 text-xs font-semibold text-white shadow-sm hover:bg-blue-700"
+                            >
+                                <Plus className="mr-1.5 h-4 w-4" />
                                 Add Raw Material
                             </Button>
                         )}
                     </div>
                 </header>
 
-                {/* ─── 4 Metric Cards (BmannyMetricCard) ──────────────────── */}
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                    <BmannyMetricCard
-                        label="TOTAL MATERIALS"
-                        value={metrics.total}
-                        description="Active raw materials"
-                        icon={ClipboardList}
-                        accent="blue"
-                    />
-                    <BmannyMetricCard
-                        label="IN STOCK"
-                        value={metrics.inStock}
-                        description="Above reorder level"
-                        icon={CircleCheck}
-                        accent="green"
-                    />
-                    <BmannyMetricCard
-                        label="REORDER ALERT"
-                        value={metrics.reorderNeeded}
-                        description="At or below reorder level"
-                        icon={CircleAlert}
-                        accent="gold"
-                    />
-                    <BmannyMetricCard
-                        label="OUT OF STOCK"
-                        value={metrics.outOfStock}
-                        description="Zero stock on hand"
-                        icon={CircleX}
-                        accent="red"
-                    />
+                {/* Metric Summary Cards */}
+                <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+                    {[
+                        {
+                            label: 'Total Materials',
+                            value: metrics.total,
+                            description: 'Active raw materials',
+                            icon: ClipboardList,
+                        },
+                        {
+                            label: 'In Stock',
+                            value: metrics.inStock,
+                            description: 'Above reorder level',
+                            icon: CircleCheck,
+                        },
+                        {
+                            label: 'Reorder Alert',
+                            value: metrics.reorderNeeded,
+                            description: 'At or below reorder level',
+                            icon: CircleAlert,
+                        },
+                        {
+                            label: 'Out of Stock',
+                            value: metrics.outOfStock,
+                            description: 'Zero stock on hand',
+                            icon: CircleX,
+                        },
+                    ].map((item) => (
+                        <div key={item.label} className="rounded-xl border border-border/70 bg-card p-5 shadow-sm transition-shadow hover:shadow-md">
+                            <div className="flex items-center justify-between">
+                                <p className="text-sm font-semibold text-foreground">{item.label}</p>
+                                <item.icon className="h-5 w-5 text-muted-foreground/70" />
+                            </div>
+                            <p className="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">{item.value}</p>
+                            <p className="mt-4 text-xs text-muted-foreground">{item.description}</p>
+                        </div>
+                    ))}
                 </div>
 
-                {/* ─── Search & Filter Controls Bar ──────────────────────── */}
-                <div className="bmanny-workspace flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-                    <p className="text-sm font-medium text-foreground">
-                        {sortedProducts.length} of {products.length} raw materials
+                {/* Filter & Search Bar */}
+                <div className="mb-4 flex flex-col gap-3 rounded-xl border border-border/70 bg-card px-5 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm font-semibold text-foreground">
+                        {sortedProducts.length}/{products.length} Materials
                     </p>
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
                         <div className="relative">
-                            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                             <input
                                 type="text"
                                 value={search}
@@ -429,350 +421,328 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                     setCurrentPage(1);
                                 }}
                                 placeholder="Search raw material, SKU (R-)..."
-                                className="w-full rounded-md border border-input bg-background py-2 pl-8 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-ring sm:w-72"
+                                className="h-9 w-full rounded-lg border border-input/80 bg-muted/20 pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary sm:w-72"
                             />
-                            {search && (
-                                <button
-                                    type="button"
-                                    onClick={() => setSearch('')}
-                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                                >
-                                    <X className="h-3.5 w-3.5" />
-                                </button>
-                            )}
                         </div>
 
                         {/* Category filter */}
-                        <select
-                            value={categoryFilter}
-                            onChange={(e) => {
-                                setCategoryFilter(e.target.value);
-                                setCurrentPage(1);
-                            }}
-                            className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                        >
-                            <option value="all">All Categories</option>
-                            <option value="uncategorized">Uncategorized</option>
-                            {categories.map((c) => (
-                                <option key={c.category_id} value={String(c.category_id)}>
-                                    {c.name}
-                                </option>
-                            ))}
-                        </select>
-
-                        {/* Status filter */}
-                        <select
-                            value={statusFilter}
-                            onChange={(e) => {
-                                setStatusFilter(e.target.value);
-                                setCurrentPage(1);
-                            }}
-                            className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                        >
-                            <option value="all">All Statuses</option>
-                            <option value="in_stock">In Stock (Healthy)</option>
-                            <option value="reorder">Reorder Alert (Low)</option>
-                            <option value="out_of_stock">Out of Stock</option>
-                        </select>
-
-                        {(search || categoryFilter !== 'all' || statusFilter !== 'all') && (
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                    setSearch('');
-                                    setCategoryFilter('all');
-                                    setStatusFilter('all');
+                        <div className="relative">
+                            <select
+                                value={categoryFilter}
+                                onChange={(e) => {
+                                    setCategoryFilter(e.target.value);
                                     setCurrentPage(1);
                                 }}
-                                className="text-xs text-muted-foreground hover:text-foreground"
+                                className="h-9 w-full appearance-none rounded-lg border border-input/80 bg-muted/20 px-3 pr-8 text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary sm:w-auto"
                             >
-                                Clear
-                            </Button>
-                        )}
+                                <option value="all">All Categories</option>
+                                <option value="uncategorized">Uncategorized</option>
+                                {categories.map((c) => (
+                                    <option key={c.category_id} value={String(c.category_id)}>
+                                        {c.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                        </div>
+
+                        {/* Status filter */}
+                        <div className="relative">
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => {
+                                    setStatusFilter(e.target.value);
+                                    setCurrentPage(1);
+                                }}
+                                className="h-9 w-full appearance-none rounded-lg border border-input/80 bg-muted/20 px-3 pr-8 text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary sm:w-auto"
+                            >
+                                <option value="all">All Statuses</option>
+                                <option value="in_stock">In Stock</option>
+                                <option value="reorder">Reorder Alert</option>
+                                <option value="out_of_stock">Out of Stock</option>
+                            </select>
+                            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                        </div>
                     </div>
                 </div>
 
-                {/* ─── Table Card ────────────────────────────────────────── */}
-                <Card className="bmanny-workspace overflow-hidden border shadow-sm">
-                    <CardContent className="p-0">
-                        {error ? (
-                            <div className="py-16 text-center text-destructive">
-                                <AlertTriangle className="mx-auto mb-2 size-8 opacity-80" />
-                                <p className="text-sm font-medium">Failed to load inventory. Please refresh.</p>
-                            </div>
-                        ) : sortedProducts.length === 0 ? (
-                            <div className="bmanny-empty-state py-16 text-muted-foreground text-center">
-                                <PackageSearch className="mx-auto mb-3 size-10 opacity-70" />
-                                <h2 className="text-base font-semibold text-foreground">
-                                    {products.length === 0 ? 'No raw materials in inventory' : 'No matching materials found'}
-                                </h2>
-                                <p className="mt-1 text-sm max-w-sm mx-auto">
-                                    {products.length === 0
-                                        ? 'Start tracking ingredients, extracts, and base powders by adding your first raw material.'
-                                        : 'Try adjusting your search query or filter settings.'}
-                                </p>
-                                {products.length === 0 && canManageInventory && (
-                                    <Button onClick={openAddModal} className="mt-4">
-                                        <Plus className="mr-2 h-4 w-4" /> Add Raw Material
-                                    </Button>
-                                )}
-                            </div>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left text-sm">
-                                    <thead className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
-                                        <tr>
+                {/* Items Table / Card Rows */}
+                {error ? (
+                    <div className="rounded-xl border border-border/70 bg-card py-16 text-center text-destructive shadow-sm">
+                        <AlertTriangle className="mx-auto mb-2 size-8 opacity-80" />
+                        <p className="text-sm font-medium">Failed to load inventory. Please refresh.</p>
+                    </div>
+                ) : sortedProducts.length === 0 ? (
+                    <div className="rounded-xl border border-border/70 bg-card py-16 text-center text-muted-foreground shadow-sm">
+                        <PackageSearch className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
+                        <h2 className="text-base font-semibold text-foreground">
+                            {products.length === 0 ? 'No raw materials in inventory' : 'No matching materials found'}
+                        </h2>
+                        <p className="mt-1 text-xs">
+                            {products.length === 0
+                                ? 'Start tracking ingredients, extracts, and base powders by adding your first raw material.'
+                                : 'Try adjusting your search query or filter settings.'}
+                        </p>
+                        {products.length === 0 && canManageInventory && (
+                            <Button onClick={openAddModal} className="mt-4 h-9 rounded-lg bg-blue-600 px-4 text-xs font-semibold text-white shadow-sm hover:bg-blue-700">
+                                <Plus className="mr-1.5 h-4 w-4" /> Add Raw Material
+                            </Button>
+                        )}
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full min-w-[1000px] border-separate border-spacing-y-2.5 text-left text-sm">
+                            <thead>
+                                <tr>
+                                    {canManageInventory && (
+                                        <th className="px-5 py-3 text-center text-sm font-bold text-foreground w-12">
+                                            <Checkbox
+                                                checked={isAllSelected}
+                                                onCheckedChange={toggleSelectAll}
+                                                aria-label="Select all"
+                                            />
+                                        </th>
+                                    )}
+                                    <th className="px-5 py-3 text-sm font-bold text-foreground">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSort('name')}
+                                            className="inline-flex items-center gap-1 hover:text-foreground/80 font-bold"
+                                        >
+                                            Raw Material
+                                            <ArrowUpDown className="size-3.5 opacity-50" />
+                                        </button>
+                                    </th>
+
+                                    <th className="px-5 py-3 text-sm font-bold text-foreground">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSort('category')}
+                                            className="inline-flex items-center gap-1 hover:text-foreground/80 font-bold"
+                                        >
+                                            Category
+                                            <ArrowUpDown className="size-3.5 opacity-50" />
+                                        </button>
+                                    </th>
+                                    <th className="px-5 py-3 text-sm font-bold text-foreground">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSort('stock')}
+                                            className="inline-flex items-center gap-1 hover:text-foreground/80 font-bold"
+                                        >
+                                            Stock on Hand
+                                            <ArrowUpDown className="size-3.5 opacity-50" />
+                                        </button>
+                                    </th>
+                                    <th className="px-5 py-3 text-sm font-bold text-foreground">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSort('price')}
+                                            className="inline-flex items-center gap-1 hover:text-foreground/80 font-bold"
+                                        >
+                                            Unit Rate (₱)
+                                            <ArrowUpDown className="size-3.5 opacity-50" />
+                                        </button>
+                                    </th>
+                                    <th className="px-5 py-3 text-sm font-bold text-foreground">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSort('status')}
+                                            className="inline-flex items-center gap-1 hover:text-foreground/80 font-bold"
+                                        >
+                                            Status
+                                            <ArrowUpDown className="size-3.5 opacity-50" />
+                                        </button>
+                                    </th>
+                                    {canManageInventory && (
+                                        <th className="px-5 py-3 text-sm font-bold text-foreground">Actions</th>
+                                    )}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {paginatedProducts.map((product) => {
+                                    const stockNum = Number(product.stock_quantity) || 0;
+                                    const reorderNum = Number(product.reorder_level) || 0;
+                                    const status = getStockStatus(stockNum, reorderNum);
+                                    const isSelected = selectedIds.includes(product.product_id);
+                                    const unit = product.unit_of_measure ?? 'kg';
+
+                                    return (
+                                        <tr
+                                            key={product.product_id}
+                                            className="group rounded-xl border border-border/70 bg-card shadow-xs transition-shadow hover:shadow-md"
+                                        >
+                                            {/* Checkbox */}
                                             {canManageInventory && (
-                                                <th className="w-12 p-4 text-center">
+                                                <td className="rounded-l-xl border-y border-l border-border/70 p-5 align-middle text-center">
                                                     <Checkbox
-                                                        checked={isAllSelected}
-                                                        onCheckedChange={toggleSelectAll}
-                                                        aria-label="Select all"
+                                                        checked={isSelected}
+                                                        onCheckedChange={() => toggleSelectOne(product.product_id)}
+                                                        aria-label={`Select ${product.name}`}
                                                     />
-                                                </th>
+                                                </td>
                                             )}
-                                            <th className="p-4 font-medium">#</th>
-                                            {([
-                                                { label: 'RAW MATERIAL', field: 'name' as SortField },
-                                                { label: 'SKU / CODE', field: 'sku' as SortField },
-                                                { label: 'CATEGORY', field: 'category' as SortField },
-                                                { label: 'STOCK ON HAND', field: 'stock' as SortField },
-                                                { label: 'REORDER LEVEL', field: 'reorder' as SortField },
-                                                { label: 'UNIT RATE (₱)', field: 'price' as SortField },
-                                                { label: 'STATUS', field: 'status' as SortField },
-                                            ] as { label: string; field: SortField }[]).map((col) => (
-                                                <th key={col.label} className="p-4 font-medium">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleSort(col.field)}
-                                                        className="inline-flex items-center gap-1 hover:text-foreground transition-colors font-semibold"
-                                                    >
-                                                        {col.label}
-                                                        <ArrowUpDown className="size-3 opacity-50" />
-                                                    </button>
-                                                </th>
-                                            ))}
+
+                                            {/* Raw Material Details */}
+                                            <td className={`${!canManageInventory ? 'rounded-l-xl border-l' : ''} border-y border-border/70 p-5 align-middle`}>
+                                                <div className="flex items-center gap-3.5">
+                                                    <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-muted/60 overflow-hidden shadow-xs">
+                                                        {product.product_image ? (
+                                                            <img
+                                                                src={product.product_image}
+                                                                alt={product.name}
+                                                                className="size-full object-cover"
+                                                                onError={(e) => {
+                                                                    (e.target as HTMLElement).style.display = 'none';
+                                                                }}
+                                                            />
+                                                        ) : (
+                                                            <FlaskConical className="size-5 text-muted-foreground" />
+                                                        )}
+                                                    </div>
+                                                    <div>
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <p className="text-base font-bold text-foreground">{product.name}</p>
+                                                            <span className="font-mono text-xs font-bold text-foreground bg-muted/80 border border-border/80 px-2 py-0.5 rounded-md">
+                                                                {product.sku}
+                                                            </span>
+                                                            {(product.recipes_count ?? 0) > 0 && (
+                                                                <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold bg-muted/60 text-muted-foreground border border-border/60">
+                                                                    <Layers className="size-2.5" />
+                                                                    in {product.recipes_count} BOMs
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+
+                                            {/* Category */}
+                                            <td className="border-y border-border/70 p-5 align-middle">
+                                                <p className="text-base font-semibold text-foreground">
+                                                    {product.category?.name ?? 'Uncategorized'}
+                                                </p>
+                                                <p className="mt-0.5 text-xs text-muted-foreground">Raw Material</p>
+                                            </td>
+
+                                            {/* Stock on Hand */}
+                                            <td className="border-y border-border/70 p-5 align-middle">
+                                                <p className={`text-base font-bold font-mono ${stockNum <= 0 ? 'text-rose-600' : 'text-foreground'}`}>
+                                                    {formatQuantity(product.stock_quantity, unit)}
+                                                </p>
+                                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                                    {reorderNum > 0 ? `Reorder at: ${formatQuantity(reorderNum, unit)}` : 'No reorder threshold'}
+                                                </p>
+                                            </td>
+
+                                            {/* Unit Rate */}
+                                            <td className="border-y border-border/70 p-5 align-middle">
+                                                <p className="text-base font-semibold text-foreground">
+                                                    {formatCurrency(product.price)}
+                                                </p>
+                                                <p className="mt-0.5 text-xs text-muted-foreground">per {unit}</p>
+                                            </td>
+
+                                            {/* Status Badge */}
+                                            <td className={`${!canManageInventory ? 'rounded-r-xl border-r' : ''} border-y border-border/70 p-5 align-middle`}>
+                                                <span className={`inline-flex items-center rounded-full px-4 py-1.5 text-sm font-bold sm:text-base ${status.pill}`}>
+                                                    {status.label}
+                                                </span>
+                                            </td>
+
+                                            {/* Actions */}
                                             {canManageInventory && (
-                                                <th className="p-4 font-medium text-center">ACTION</th>
+                                                <td className="rounded-r-xl border-y border-r border-border/70 p-5 align-middle">
+                                                    <div className="flex items-center gap-2 min-w-[180px]">
+                                                        <Button
+                                                            variant="secondary"
+                                                            size="sm"
+                                                            onClick={() => openEditModal(product)}
+                                                            className="h-9 justify-start rounded-md bg-muted/60 px-3 text-xs font-semibold hover:bg-muted"
+                                                        >
+                                                            <Pencil className="mr-1.5 h-4 w-4 text-muted-foreground shrink-0" />
+                                                            <span className="whitespace-nowrap">Edit</span>
+                                                        </Button>
+                                                        <Button
+                                                            variant="secondary"
+                                                            size="sm"
+                                                            onClick={() => openDeleteModal(product)}
+                                                            className="h-9 justify-start rounded-md bg-muted/60 px-3 text-xs font-semibold text-rose-600 hover:bg-muted hover:text-rose-700 dark:text-rose-400"
+                                                        >
+                                                            <Trash2 className="mr-1.5 h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                                                            <span className="whitespace-nowrap">Delete</span>
+                                                        </Button>
+                                                    </div>
+                                                </td>
                                             )}
                                         </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-border/50">
-                                        {paginatedProducts.map((product, idx) => {
-                                            const stockNum = Number(product.stock_quantity) || 0;
-                                            const reorderNum = Number(product.reorder_level) || 0;
-                                            const status = getStockStatus(stockNum, reorderNum);
-                                            const isSelected = selectedIds.includes(product.product_id);
-                                            const rowNum = (currentPage - 1) * pageSize + idx + 1;
-                                            const unit = product.unit_of_measure ?? 'kg';
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
 
-                                            return (
-                                                <tr
-                                                    key={product.product_id}
-                                                    className={`transition-colors hover:bg-muted/40 ${
-                                                        isSelected ? 'bg-muted/60' : ''
-                                                    }`}
-                                                >
-                                                    {/* Checkbox */}
-                                                    {canManageInventory && (
-                                                        <td className="p-4 text-center">
-                                                            <Checkbox
-                                                                checked={isSelected}
-                                                                onCheckedChange={() => toggleSelectOne(product.product_id)}
-                                                                aria-label={`Select ${product.name}`}
-                                                            />
-                                                        </td>
-                                                    )}
+                {/* Pagination footer */}
+                {sortedProducts.length > 0 && (
+                    <div className="mt-4 flex flex-col gap-3 rounded-xl border border-border/70 bg-card px-5 py-3 shadow-xs sm:flex-row sm:items-center sm:justify-between text-xs text-muted-foreground">
+                        <span>
+                            Showing{' '}
+                            <strong className="font-semibold text-foreground">
+                                {Math.min(sortedProducts.length, (currentPage - 1) * pageSize + 1)}
+                            </strong>
+                            –
+                            <strong className="font-semibold text-foreground">
+                                {Math.min(sortedProducts.length, currentPage * pageSize)}
+                            </strong>{' '}
+                            of{' '}
+                            <strong className="font-semibold text-foreground">
+                                {sortedProducts.length}
+                            </strong>{' '}
+                            materials
+                        </span>
 
-                                                    {/* # */}
-                                                    <td className="p-4 font-mono text-xs text-muted-foreground">
-                                                        #{rowNum}
-                                                    </td>
+                        <div className="flex items-center gap-1.5">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={currentPage <= 1}
+                                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                className="h-8 rounded-lg border-border/80 px-3 text-xs font-semibold"
+                            >
+                                <ChevronLeft className="mr-1 h-3.5 w-3.5" /> Prev
+                            </Button>
 
-                                                    {/* Raw Material Name */}
-                                                    <td className="p-4">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/60 overflow-hidden shadow-xs">
-                                                                {product.product_image ? (
-                                                                    <img
-                                                                        src={product.product_image}
-                                                                        alt={product.name}
-                                                                        className="size-full object-cover"
-                                                                        onError={(e) => {
-                                                                            (e.target as HTMLElement).style.display = 'none';
-                                                                        }}
-                                                                    />
-                                                                ) : (
-                                                                    <FlaskConical className="size-4 text-primary/70" />
-                                                                )}
-                                                            </div>
-                                                            <div>
-                                                                <div className="flex items-center gap-1.5">
-                                                                    <span className="font-semibold text-foreground">
-                                                                        {product.name}
-                                                                    </span>
-                                                                    {(product.recipes_count ?? 0) > 0 && (
-                                                                        <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[10px] font-medium bg-secondary text-secondary-foreground border">
-                                                                            <Layers className="size-2.5 mr-0.5" />
-                                                                            in {product.recipes_count} BOMs
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                                {product.description && (
-                                                                    <p className="line-clamp-1 text-xs text-muted-foreground max-w-xs">
-                                                                        {product.description}
-                                                                    </p>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </td>
+                            {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                                .map((page, i, arr) => (
+                                    <div key={page} className="flex items-center">
+                                        {arr[i - 1] && page - arr[i - 1] > 1 && (
+                                            <span className="px-1 text-muted-foreground">…</span>
+                                        )}
+                                        <Button
+                                            variant={currentPage === page ? 'default' : 'outline'}
+                                            size="sm"
+                                            onClick={() => setCurrentPage(page)}
+                                            className={`h-8 w-8 rounded-lg p-0 text-xs font-semibold ${currentPage === page ? 'bg-[#3b5de7] text-white hover:bg-[#2f4bc9]' : 'border-border/80'}`}
+                                        >
+                                            {page}
+                                        </Button>
+                                    </div>
+                                ))}
 
-                                                    {/* SKU */}
-                                                    <td className="p-4 font-mono text-xs font-medium text-muted-foreground">
-                                                        <span className="rounded bg-muted/60 px-1.5 py-0.5">
-                                                            {product.sku}
-                                                        </span>
-                                                    </td>
-
-                                                    {/* Category */}
-                                                    <td className="p-4">
-                                                        {product.category?.name ? (
-                                                            <span className="rounded-md bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-                                                                {product.category.name}
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-muted-foreground">—</span>
-                                                        )}
-                                                    </td>
-
-                                                    {/* Stock On Hand */}
-                                                    <td className="p-4 font-mono font-semibold text-foreground">
-                                                        <span className={stockNum <= 0 ? 'text-rose-500' : ''}>
-                                                            {formatQuantity(product.stock_quantity, unit)}
-                                                        </span>
-                                                    </td>
-
-                                                    {/* Reorder Level */}
-                                                    <td className="p-4 font-mono text-xs text-muted-foreground">
-                                                        {reorderNum > 0 ? (
-                                                            formatQuantity(product.reorder_level ?? 0, unit)
-                                                        ) : (
-                                                            <span className="text-muted-foreground/60">—</span>
-                                                        )}
-                                                    </td>
-
-                                                    {/* Rate / Cost */}
-                                                    <td className="p-4 text-muted-foreground font-medium">
-                                                        {formatCurrency(product.price)}
-                                                        <span className="text-[11px] text-muted-foreground/70"> / {unit}</span>
-                                                    </td>
-
-                                                    {/* Status Badge */}
-                                                    <td className="p-4">
-                                                        <span
-                                                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${status.badgeClass}`}
-                                                        >
-                                                            <span className={`size-1.5 rounded-full ${status.dotClass}`} />
-                                                            {status.label}
-                                                        </span>
-                                                    </td>
-
-                                                    {/* Actions */}
-                                                    {canManageInventory && (
-                                                        <td className="p-4 text-center">
-                                                            <div className="flex items-center justify-center gap-1.5">
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    onClick={() => openEditModal(product)}
-                                                                    className="h-8 px-2.5 text-xs"
-                                                                >
-                                                                    <Pencil className="mr-1 h-3.5 w-3.5" />
-                                                                    Edit
-                                                                </Button>
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    onClick={() => openDeleteModal(product)}
-                                                                    className="h-8 px-2.5 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                                >
-                                                                    <Trash2 className="size-3.5" />
-                                                                </Button>
-                                                            </div>
-                                                        </td>
-                                                    )}
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-
-                        {/* Pagination footer */}
-                        {sortedProducts.length > 0 && (
-                            <div className="flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5 text-xs text-muted-foreground">
-                                <span>
-                                    Showing{' '}
-                                    <strong className="font-semibold text-foreground">
-                                        {Math.min(sortedProducts.length, (currentPage - 1) * pageSize + 1)}
-                                    </strong>
-                                    –
-                                    <strong className="font-semibold text-foreground">
-                                        {Math.min(sortedProducts.length, currentPage * pageSize)}
-                                    </strong>{' '}
-                                    of{' '}
-                                    <strong className="font-semibold text-foreground">
-                                        {sortedProducts.length}
-                                    </strong>{' '}
-                                    materials
-                                </span>
-
-                                <div className="flex items-center gap-1">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        disabled={currentPage <= 1}
-                                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                                        className="h-8 px-2.5 text-xs"
-                                    >
-                                        <ChevronLeft className="mr-1 h-3.5 w-3.5" /> Prev
-                                    </Button>
-
-                                    {Array.from({ length: totalPages }, (_, i) => i + 1)
-                                        .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
-                                        .map((page, i, arr) => (
-                                            <div key={page} className="flex items-center">
-                                                {arr[i - 1] && page - arr[i - 1] > 1 && (
-                                                    <span className="px-1 text-muted-foreground">…</span>
-                                                )}
-                                                <Button
-                                                    variant={currentPage === page ? 'default' : 'outline'}
-                                                    size="sm"
-                                                    onClick={() => setCurrentPage(page)}
-                                                    className="h-8 w-8 p-0 text-xs font-medium"
-                                                >
-                                                    {page}
-                                                </Button>
-                                            </div>
-                                        ))}
-
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        disabled={currentPage >= totalPages}
-                                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                                        className="h-8 px-2.5 text-xs"
-                                    >
-                                        Next <ChevronRight className="ml-1 h-3.5 w-3.5" />
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={currentPage >= totalPages}
+                                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                                className="h-8 rounded-lg border-border/80 px-3 text-xs font-semibold"
+                            >
+                                Next <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* ── MODALS (Product Controller & Admin only) ── */}
@@ -780,370 +750,391 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                 <>
                     {/* ── MODAL: Add ── */}
                     <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-                        <DialogContent className="max-w-lg rounded-xl p-6 bg-card text-card-foreground border-border">
-                            <DialogHeader>
-                                <DialogTitle className="text-lg font-bold text-foreground">Add Raw Material</DialogTitle>
-                                <DialogDescription className="text-sm text-muted-foreground">
-                                    Register a new formulation ingredient, powder, or botanical extract into factory inventory.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <form onSubmit={handleCreateProduct} className="space-y-4 py-2">
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="create-name" className="text-xs font-semibold text-foreground">
-                                        Raw Material Name <span className="text-rose-500">*</span>
-                                    </Label>
-                                    <Input
-                                        id="create-name"
-                                        value={form.data.name}
-                                        onChange={(e) => form.setData('name', e.target.value)}
-                                        placeholder="e.g. R-BM DEXAN, R-NDC, R-Acai Berry Extract..."
-                                        required
-                                        className="rounded-lg"
-                                    />
-                                    {form.errors.name && <p className="text-xs text-rose-500">{form.errors.name}</p>}
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="space-y-1.5">
-                                        <Label htmlFor="create-sku" className="text-xs font-semibold text-foreground">
-                                            SKU / Code <span className="text-rose-500">*</span>
-                                        </Label>
-                                        <Input
-                                            id="create-sku"
-                                            value={form.data.sku}
-                                            onChange={(e) => form.setData('sku', e.target.value)}
-                                            placeholder="e.g. R-DEXAN-01"
-                                            required
-                                            className="rounded-lg"
-                                        />
-                                        {form.errors.sku && <p className="text-xs text-rose-500">{form.errors.sku}</p>}
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <Label htmlFor="create-category" className="text-xs font-semibold text-foreground">
-                                            Category
-                                        </Label>
-                                        <Select
-                                            value={form.data.category_id ? String(form.data.category_id) : 'none'}
-                                            onValueChange={(v) => form.setData('category_id', v === 'none' ? '' : v)}
-                                        >
-                                            <SelectTrigger id="create-category" className="rounded-lg">
-                                                <SelectValue placeholder="Select Category" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="none">None</SelectItem>
-                                                {categories.map((c) => (
-                                                    <SelectItem key={c.category_id} value={String(c.category_id)}>
-                                                        {c.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                        <DialogContent className="max-w-lg flex flex-col justify-between overflow-visible rounded-2xl border-border/70 p-0 shadow-2xl">
+                            <form onSubmit={handleCreateProduct}>
+                                <div className="p-7 pb-4">
+                                    <DialogHeader className="space-y-1.5 text-left">
+                                        <DialogTitle className="text-xl font-bold tracking-tight text-foreground">
+                                            Add Raw Material
+                                        </DialogTitle>
+                                        <DialogDescription className="text-sm text-muted-foreground">
+                                            Register a new formulation ingredient, powder, or botanical extract into factory inventory.
+                                        </DialogDescription>
+                                    </DialogHeader>
+
+                                    <div className="mt-6 space-y-4">
+                                        <div className="space-y-1.5">
+                                            <Label htmlFor="create-name" className="text-xs font-semibold text-foreground">
+                                                Raw Material Name <span className="text-rose-500">*</span>
+                                            </Label>
+                                            <Input
+                                                id="create-name"
+                                                value={form.data.name}
+                                                onChange={(e) => form.setData('name', e.target.value)}
+                                                placeholder="e.g. R-BM DEXAN, R-NDC, R-Acai Berry Extract..."
+                                                required
+                                                className="rounded-xl border border-input/80 bg-background"
+                                            />
+                                            {form.errors.name && <p className="text-xs text-rose-500">{form.errors.name}</p>}
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="create-sku" className="text-xs font-semibold text-foreground">
+                                                    SKU / Code <span className="text-rose-500">*</span>
+                                                </Label>
+                                                <Input
+                                                    id="create-sku"
+                                                    value={form.data.sku}
+                                                    onChange={(e) => form.setData('sku', e.target.value)}
+                                                    placeholder="e.g. R-DEXAN-01"
+                                                    required
+                                                    className="rounded-xl border border-input/80 bg-background"
+                                                />
+                                                {form.errors.sku && <p className="text-xs text-rose-500">{form.errors.sku}</p>}
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="create-category" className="text-xs font-semibold text-foreground">
+                                                    Category
+                                                </Label>
+                                                <Select
+                                                    value={form.data.category_id ? String(form.data.category_id) : 'none'}
+                                                    onValueChange={(v) => form.setData('category_id', v === 'none' ? '' : v)}
+                                                >
+                                                    <SelectTrigger id="create-category" className="rounded-xl border border-input/80 bg-background">
+                                                        <SelectValue placeholder="Select Category" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="none">None</SelectItem>
+                                                        {categories.map((c) => (
+                                                            <SelectItem key={c.category_id} value={String(c.category_id)}>
+                                                                {c.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-3 gap-3">
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="create-unit" className="text-xs font-semibold text-foreground">
+                                                    Unit of Measure
+                                                </Label>
+                                                <Select
+                                                    value={form.data.unit_of_measure}
+                                                    onValueChange={(v) => form.setData('unit_of_measure', v)}
+                                                >
+                                                    <SelectTrigger id="create-unit" className="rounded-xl border border-input/80 bg-background">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="kg">kg (Kilograms)</SelectItem>
+                                                        <SelectItem value="g">g (Grams)</SelectItem>
+                                                        <SelectItem value="L">L (Liters)</SelectItem>
+                                                        <SelectItem value="mL">mL (Milliliters)</SelectItem>
+                                                        <SelectItem value="pcs">pcs (Pieces)</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="create-price" className="text-xs font-semibold text-foreground">
+                                                    Rate / Unit Cost (₱) <span className="text-rose-500">*</span>
+                                                </Label>
+                                                <Input
+                                                    id="create-price"
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    value={form.data.price}
+                                                    onChange={(e) => form.setData('price', e.target.value)}
+                                                    placeholder="69.12"
+                                                    required
+                                                    className="rounded-xl border border-input/80 bg-background"
+                                                />
+                                                {form.errors.price && <p className="text-xs text-rose-500">{form.errors.price}</p>}
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="create-reorder" className="text-xs font-semibold text-foreground">
+                                                    Reorder Level
+                                                </Label>
+                                                <Input
+                                                    id="create-reorder"
+                                                    type="number"
+                                                    step="0.0001"
+                                                    min="0"
+                                                    value={form.data.reorder_level}
+                                                    onChange={(e) => form.setData('reorder_level', e.target.value)}
+                                                    placeholder="300.00"
+                                                    className="rounded-xl border border-input/80 bg-background"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <Label htmlFor="create-stock" className="text-xs font-semibold text-foreground">
+                                                Initial Stock on Hand <span className="text-rose-500">*</span>
+                                            </Label>
+                                            <Input
+                                                id="create-stock"
+                                                type="number"
+                                                step="0.0001"
+                                                min="0"
+                                                value={form.data.stock_quantity}
+                                                onChange={(e) => form.setData('stock_quantity', e.target.value)}
+                                                placeholder="409.52"
+                                                required
+                                                className="rounded-xl border border-input/80 bg-background"
+                                            />
+                                            {form.errors.stock_quantity && (
+                                                <p className="text-xs text-rose-500">{form.errors.stock_quantity}</p>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <Label htmlFor="create-desc" className="text-xs font-semibold text-foreground">
+                                                Description / Specifications
+                                            </Label>
+                                            <Input
+                                                id="create-desc"
+                                                value={form.data.description}
+                                                onChange={(e) => form.setData('description', e.target.value)}
+                                                placeholder="Formulation specifications, active concentration, origin..."
+                                                className="rounded-xl border border-input/80 bg-background"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-3 gap-3">
-                                    <div className="space-y-1.5">
-                                        <Label htmlFor="create-unit" className="text-xs font-semibold text-foreground">
-                                            Unit of Measure
-                                        </Label>
-                                        <Select
-                                            value={form.data.unit_of_measure}
-                                            onValueChange={(v) => form.setData('unit_of_measure', v)}
-                                        >
-                                            <SelectTrigger id="create-unit" className="rounded-lg">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="kg">kg (Kilograms)</SelectItem>
-                                                <SelectItem value="g">g (Grams)</SelectItem>
-                                                <SelectItem value="L">L (Liters)</SelectItem>
-                                                <SelectItem value="mL">mL (Milliliters)</SelectItem>
-                                                <SelectItem value="pcs">pcs (Pieces)</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <Label htmlFor="create-price" className="text-xs font-semibold text-foreground">
-                                            Rate / Unit Cost (₱) <span className="text-rose-500">*</span>
-                                        </Label>
-                                        <Input
-                                            id="create-price"
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
-                                            value={form.data.price}
-                                            onChange={(e) => form.setData('price', e.target.value)}
-                                            placeholder="69.12"
-                                            required
-                                            className="rounded-lg"
-                                        />
-                                        {form.errors.price && <p className="text-xs text-rose-500">{form.errors.price}</p>}
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <Label htmlFor="create-reorder" className="text-xs font-semibold text-foreground">
-                                            Reorder Level
-                                        </Label>
-                                        <Input
-                                            id="create-reorder"
-                                            type="number"
-                                            step="0.0001"
-                                            min="0"
-                                            value={form.data.reorder_level}
-                                            onChange={(e) => form.setData('reorder_level', e.target.value)}
-                                            placeholder="300.00"
-                                            className="rounded-lg"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="create-stock" className="text-xs font-semibold text-foreground">
-                                        Initial Stock on Hand <span className="text-rose-500">*</span>
-                                    </Label>
-                                    <Input
-                                        id="create-stock"
-                                        type="number"
-                                        step="0.0001"
-                                        min="0"
-                                        value={form.data.stock_quantity}
-                                        onChange={(e) => form.setData('stock_quantity', e.target.value)}
-                                        placeholder="409.52"
-                                        required
-                                        className="rounded-lg"
-                                    />
-                                    {form.errors.stock_quantity && (
-                                        <p className="text-xs text-rose-500">{form.errors.stock_quantity}</p>
-                                    )}
-                                </div>
-
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="create-desc" className="text-xs font-semibold text-foreground">
-                                        Description / Specifications
-                                    </Label>
-                                    <Input
-                                        id="create-desc"
-                                        value={form.data.description}
-                                        onChange={(e) => form.setData('description', e.target.value)}
-                                        placeholder="Formulation specifications, active concentration, origin..."
-                                        className="rounded-lg"
-                                    />
-                                </div>
-
-                                <DialogFooter className="pt-2 gap-2">
+                                <div className="flex items-center justify-end gap-3 border-t border-border/60 bg-muted/20 px-7 py-4.5 rounded-b-2xl">
                                     <Button
                                         type="button"
                                         variant="outline"
                                         onClick={() => setIsAddModalOpen(false)}
-                                        className="rounded-lg"
+                                        className="h-10 rounded-lg border-border/80 bg-background px-5 text-sm font-semibold text-foreground shadow-sm hover:bg-muted"
                                     >
                                         Cancel
                                     </Button>
                                     <Button
                                         type="submit"
                                         disabled={form.processing}
-                                        className="rounded-lg"
+                                        className="h-10 rounded-lg bg-[#3b5de7] hover:bg-[#2f4bc9] px-5 text-sm font-semibold text-white shadow-sm disabled:opacity-50"
                                     >
                                         {form.processing ? 'Saving...' : 'Add Raw Material'}
                                     </Button>
-                                </DialogFooter>
+                                </div>
                             </form>
                         </DialogContent>
                     </Dialog>
 
                     {/* ── MODAL: Edit ── */}
                     <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-                        <DialogContent className="max-w-lg rounded-xl p-6 bg-card text-card-foreground border-border">
-                            <DialogHeader>
-                                <DialogTitle className="text-lg font-bold text-foreground">Edit Raw Material</DialogTitle>
-                                <DialogDescription className="text-sm text-muted-foreground">
-                                    Update raw material details, unit cost rate, stock on hand, and reorder threshold.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <form onSubmit={handleUpdateProduct} className="space-y-4 py-2">
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="edit-name" className="text-xs font-semibold text-foreground">
-                                        Raw Material Name <span className="text-rose-500">*</span>
-                                    </Label>
-                                    <Input
-                                        id="edit-name"
-                                        value={form.data.name}
-                                        onChange={(e) => form.setData('name', e.target.value)}
-                                        required
-                                        className="rounded-lg"
-                                    />
-                                    {form.errors.name && <p className="text-xs text-rose-500">{form.errors.name}</p>}
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="space-y-1.5">
-                                        <Label htmlFor="edit-sku" className="text-xs font-semibold text-foreground">
-                                            SKU / Code <span className="text-rose-500">*</span>
-                                        </Label>
-                                        <Input
-                                            id="edit-sku"
-                                            value={form.data.sku}
-                                            onChange={(e) => form.setData('sku', e.target.value)}
-                                            required
-                                            className="rounded-lg"
-                                        />
-                                        {form.errors.sku && <p className="text-xs text-rose-500">{form.errors.sku}</p>}
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <Label htmlFor="edit-category" className="text-xs font-semibold text-foreground">
-                                            Category
-                                        </Label>
-                                        <Select
-                                            value={form.data.category_id ? String(form.data.category_id) : 'none'}
-                                            onValueChange={(v) => form.setData('category_id', v === 'none' ? '' : v)}
-                                        >
-                                            <SelectTrigger id="edit-category" className="rounded-lg">
-                                                <SelectValue placeholder="Select Category" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="none">None</SelectItem>
-                                                {categories.map((c) => (
-                                                    <SelectItem key={c.category_id} value={String(c.category_id)}>
-                                                        {c.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                        <DialogContent className="max-w-lg flex flex-col justify-between overflow-visible rounded-2xl border-border/70 p-0 shadow-2xl">
+                            <form onSubmit={handleUpdateProduct}>
+                                <div className="p-7 pb-4">
+                                    <DialogHeader className="space-y-1.5 text-left">
+                                        <DialogTitle className="text-xl font-bold tracking-tight text-foreground">
+                                            Edit Raw Material
+                                        </DialogTitle>
+                                        <DialogDescription className="text-sm text-muted-foreground">
+                                            Update raw material details, unit cost rate, stock on hand, and reorder threshold.
+                                        </DialogDescription>
+                                    </DialogHeader>
+
+                                    <div className="mt-6 space-y-4">
+                                        <div className="space-y-1.5">
+                                            <Label htmlFor="edit-name" className="text-xs font-semibold text-foreground">
+                                                Raw Material Name <span className="text-rose-500">*</span>
+                                            </Label>
+                                            <Input
+                                                id="edit-name"
+                                                value={form.data.name}
+                                                onChange={(e) => form.setData('name', e.target.value)}
+                                                required
+                                                className="rounded-xl border border-input/80 bg-background"
+                                            />
+                                            {form.errors.name && <p className="text-xs text-rose-500">{form.errors.name}</p>}
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="edit-sku" className="text-xs font-semibold text-foreground">
+                                                    SKU / Code <span className="text-rose-500">*</span>
+                                                </Label>
+                                                <Input
+                                                    id="edit-sku"
+                                                    value={form.data.sku}
+                                                    onChange={(e) => form.setData('sku', e.target.value)}
+                                                    required
+                                                    className="rounded-xl border border-input/80 bg-background"
+                                                />
+                                                {form.errors.sku && <p className="text-xs text-rose-500">{form.errors.sku}</p>}
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="edit-category" className="text-xs font-semibold text-foreground">
+                                                    Category
+                                                </Label>
+                                                <Select
+                                                    value={form.data.category_id ? String(form.data.category_id) : 'none'}
+                                                    onValueChange={(v) => form.setData('category_id', v === 'none' ? '' : v)}
+                                                >
+                                                    <SelectTrigger id="edit-category" className="rounded-xl border border-input/80 bg-background">
+                                                        <SelectValue placeholder="Select Category" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="none">None</SelectItem>
+                                                        {categories.map((c) => (
+                                                            <SelectItem key={c.category_id} value={String(c.category_id)}>
+                                                                {c.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-3 gap-3">
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="edit-unit" className="text-xs font-semibold text-foreground">
+                                                    Unit of Measure
+                                                </Label>
+                                                <Select
+                                                    value={form.data.unit_of_measure}
+                                                    onValueChange={(v) => form.setData('unit_of_measure', v)}
+                                                >
+                                                    <SelectTrigger id="edit-unit" className="rounded-xl border border-input/80 bg-background">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="kg">kg (Kilograms)</SelectItem>
+                                                        <SelectItem value="g">g (Grams)</SelectItem>
+                                                        <SelectItem value="L">L (Liters)</SelectItem>
+                                                        <SelectItem value="mL">mL (Milliliters)</SelectItem>
+                                                        <SelectItem value="pcs">pcs (Pieces)</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="edit-price" className="text-xs font-semibold text-foreground">
+                                                    Rate / Unit Cost (₱) <span className="text-rose-500">*</span>
+                                                </Label>
+                                                <Input
+                                                    id="edit-price"
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    value={form.data.price}
+                                                    onChange={(e) => form.setData('price', e.target.value)}
+                                                    required
+                                                    className="rounded-xl border border-input/80 bg-background"
+                                                />
+                                                {form.errors.price && <p className="text-xs text-rose-500">{form.errors.price}</p>}
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="edit-reorder" className="text-xs font-semibold text-foreground">
+                                                    Reorder Level
+                                                </Label>
+                                                <Input
+                                                    id="edit-reorder"
+                                                    type="number"
+                                                    step="0.0001"
+                                                    min="0"
+                                                    value={form.data.reorder_level}
+                                                    onChange={(e) => form.setData('reorder_level', e.target.value)}
+                                                    className="rounded-xl border border-input/80 bg-background"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <Label htmlFor="edit-stock" className="text-xs font-semibold text-foreground">
+                                                Stock on Hand <span className="text-rose-500">*</span>
+                                            </Label>
+                                            <Input
+                                                id="edit-stock"
+                                                type="number"
+                                                step="0.0001"
+                                                min="0"
+                                                value={form.data.stock_quantity}
+                                                onChange={(e) => form.setData('stock_quantity', e.target.value)}
+                                                required
+                                                className="rounded-xl border border-input/80 bg-background"
+                                            />
+                                            {form.errors.stock_quantity && (
+                                                <p className="text-xs text-rose-500">{form.errors.stock_quantity}</p>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <Label htmlFor="edit-desc" className="text-xs font-semibold text-foreground">
+                                                Description / Specifications
+                                            </Label>
+                                            <Input
+                                                id="edit-desc"
+                                                value={form.data.description}
+                                                onChange={(e) => form.setData('description', e.target.value)}
+                                                placeholder="Formulation specifications, active concentration..."
+                                                className="rounded-xl border border-input/80 bg-background"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-3 gap-3">
-                                    <div className="space-y-1.5">
-                                        <Label htmlFor="edit-unit" className="text-xs font-semibold text-foreground">
-                                            Unit of Measure
-                                        </Label>
-                                        <Select
-                                            value={form.data.unit_of_measure}
-                                            onValueChange={(v) => form.setData('unit_of_measure', v)}
-                                        >
-                                            <SelectTrigger id="edit-unit" className="rounded-lg">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="kg">kg (Kilograms)</SelectItem>
-                                                <SelectItem value="g">g (Grams)</SelectItem>
-                                                <SelectItem value="L">L (Liters)</SelectItem>
-                                                <SelectItem value="mL">mL (Milliliters)</SelectItem>
-                                                <SelectItem value="pcs">pcs (Pieces)</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <Label htmlFor="edit-price" className="text-xs font-semibold text-foreground">
-                                            Rate / Unit Cost (₱) <span className="text-rose-500">*</span>
-                                        </Label>
-                                        <Input
-                                            id="edit-price"
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
-                                            value={form.data.price}
-                                            onChange={(e) => form.setData('price', e.target.value)}
-                                            required
-                                            className="rounded-lg"
-                                        />
-                                        {form.errors.price && <p className="text-xs text-rose-500">{form.errors.price}</p>}
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <Label htmlFor="edit-reorder" className="text-xs font-semibold text-foreground">
-                                            Reorder Level
-                                        </Label>
-                                        <Input
-                                            id="edit-reorder"
-                                            type="number"
-                                            step="0.0001"
-                                            min="0"
-                                            value={form.data.reorder_level}
-                                            onChange={(e) => form.setData('reorder_level', e.target.value)}
-                                            className="rounded-lg"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="edit-stock" className="text-xs font-semibold text-foreground">
-                                        Stock on Hand <span className="text-rose-500">*</span>
-                                    </Label>
-                                    <Input
-                                        id="edit-stock"
-                                        type="number"
-                                        step="0.0001"
-                                        min="0"
-                                        value={form.data.stock_quantity}
-                                        onChange={(e) => form.setData('stock_quantity', e.target.value)}
-                                        required
-                                        className="rounded-lg"
-                                    />
-                                    {form.errors.stock_quantity && (
-                                        <p className="text-xs text-rose-500">{form.errors.stock_quantity}</p>
-                                    )}
-                                </div>
-
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="edit-desc" className="text-xs font-semibold text-foreground">
-                                        Description / Specifications
-                                    </Label>
-                                    <Input
-                                        id="edit-desc"
-                                        value={form.data.description}
-                                        onChange={(e) => form.setData('description', e.target.value)}
-                                        placeholder="Formulation specifications, active concentration..."
-                                        className="rounded-lg"
-                                    />
-                                </div>
-
-                                <DialogFooter className="pt-2 gap-2">
+                                <div className="flex items-center justify-end gap-3 border-t border-border/60 bg-muted/20 px-7 py-4.5 rounded-b-2xl">
                                     <Button
                                         type="button"
                                         variant="outline"
                                         onClick={() => setIsEditModalOpen(false)}
-                                        className="rounded-lg"
+                                        className="h-10 rounded-lg border-border/80 bg-background px-5 text-sm font-semibold text-foreground shadow-sm hover:bg-muted"
                                     >
                                         Cancel
                                     </Button>
                                     <Button
                                         type="submit"
                                         disabled={form.processing}
-                                        className="rounded-lg"
+                                        className="h-10 rounded-lg bg-[#3b5de7] hover:bg-[#2f4bc9] px-5 text-sm font-semibold text-white shadow-sm disabled:opacity-50"
                                     >
                                         {form.processing ? 'Saving...' : 'Save Changes'}
                                     </Button>
-                                </DialogFooter>
+                                </div>
                             </form>
                         </DialogContent>
                     </Dialog>
 
                     {/* ── MODAL: Delete ── */}
                     <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
-                        <DialogContent className="max-w-sm rounded-xl p-6 bg-card text-card-foreground border-border">
-                            <DialogHeader>
-                                <div className="size-11 rounded-full bg-rose-100 dark:bg-rose-950/50 flex items-center justify-center text-rose-600 dark:text-rose-400 mb-3">
-                                    <AlertCircle className="size-5" />
-                                </div>
-                                <DialogTitle className="text-base font-bold text-foreground">Delete Raw Material</DialogTitle>
-                                <DialogDescription className="text-sm text-muted-foreground">
-                                    Are you sure you want to delete{' '}
-                                    <span className="font-semibold text-foreground">{activeProduct?.name}</span> (
-                                    {activeProduct?.sku})? This cannot be undone.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <DialogFooter className="pt-3 gap-2">
+                        <DialogContent className="max-w-md flex flex-col justify-between overflow-visible rounded-2xl border-border/70 p-0 shadow-2xl">
+                            <div className="p-7 pb-4">
+                                <DialogHeader className="space-y-1.5 text-left">
+                                    <div className="size-11 rounded-full bg-rose-100 dark:bg-rose-950/50 flex items-center justify-center text-rose-600 dark:text-rose-400 mb-2">
+                                        <AlertCircle className="size-5" />
+                                    </div>
+                                    <DialogTitle className="text-xl font-bold tracking-tight text-foreground">
+                                        Delete Raw Material
+                                    </DialogTitle>
+                                    <DialogDescription className="text-sm text-muted-foreground">
+                                        Are you sure you want to delete{' '}
+                                        <span className="font-semibold text-foreground">{activeProduct?.name}</span> (
+                                        {activeProduct?.sku})? This cannot be undone.
+                                    </DialogDescription>
+                                </DialogHeader>
+                            </div>
+
+                            <div className="flex items-center justify-end gap-3 border-t border-border/60 bg-muted/20 px-7 py-4.5 rounded-b-2xl">
                                 <Button
                                     variant="outline"
                                     onClick={() => setIsDeleteModalOpen(false)}
-                                    className="rounded-lg"
+                                    className="h-10 rounded-lg border-border/80 bg-background px-5 text-sm font-semibold text-foreground shadow-sm hover:bg-muted"
                                 >
                                     Cancel
                                 </Button>
                                 <Button
                                     onClick={handleDeleteProduct}
-                                    className="rounded-lg bg-rose-600 hover:bg-rose-700 text-white"
+                                    className="h-10 rounded-lg bg-rose-600 hover:bg-rose-700 px-5 text-sm font-semibold text-white shadow-sm"
                                 >
                                     Delete Material
                                 </Button>
-                            </DialogFooter>
+                            </div>
                         </DialogContent>
                     </Dialog>
                 </>
