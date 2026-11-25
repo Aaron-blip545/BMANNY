@@ -237,10 +237,10 @@ export default function ProductCustomizationScreen() {
     setStep(2);
   };
   const review = () => {
-    if (!company.trim() || !contact.trim() || !brand.trim())
+    if (company.trim().length < 2 || contact.trim().length < 2 || brand.trim().length < 2)
       return Alert.alert(
         "Complete your details",
-        "Company name, contact person, and brand name are required.",
+        "Company name, contact person, and brand name must each be at least 2 characters.",
       );
     setStep(3);
   };
@@ -576,18 +576,24 @@ export default function ProductCustomizationScreen() {
                   value={company}
                   change={setCompany}
                   colors={colors}
+                  required
+                  maxLength={150}
                 />
                 <Field
                   label="Contact person *"
                   value={contact}
                   change={setContact}
                   colors={colors}
+                  required
+                  maxLength={100}
                 />
                 <Field
                   label="Brand name *"
                   value={brand}
                   change={setBrand}
                   colors={colors}
+                  required
+                  maxLength={100}
                 />
                 <Text style={[s.label, { color: colors.text }]}>
                   Brand logo / artwork (optional)
@@ -626,6 +632,7 @@ export default function ProductCustomizationScreen() {
                     change={setRequest}
                     colors={colors}
                     multi
+                    maxLength={500}
                     placeholder="Example: Please consider cinnamon extract to help reduce bitterness."
                   />
                 ) : null}
@@ -635,6 +642,7 @@ export default function ProductCustomizationScreen() {
                   change={setNotes}
                   colors={colors}
                   multi
+                  maxLength={500}
                   placeholder="Share packaging, label, or delivery requirements."
                 />
                 <Actions
@@ -903,6 +911,8 @@ function Field({
   colors,
   multi = false,
   placeholder = "",
+  required = false,
+  maxLength = 250,
 }: {
   label: string;
   value: string;
@@ -910,14 +920,41 @@ function Field({
   colors: any;
   multi?: boolean;
   placeholder?: string;
+  required?: boolean;
+  maxLength?: number;
 }) {
+  const [touched, setTouched] = useState(false);
+  const trimmed = value.trim();
+  const isAccepted = required ? trimmed.length >= 2 && trimmed.length <= maxLength : trimmed.length <= maxLength;
+  const showState = required ? value.length > 0 || touched : value.length > 0;
+
   return (
     <View style={s.field}>
-      <Text style={[s.label, { color: colors.text }]}>{label}</Text>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
+        <Text style={[s.label, { color: colors.text, marginBottom: 0 }]}>{label}</Text>
+        {required && showState ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <Ionicons
+              name={isAccepted ? "checkmark-circle" : "close-circle"}
+              size={15}
+              color={isAccepted ? "#10b981" : "#ef4444"}
+            />
+            <Text style={{ fontSize: 11.5, fontWeight: "700", color: isAccepted ? "#10b981" : "#ef4444" }}>
+              {isAccepted ? "Accepted" : "Min 2 chars"}
+            </Text>
+          </View>
+        ) : !required ? (
+          <Text style={{ fontSize: 11.5, color: colors.textSecondary }}>
+            {value.length}/{maxLength}
+          </Text>
+        ) : null}
+      </View>
       <TextInput
         value={value}
         onChangeText={change}
+        onBlur={() => setTouched(true)}
         multiline={multi}
+        maxLength={maxLength}
         placeholder={placeholder}
         placeholderTextColor={colors.textSecondary}
         style={[
@@ -926,7 +963,12 @@ function Field({
           {
             color: colors.text,
             backgroundColor: colors.card,
-            borderColor: colors.border,
+            borderColor:
+              required && showState
+                ? isAccepted
+                  ? "#10b981"
+                  : "#ef4444"
+                : colors.border,
           },
         ]}
       />

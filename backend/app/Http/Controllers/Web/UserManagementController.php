@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
 
 class UserManagementController extends Controller
@@ -47,19 +48,34 @@ class UserManagementController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'full_name' => 'required|string|max:100',
-            'email' => 'required|email|max:150|unique:users,email',
-            'password' => 'required|min:6|confirmed',
-            'role' => 'required|in:admin,sales_agent,product_controller,order_manager,customer',
-            'phone_number' => ['nullable', 'string', 'max:20', Rule::unique(User::class, 'phone_number')],
+            'full_name' => ['required', 'string', 'min:2', 'max:100'],
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:150', 'unique:users,email'],
+            'password' => [
+                'required',
+                'string',
+                'confirmed',
+                Password::min(8)->mixedCase(),
+                'regex:/[\d\W_]/',
+            ],
+            'role' => ['required', 'in:admin,sales_agent,product_controller,order_manager,customer'],
+            'phone_number' => [
+                'nullable',
+                'string',
+                'max:20',
+                'regex:/^\+?[0-9][0-9\s\-]{8,18}[0-9]$/',
+                Rule::unique(User::class, 'phone_number'),
+            ],
+        ], [
+            'phone_number.regex' => 'Please enter a valid 10–15 digit phone number.',
+            'password.regex' => 'The password must include at least one number or special character.',
         ]);
 
         User::create([
-            'full_name' => $validated['full_name'],
-            'email' => $validated['email'],
+            'full_name' => trim($validated['full_name']),
+            'email' => strtolower(trim($validated['email'])),
             'password' => Hash::make($validated['password']),
             'role' => $validated['role'],
-            'phone_number' => $validated['phone_number'] ?? null,
+            'phone_number' => ! empty($validated['phone_number']) ? trim($validated['phone_number']) : null,
         ]);
 
         return redirect()->route('users.index')->with('success', 'Account created successfully.');
@@ -77,17 +93,32 @@ class UserManagementController extends Controller
         $user = User::findOrFail($id);
 
         $validated = $request->validate([
-            'full_name' => 'required|string|max:100',
-            'email' => ['required', 'email', 'max:150', Rule::unique(User::class, 'email')->ignore($user->user_id, 'user_id')],
-            'role' => 'required|in:admin,sales_agent,product_controller,order_manager,customer',
-            'phone_number' => ['nullable', 'string', 'max:20', Rule::unique(User::class, 'phone_number')->ignore($user->user_id, 'user_id')],
-            'password' => 'nullable|min:6|confirmed',
+            'full_name' => ['required', 'string', 'min:2', 'max:100'],
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:150', Rule::unique(User::class, 'email')->ignore($user->user_id, 'user_id')],
+            'role' => ['required', 'in:admin,sales_agent,product_controller,order_manager,customer'],
+            'phone_number' => [
+                'nullable',
+                'string',
+                'max:20',
+                'regex:/^\+?[0-9][0-9\s\-]{8,18}[0-9]$/',
+                Rule::unique(User::class, 'phone_number')->ignore($user->user_id, 'user_id'),
+            ],
+            'password' => [
+                'nullable',
+                'string',
+                'confirmed',
+                Password::min(8)->mixedCase(),
+                'regex:/[\d\W_]/',
+            ],
+        ], [
+            'phone_number.regex' => 'Please enter a valid 10–15 digit phone number.',
+            'password.regex' => 'The password must include at least one number or special character.',
         ]);
 
-        $user->full_name = $validated['full_name'];
-        $user->email = $validated['email'];
+        $user->full_name = trim($validated['full_name']);
+        $user->email = strtolower(trim($validated['email']));
         $user->role = $validated['role'];
-        $user->phone_number = $validated['phone_number'] ?? null;
+        $user->phone_number = ! empty($validated['phone_number']) ? trim($validated['phone_number']) : null;
 
         if (! empty($validated['password'])) {
             $user->password = Hash::make($validated['password']);

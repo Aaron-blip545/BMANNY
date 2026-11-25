@@ -60,7 +60,27 @@ export default function CreateUser() {
     const previewName = data.full_name.trim() || 'New Account Holder';
     const previewEmail = data.email.trim() || 'user@bmanny.com';
     const previewPhone = data.phone_number.trim() || 'Not provided';
+
+    const isNameAccepted = data.full_name.trim().length >= 2 && data.full_name.trim().length <= 100;
+    const isEmailAccepted =
+        data.email.trim().length > 0 &&
+        data.email.trim().length <= 150 &&
+        /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(data.email.trim());
+    const phoneDigits = data.phone_number.trim().replace(/\D/g, '');
+    const isPhoneAccepted =
+        data.phone_number.trim() === '' ||
+        (/^\+?[0-9][0-9\s-]{8,18}[0-9]$/.test(data.phone_number.trim()) &&
+            phoneDigits.length >= 10 &&
+            phoneDigits.length <= 15);
+
+    const passwordRules = [
+        { label: 'At least 8 characters', passed: data.password.length >= 8 },
+        { label: 'Uppercase & lowercase letters', passed: /[a-z]/.test(data.password) && /[A-Z]/.test(data.password) },
+        { label: 'Number or special symbol', passed: /[\d\W_]/.test(data.password) },
+    ];
+    const isPasswordAccepted = passwordRules.every((r) => r.passed);
     const passwordsMatch = data.password.length > 0 && data.password === data.password_confirmation;
+    const isFormReady = isNameAccepted && isEmailAccepted && isPhoneAccepted && isPasswordAccepted && passwordsMatch;
 
     return (
         <AppLayout
@@ -121,9 +141,17 @@ export default function CreateUser() {
                                     {/* Identity Fields */}
                                     <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                                         <div className="space-y-2 sm:col-span-2">
-                                            <Label htmlFor="full_name" className="text-xs font-semibold tracking-wide uppercase">
-                                                Full Name <span className="text-muted-foreground">*</span>
-                                            </Label>
+                                            <div className="flex items-center justify-between">
+                                                <Label htmlFor="full_name" className="text-xs font-semibold tracking-wide uppercase">
+                                                    Full Name <span className="text-muted-foreground">*</span>
+                                                </Label>
+                                                {data.full_name.length > 0 && (
+                                                    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
+                                                        {isNameAccepted ? <Check className="size-3" /> : <X className="size-3" />}
+                                                        {isNameAccepted ? 'Accepted' : 'Min 2 chars'}
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div className="relative">
                                                 <UserIcon className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
                                                 <Input
@@ -140,9 +168,17 @@ export default function CreateUser() {
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label htmlFor="email" className="text-xs font-semibold tracking-wide uppercase">
-                                                Email Address <span className="text-muted-foreground">*</span>
-                                            </Label>
+                                            <div className="flex items-center justify-between">
+                                                <Label htmlFor="email" className="text-xs font-semibold tracking-wide uppercase">
+                                                    Email Address <span className="text-muted-foreground">*</span>
+                                                </Label>
+                                                {data.email.length > 0 && (
+                                                    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
+                                                        {isEmailAccepted ? <Check className="size-3" /> : <X className="size-3" />}
+                                                        {isEmailAccepted ? 'Accepted' : 'Invalid'}
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div className="relative">
                                                 <Mail className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
                                                 <Input
@@ -160,16 +196,24 @@ export default function CreateUser() {
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label htmlFor="phone_number" className="text-xs font-semibold tracking-wide uppercase">
-                                                Phone Number <span className="font-normal normal-case text-muted-foreground">(Optional)</span>
-                                            </Label>
+                                            <div className="flex items-center justify-between">
+                                                <Label htmlFor="phone_number" className="text-xs font-semibold tracking-wide uppercase">
+                                                    Phone Number <span className="font-normal normal-case text-muted-foreground">(Optional)</span>
+                                                </Label>
+                                                {data.phone_number.trim().length > 0 && (
+                                                    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
+                                                        {isPhoneAccepted ? <Check className="size-3" /> : <X className="size-3" />}
+                                                        {isPhoneAccepted ? 'Accepted' : '10–15 digits'}
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div className="relative">
                                                 <Phone className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
                                                 <Input
                                                     id="phone_number"
                                                     type="tel"
                                                     value={data.phone_number}
-                                                    onChange={(e) => setData('phone_number', e.target.value)}
+                                                    onChange={(e) => setData('phone_number', e.target.value.replace(/[^\d+\s-]/g, ''))}
                                                     placeholder="0917 123 4567"
                                                     maxLength={20}
                                                     className="h-11 rounded-xl pl-10"
@@ -228,9 +272,17 @@ export default function CreateUser() {
                                     {/* Credentials */}
                                     <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                                         <div className="space-y-2">
-                                            <Label htmlFor="password" className="text-xs font-semibold tracking-wide uppercase">
-                                                Initial Password <span className="text-muted-foreground">*</span>
-                                            </Label>
+                                            <div className="flex items-center justify-between">
+                                                <Label htmlFor="password" className="text-xs font-semibold tracking-wide uppercase">
+                                                    Initial Password <span className="text-muted-foreground">*</span>
+                                                </Label>
+                                                {data.password.length > 0 && (
+                                                    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
+                                                        {isPasswordAccepted ? <Check className="size-3" /> : <X className="size-3" />}
+                                                        {isPasswordAccepted ? 'Accepted' : 'Needs criteria'}
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div className="relative">
                                                 <KeyRound className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
                                                 <Input
@@ -238,7 +290,7 @@ export default function CreateUser() {
                                                     type={showPassword ? 'text' : 'password'}
                                                     value={data.password}
                                                     onChange={(e) => setData('password', e.target.value)}
-                                                    placeholder="Minimum 6 characters"
+                                                    placeholder="Minimum 8 characters"
                                                     required
                                                     className="h-11 rounded-xl pr-10 pl-10"
                                                 />
@@ -251,13 +303,35 @@ export default function CreateUser() {
                                                     {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                                                 </button>
                                             </div>
+                                            <div className="space-y-1 rounded-xl border border-border bg-muted/25 p-2.5">
+                                                {passwordRules.map((rule) => (
+                                                    <div
+                                                        key={rule.label}
+                                                        className={cn(
+                                                            'flex items-center gap-2 text-[11px]',
+                                                            rule.passed ? 'font-semibold text-foreground' : 'text-muted-foreground',
+                                                        )}
+                                                    >
+                                                        {rule.passed ? <Check className="size-3 shrink-0" /> : <X className="size-3 shrink-0 opacity-60" />}
+                                                        <span>{rule.label}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
                                             <InputError message={errors.password} />
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label htmlFor="password_confirmation" className="text-xs font-semibold tracking-wide uppercase">
-                                                Confirm Password <span className="text-muted-foreground">*</span>
-                                            </Label>
+                                            <div className="flex items-center justify-between">
+                                                <Label htmlFor="password_confirmation" className="text-xs font-semibold tracking-wide uppercase">
+                                                    Confirm Password <span className="text-muted-foreground">*</span>
+                                                </Label>
+                                                {data.password_confirmation.length > 0 && (
+                                                    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
+                                                        {passwordsMatch ? <Check className="size-3" /> : <X className="size-3" />}
+                                                        {passwordsMatch ? 'Matched' : 'Mismatch'}
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div className="relative">
                                                 <KeyRound className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
                                                 <Input
@@ -292,7 +366,7 @@ export default function CreateUser() {
                                     <Button variant="outline" asChild className="rounded-xl">
                                         <Link href={route('users.index')}>Cancel</Link>
                                     </Button>
-                                    <Button type="submit" disabled={processing} className="gap-2 rounded-xl px-5">
+                                    <Button type="submit" disabled={processing || !isFormReady} className="gap-2 rounded-xl px-5">
                                         {processing ? <LoaderCircle className="size-4 animate-spin" /> : <UserPlus className="size-4" />}
                                         <span>{processing ? 'Creating…' : 'Create Account'}</span>
                                     </Button>

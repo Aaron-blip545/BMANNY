@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../contexts/ThemeContext';
 import { getMe, resolveImageUrl, updateMyProfile, uploadMyProfilePicture } from '../services/api';
@@ -15,6 +16,18 @@ export default function EditProfileScreen() {
   const [saving, setSaving] = useState(false);
   const [uploadingPicture, setUploadingPicture] = useState(false);
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
+
+  const trimmedName = name.trim();
+  const isNameAccepted = trimmedName.length >= 2 && trimmedName.length <= 100;
+
+  const trimmedPhone = phone.trim();
+  const phoneDigits = trimmedPhone.replace(/\D/g, '');
+  const isPhoneAccepted =
+    trimmedPhone === '' ||
+    (/^(\+?\d[\d\s-]{8,18}\d)$/.test(trimmedPhone) && phoneDigits.length >= 10 && phoneDigits.length <= 15);
+
+  const trimmedAddress = address.trim();
+  const isAddressAccepted = trimmedAddress.length <= 255;
 
   useEffect(() => {
     let isMounted = true;
@@ -61,17 +74,25 @@ export default function EditProfileScreen() {
   };
 
   const handleSave = async () => {
-    if (!name.trim()) {
-      Alert.alert('Full name required', 'Enter your full name before saving.');
+    if (!isNameAccepted) {
+      Alert.alert('Invalid full name', 'Full name must be between 2 and 100 characters.');
+      return;
+    }
+    if (!isPhoneAccepted) {
+      Alert.alert('Invalid phone number', 'Enter a valid 10–15 digit phone number (e.g. 09171234567).');
+      return;
+    }
+    if (!isAddressAccepted) {
+      Alert.alert('Address too long', 'Business address must be 255 characters or less.');
       return;
     }
 
     try {
       setSaving(true);
       await updateMyProfile({
-        full_name: name.trim(),
-        phone_number: phone.trim() || null,
-        business_address: address.trim() || null,
+        full_name: trimmedName,
+        phone_number: trimmedPhone || null,
+        business_address: trimmedAddress || null,
       });
       Alert.alert('Profile saved', 'Your profile details have been updated.');
       router.replace('/profile');
@@ -110,42 +131,96 @@ export default function EditProfileScreen() {
             </TouchableOpacity>
           </View>
           <View style={styles.fieldContainer}>
-            <Text style={[styles.label, { color: colors.text }]}>Full Name</Text>
+            <View style={styles.labelRow}>
+              <Text style={[styles.label, { color: colors.text }]}>Full Name *</Text>
+              <View style={styles.indicatorRow}>
+                <Ionicons
+                  name={isNameAccepted ? 'checkmark-circle' : 'close-circle'}
+                  size={16}
+                  color={isNameAccepted ? '#10b981' : '#ef4444'}
+                />
+                <Text style={{ color: isNameAccepted ? '#10b981' : '#ef4444', fontSize: 12, fontWeight: '600' }}>
+                  {isNameAccepted ? 'Accepted' : 'Required (2–100 chars)'}
+                </Text>
+              </View>
+            </View>
             <TextInput
-              style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.card,
+                  color: colors.text,
+                  borderColor: isNameAccepted ? '#10b981' : '#ef4444',
+                },
+              ]}
               value={name}
               onChangeText={setName}
+              maxLength={100}
               placeholder="Enter your full name"
               placeholderTextColor="#666"
             />
           </View>
 
           <View style={styles.fieldContainer}>
-            <Text style={[styles.label, { color: colors.text }]}>Email</Text>
+            <Text style={[styles.label, { color: colors.text, marginBottom: 8 }]}>Email</Text>
             <View style={[styles.readOnlyField, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <Text style={[styles.readOnlyText, { color: colors.text }]}>{email}</Text>
             </View>
           </View>
 
           <View style={styles.fieldContainer}>
-            <Text style={[styles.label, { color: colors.text }]}>Phone</Text>
+            <View style={styles.labelRow}>
+              <Text style={[styles.label, { color: colors.text }]}>Phone</Text>
+              {trimmedPhone.length > 0 && (
+                <View style={styles.indicatorRow}>
+                  <Ionicons
+                    name={isPhoneAccepted ? 'checkmark-circle' : 'close-circle'}
+                    size={16}
+                    color={isPhoneAccepted ? '#10b981' : '#ef4444'}
+                  />
+                  <Text style={{ color: isPhoneAccepted ? '#10b981' : '#ef4444', fontSize: 12, fontWeight: '600' }}>
+                    {isPhoneAccepted ? 'Accepted' : '10–15 digits'}
+                  </Text>
+                </View>
+              )}
+            </View>
             <TextInput
-              style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.card,
+                  color: colors.text,
+                  borderColor:
+                    trimmedPhone.length === 0 ? colors.border : isPhoneAccepted ? '#10b981' : '#ef4444',
+                },
+              ]}
               value={phone}
-              onChangeText={setPhone}
-              placeholder="Enter your phone number"
+              onChangeText={(val) => setPhone(val.replace(/[^\d+\s-]/g, ''))}
+              maxLength={20}
+              placeholder="e.g. 09171234567"
               placeholderTextColor="#666"
               keyboardType="phone-pad"
             />
           </View>
 
           <View style={styles.fieldContainer}>
-            <Text style={[styles.label, { color: colors.text }]}>Address</Text>
+            <View style={styles.labelRow}>
+              <Text style={[styles.label, { color: colors.text }]}>Address</Text>
+              <Text style={{ color: colors.textSecondary, fontSize: 12 }}>{address.length}/255</Text>
+            </View>
             <TextInput
-              style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.card,
+                  color: colors.text,
+                  borderColor: trimmedAddress.length > 0 && isAddressAccepted ? '#10b981' : colors.border,
+                },
+              ]}
               value={address}
               onChangeText={setAddress}
-              placeholder="Enter your address"
+              maxLength={255}
+              placeholder="Enter your business address"
               placeholderTextColor="#666"
             />
           </View>
@@ -223,10 +298,20 @@ const styles = StyleSheet.create({
   fieldContainer: {
     marginBottom: 20,
   },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  indicatorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   label: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 8,
   },
   input: {
     borderRadius: 12,

@@ -63,7 +63,10 @@ export default function AdminReports({ filters, summary }: Props) {
         });
     };
 
+    const isRangeInvalid = Boolean(from && to && from > to);
+
     const applyRange = (newFrom = from, newTo = to) => {
+        if (newFrom && newTo && newFrom > newTo) return;
         router.get(
             '/admin/reports',
             { from: newFrom, to: newTo },
@@ -173,14 +176,20 @@ export default function AdminReports({ filters, summary }: Props) {
                                 <div className="flex items-center gap-2 pt-1">
                                     <button
                                         type="button"
+                                        disabled={isRangeInvalid}
                                         onClick={() => applyRange()}
-                                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#1547c0] px-5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#123ba2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#1547c0] px-5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#123ba2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                                     >
                                         <RefreshCw className="size-3.5" />
                                         Apply Range
                                     </button>
                                 </div>
                             </div>
+                            {isRangeInvalid && (
+                                <p className="text-xs font-medium text-foreground">
+                                    Invalid date range: &ldquo;From&rdquo; date &amp; time must not be later than &ldquo;To&rdquo; date &amp; time.
+                                </p>
+                            )}
                         </CardContent>
                     </Card>
 

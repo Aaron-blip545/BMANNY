@@ -14,31 +14,34 @@ export default function LoginScreen() {
   const [rememberMe, setRememberMe] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
 
-  const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
+  const validateEmail = (val: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(val.trim());
+  const isEmailAccepted = email.trim().length > 0 && email.trim().length <= 150 && validateEmail(email);
+  const isPasswordAccepted = password.length > 0;
 
   const handleSignIn = async () => {
     setErrorMessage('');
+    setEmailTouched(true);
+    setPasswordTouched(true);
 
-    if (!email) {
+    if (!email.trim()) {
       setErrorMessage('Please enter your email.');
       return;
     }
-    if (!validateEmail(email)) {
+    if (!isEmailAccepted) {
       setErrorMessage('Please enter a valid email address.');
       return;
     }
-    if (!password) {
+    if (!isPasswordAccepted) {
       setErrorMessage('Please enter your password.');
       return;
     }
 
     setLoading(true);
     try {
-      await login(email.trim(), password);
+      await login(email.trim().toLowerCase(), password);
       router.replace('/home');
     } catch (err: any) {
       setErrorMessage(err.message || 'Login failed. Check your email and password.');
@@ -71,45 +74,98 @@ export default function LoginScreen() {
             ) : null}
 
             {/* Email Input */}
-            <View style={[styles.inputContainer, emailFocused && styles.inputFocused]}>
-              <Ionicons name="mail-outline" size={20} color="#2196F3" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Email"
-                placeholderTextColor="#999"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                underlineColorAndroid="transparent"
-                selectionColor="#2196F3"
-                cursorColor="#2196F3"
-                selectionHandleColor="#2196F3"
-                onFocus={() => setEmailFocused(true)}
-                onBlur={() => setEmailFocused(false)}
-              />
+            <View style={styles.fieldGroup}>
+              <View
+                style={[
+                  styles.inputContainer,
+                  email.length > 0 && isEmailAccepted
+                    ? styles.inputAccepted
+                    : (email.length > 0 || emailTouched) && !isEmailAccepted && !emailFocused
+                      ? styles.inputRejected
+                      : emailFocused
+                        ? styles.inputFocused
+                        : null,
+                ]}
+              >
+                <Ionicons name="mail-outline" size={20} color="#2196F3" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Email"
+                  placeholderTextColor="#999"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  maxLength={150}
+                  underlineColorAndroid="transparent"
+                  selectionColor="#2196F3"
+                  cursorColor="#2196F3"
+                  selectionHandleColor="#2196F3"
+                  onFocus={() => setEmailFocused(true)}
+                  onBlur={() => {
+                    setEmailFocused(false);
+                    setEmailTouched(true);
+                  }}
+                />
+                {(email.length > 0 || emailTouched) && (
+                  <Ionicons
+                    name={isEmailAccepted ? 'checkmark-circle' : 'close-circle'}
+                    size={18}
+                    color={isEmailAccepted ? '#10b981' : '#ff6b6b'}
+                  />
+                )}
+              </View>
+              {(email.length > 0 || emailTouched) && !isEmailAccepted && (
+                <Text style={styles.fieldHintError}>Enter a valid email address (e.g. name@company.com).</Text>
+              )}
             </View>
 
             {/* Password Input */}
-            <View style={[styles.inputContainer, passwordFocused && styles.inputFocused]}>
-              <Ionicons name="lock-closed-outline" size={20} color="#2196F3" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Password"
-                placeholderTextColor="#999"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                underlineColorAndroid="transparent"
-                selectionColor="#2196F3"
-                cursorColor="#2196F3"
-                selectionHandleColor="#2196F3"
-                onFocus={() => setPasswordFocused(true)}
-                onBlur={() => setPasswordFocused(false)}
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color="#2196F3" />
-              </TouchableOpacity>
+            <View style={styles.fieldGroup}>
+              <View
+                style={[
+                  styles.inputContainer,
+                  password.length > 0
+                    ? styles.inputAccepted
+                    : passwordTouched && !passwordFocused
+                      ? styles.inputRejected
+                      : passwordFocused
+                        ? styles.inputFocused
+                        : null,
+                ]}
+              >
+                <Ionicons name="lock-closed-outline" size={20} color="#2196F3" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Password"
+                  placeholderTextColor="#999"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  underlineColorAndroid="transparent"
+                  selectionColor="#2196F3"
+                  cursorColor="#2196F3"
+                  selectionHandleColor="#2196F3"
+                  onFocus={() => setPasswordFocused(true)}
+                  onBlur={() => {
+                    setPasswordFocused(false);
+                    setPasswordTouched(true);
+                  }}
+                />
+                {(password.length > 0 || passwordTouched) && (
+                  <Ionicons
+                    name={isPasswordAccepted ? 'checkmark-circle' : 'close-circle'}
+                    size={18}
+                    color={isPasswordAccepted ? '#10b981' : '#ff6b6b'}
+                  />
+                )}
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
+                  <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color="#2196F3" />
+                </TouchableOpacity>
+              </View>
+              {passwordTouched && !isPasswordAccepted && (
+                <Text style={styles.fieldHintError}>Password is required to sign in.</Text>
+              )}
             </View>
 
             {/* Remember Me & Forgot Password */}
@@ -220,11 +276,13 @@ const styles = StyleSheet.create({
     textAlign: 'left',
     alignSelf: 'stretch',
   },
+  fieldGroup: {
+    marginBottom: 16,
+  },
   inputContainer: {
     backgroundColor: '#1e2a4a',
     borderRadius: 12,
-    marginBottom: 16,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#3d4a6a',
     flexDirection: 'row',
     alignItems: 'center',
@@ -233,6 +291,18 @@ const styles = StyleSheet.create({
   },
   inputFocused: {
     borderColor: '#2196F3',
+  },
+  inputAccepted: {
+    borderColor: '#10b981',
+  },
+  inputRejected: {
+    borderColor: '#ff6b6b',
+  },
+  fieldHintError: {
+    color: '#ff8585',
+    fontSize: 12,
+    marginTop: 5,
+    marginLeft: 4,
   },
   inputIcon: {
     marginRight: 12,

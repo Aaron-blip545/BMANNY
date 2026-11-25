@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -25,9 +26,17 @@ class NewPasswordController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'token' => 'required',
-            'email' => 'required|email',
-            'password' => 'required|confirmed|min:6',
+            'token' => ['required', 'string'],
+            'email' => ['required', 'email', 'max:150'],
+            'password' => [
+                'required',
+                'string',
+                'confirmed',
+                Password::min(8)->mixedCase(),
+                'regex:/[\d\W_]/',
+            ],
+        ], [
+            'password.regex' => 'The password must include at least one number or special character.',
         ]);
 
         $record = DB::table('password_reset_tokens')->where('email', $request->email)->first();

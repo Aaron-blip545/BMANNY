@@ -5,6 +5,7 @@ import { type BreadcrumbItem } from '@/types';
 import {
     Plus,
     Search,
+    Check,
     ChevronDown,
     Pencil,
     Trash2,
@@ -195,6 +196,22 @@ export default function ProductsPage({
     });
     const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+    const isProdNameAccepted = formData.name.trim().length >= 2 && formData.name.trim().length <= 150;
+    const isProdSrpAccepted =
+        formData.suggested_srp.trim() !== '' &&
+        !Number.isNaN(Number(formData.suggested_srp)) &&
+        Number(formData.suggested_srp) >= 0;
+    const isProdMoqAccepted =
+        formData.min_quantity.trim() === '' ||
+        (Number.isInteger(Number(formData.min_quantity)) && Number(formData.min_quantity) >= 1);
+    const isProdLeadAccepted =
+        formData.lead_time_days.trim() === '' ||
+        (Number.isInteger(Number(formData.lead_time_days)) &&
+            Number(formData.lead_time_days) >= 1 &&
+            Number(formData.lead_time_days) <= 365);
+    const isProductFormValid = isProdNameAccepted && isProdSrpAccepted && isProdMoqAccepted && isProdLeadAccepted;
 
     // ── Filter products ────────────────────────────────────────────────
     const filteredProducts = useMemo(() => {
@@ -241,12 +258,14 @@ export default function ProductsPage({
         });
         setSelectedImageFile(null);
         setImagePreview(null);
+        setFormErrors({});
         setModalTab('general');
         setIsFormOpen(true);
     };
 
     const openEditModal = (product: CatalogProduct) => {
         setEditingProduct(product);
+        setFormErrors({});
         setFormData({
             name: product.name,
             category_code: product.category_code || 'Health & Wellness',
@@ -283,6 +302,8 @@ export default function ProductsPage({
 
     const handleFormSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        if (!isProductFormValid) return;
+        setFormErrors({});
         setSubmitting(true);
 
         const data = new FormData();
@@ -316,7 +337,10 @@ export default function ProductsPage({
                     setIsFormOpen(false);
                     setSubmitting(false);
                 },
-                onError: () => setSubmitting(false),
+                onError: (errs) => {
+                    setFormErrors(errs);
+                    setSubmitting(false);
+                },
             });
         } else {
             router.post('/product-controller/products', data, {
@@ -324,7 +348,10 @@ export default function ProductsPage({
                     setIsFormOpen(false);
                     setSubmitting(false);
                 },
-                onError: () => setSubmitting(false),
+                onError: (errs) => {
+                    setFormErrors(errs);
+                    setSubmitting(false);
+                },
             });
         }
     };
@@ -1056,16 +1083,30 @@ export default function ProductsPage({
                     </div>
 
                     <form onSubmit={handleFormSubmit} className="space-y-4 py-1">
+                        {Object.keys(formErrors).length > 0 && (
+                            <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                                {Object.values(formErrors).join(' ')}
+                            </div>
+                        )}
                         {/* ── TAB 1: General Info ── */}
                         {modalTab === 'general' && (
                             <div className="space-y-4 animate-in fade-in-50 duration-150">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="space-y-1.5 sm:col-span-2">
-                                        <Label htmlFor="prod-name" className="text-xs font-semibold text-foreground">
-                                            Product Name <span className="text-destructive">*</span>
-                                        </Label>
+                                        <div className="flex items-center justify-between">
+                                            <Label htmlFor="prod-name" className="text-xs font-semibold text-foreground">
+                                                Product Name <span className="text-muted-foreground">*</span>
+                                            </Label>
+                                            {formData.name.length > 0 && (
+                                                <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
+                                                    {isProdNameAccepted ? <Check className="size-3" /> : <X className="size-3" />}
+                                                    {isProdNameAccepted ? 'Accepted' : 'Min 2 chars'}
+                                                </span>
+                                            )}
+                                        </div>
                                         <Input
                                             id="prod-name"
+                                            maxLength={150}
                                             value={formData.name}
                                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                             placeholder="e.g. AshigoPlus Coffee Drink Mix"
@@ -1103,9 +1144,17 @@ export default function ProductsPage({
                                     </div>
 
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="prod-srp" className="text-xs font-semibold text-foreground">
-                                            Suggested SRP (₱) <span className="text-destructive">*</span>
-                                        </Label>
+                                        <div className="flex items-center justify-between">
+                                            <Label htmlFor="prod-srp" className="text-xs font-semibold text-foreground">
+                                                Suggested SRP (₱) <span className="text-muted-foreground">*</span>
+                                            </Label>
+                                            {formData.suggested_srp !== '' && (
+                                                <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
+                                                    {isProdSrpAccepted ? <Check className="size-3" /> : <X className="size-3" />}
+                                                    {isProdSrpAccepted ? 'Accepted' : '≥ ₱0.00'}
+                                                </span>
+                                            )}
+                                        </div>
                                         <Input
                                             id="prod-srp"
                                             type="number"
@@ -1498,7 +1547,7 @@ export default function ProductsPage({
                                 </Button>
                                 <Button
                                     type="submit"
-                                    disabled={submitting}
+                                    disabled={submitting || !isProductFormValid}
                                     className="rounded-lg text-xs font-semibold px-4"
                                 >
                                     {submitting ? 'Saving...' : editingProduct ? 'Save All Changes' : 'Create Product'}

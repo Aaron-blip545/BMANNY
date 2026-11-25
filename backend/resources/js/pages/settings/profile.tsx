@@ -14,6 +14,7 @@ import { Head, useForm, usePage } from '@inertiajs/react';
 import {
     BadgeCheck,
     Calendar,
+    Check,
     CheckCircle2,
     Fingerprint,
     Loader2,
@@ -24,6 +25,7 @@ import {
     ShieldCheck,
     Sparkles,
     User as UserIcon,
+    X,
 } from 'lucide-react';
 import { type FormEventHandler } from 'react';
 
@@ -55,6 +57,19 @@ export default function Profile({ status }: { status?: string }) {
     const previewPhone = data.phone_number.trim() || 'Not provided';
     const previewInitials = getInitials(previewName);
     const staffIdLabel = `BM-${String(user?.user_id ?? user?.id ?? 1).padStart(4, '0')}`;
+
+    const isNameAccepted = data.full_name.trim().length >= 2 && data.full_name.trim().length <= 100;
+    const isEmailAccepted =
+        data.email.trim().length > 0 &&
+        data.email.trim().length <= 150 &&
+        /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(data.email.trim());
+    const phoneDigits = data.phone_number.trim().replace(/\D/g, '');
+    const isPhoneAccepted =
+        data.phone_number.trim() === '' ||
+        (/^\+?[0-9][0-9\s-]{8,18}[0-9]$/.test(data.phone_number.trim()) &&
+            phoneDigits.length >= 10 &&
+            phoneDigits.length <= 15);
+    const isProfileValid = isNameAccepted && isEmailAccepted && isPhoneAccepted;
 
     const memberSince = user?.created_at
         ? new Date(user.created_at).toLocaleDateString(undefined, {
@@ -101,9 +116,15 @@ export default function Profile({ status }: { status?: string }) {
                                         <Label htmlFor="full_name" className="text-xs font-semibold tracking-wide text-foreground uppercase">
                                             Full Name <span className="text-muted-foreground">*</span>
                                         </Label>
-                                        <span className="font-mono text-[11px] text-muted-foreground">
-                                            {data.full_name.length}/100
-                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
+                                                {isNameAccepted ? <Check className="size-3" /> : <X className="size-3" />}
+                                                {isNameAccepted ? 'Accepted' : 'Min 2 chars'}
+                                            </span>
+                                            <span className="font-mono text-[11px] text-muted-foreground">
+                                                {data.full_name.length}/100
+                                            </span>
+                                        </div>
                                     </div>
                                     <div className="relative">
                                         <UserIcon className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -124,9 +145,15 @@ export default function Profile({ status }: { status?: string }) {
                                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                                     {/* Email */}
                                     <div className="space-y-2">
-                                        <Label htmlFor="email" className="text-xs font-semibold tracking-wide text-foreground uppercase">
-                                            Email Address <span className="text-muted-foreground">*</span>
-                                        </Label>
+                                        <div className="flex items-center justify-between">
+                                            <Label htmlFor="email" className="text-xs font-semibold tracking-wide text-foreground uppercase">
+                                                Email Address <span className="text-muted-foreground">*</span>
+                                            </Label>
+                                            <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
+                                                {isEmailAccepted ? <Check className="size-3" /> : <X className="size-3" />}
+                                                {isEmailAccepted ? 'Accepted' : 'Invalid'}
+                                            </span>
+                                        </div>
                                         <div className="relative">
                                             <Mail className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
                                             <Input
@@ -146,16 +173,24 @@ export default function Profile({ status }: { status?: string }) {
 
                                     {/* Phone */}
                                     <div className="space-y-2">
-                                        <Label htmlFor="phone_number" className="text-xs font-semibold tracking-wide text-foreground uppercase">
-                                            Phone Number <span className="font-normal normal-case text-muted-foreground">(Optional)</span>
-                                        </Label>
+                                        <div className="flex items-center justify-between">
+                                            <Label htmlFor="phone_number" className="text-xs font-semibold tracking-wide text-foreground uppercase">
+                                                Phone Number <span className="font-normal normal-case text-muted-foreground">(Optional)</span>
+                                            </Label>
+                                            {data.phone_number.trim().length > 0 && (
+                                                <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
+                                                    {isPhoneAccepted ? <Check className="size-3" /> : <X className="size-3" />}
+                                                    {isPhoneAccepted ? 'Accepted' : '10–15 digits'}
+                                                </span>
+                                            )}
+                                        </div>
                                         <div className="relative">
                                             <Phone className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
                                             <Input
                                                 id="phone_number"
                                                 type="tel"
                                                 value={data.phone_number}
-                                                onChange={(e) => setData('phone_number', e.target.value)}
+                                                onChange={(e) => setData('phone_number', e.target.value.replace(/[^\d+\s-]/g, ''))}
                                                 autoComplete="tel"
                                                 maxLength={20}
                                                 placeholder="e.g. 0917 123 4567"
@@ -213,7 +248,7 @@ export default function Profile({ status }: { status?: string }) {
                                             Discard
                                         </Button>
                                     )}
-                                    <Button type="submit" disabled={processing || !isDirty} className="gap-2 rounded-xl px-5">
+                                    <Button type="submit" disabled={processing || !isDirty || !isProfileValid} className="gap-2 rounded-xl px-5">
                                         {processing ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
                                         <span>{processing ? 'Saving…' : 'Save Profile'}</span>
                                     </Button>

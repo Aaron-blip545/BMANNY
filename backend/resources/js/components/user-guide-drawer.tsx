@@ -69,6 +69,7 @@ export function UserGuideDrawer() {
     const { auth } = usePage().props as { auth?: { user?: { role?: string } } };
     const currentUrl = usePage().url;
     const userRole = auth?.user?.role ?? 'sales_agent';
+    const isAdmin = userRole === 'admin';
 
     const defaultRoleKey = useMemo(() => {
         if (['admin', 'sales_agent', 'product_controller', 'order_manager'].includes(userRole)) {
@@ -82,7 +83,14 @@ export function UserGuideDrawer() {
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null);
 
-    const activeRoleGuide: RoleGuide = USER_GUIDES[selectedRole] ?? USER_GUIDES.sales_agent;
+    const effectiveRoleKey = isAdmin ? selectedRole : defaultRoleKey;
+    const activeRoleGuide: RoleGuide = USER_GUIDES[effectiveRoleKey] ?? USER_GUIDES.sales_agent;
+
+    const canAccessRoute = (route: string) => {
+        if (!isAdmin) return true;
+        if (effectiveRoleKey === 'admin') return true;
+        return ['/products', '/inquiries', '/quotations', '/orders', '/notifications/page', '/user-guide'].includes(route);
+    };
 
     const filteredModules = useMemo(() => {
         const query = searchQuery.trim().toLowerCase();
@@ -141,35 +149,37 @@ export function UserGuideDrawer() {
                         </Link>
                     </div>
 
-                    {/* Role Selector Tabs */}
-                    <div className="mt-4 grid grid-cols-4 gap-1 rounded-xl bg-muted/60 p-1">
-                        {[
-                            { id: 'sales_agent', label: 'Sales' },
-                            { id: 'product_controller', label: 'Product' },
-                            { id: 'order_manager', label: 'Order' },
-                            { id: 'admin', label: 'Admin' },
-                        ].map((r) => {
-                            const isSelected = selectedRole === r.id;
-                            return (
-                                <button
-                                    key={r.id}
-                                    type="button"
-                                    onClick={() => {
-                                        setSelectedRole(r.id);
-                                        setExpandedModuleId(null);
-                                    }}
-                                    className={cn(
-                                        'cursor-pointer rounded-lg px-2 py-1.5 text-center text-xs font-semibold transition-all',
-                                        isSelected
-                                            ? 'bg-background text-foreground shadow-sm'
-                                            : 'text-muted-foreground hover:text-foreground',
-                                    )}
-                                >
-                                    {r.label}
-                                </button>
-                            );
-                        })}
-                    </div>
+                    {/* Role Selector Tabs — Admin only */}
+                    {isAdmin && (
+                        <div className="mt-4 grid grid-cols-4 gap-1 rounded-xl bg-muted/60 p-1">
+                            {[
+                                { id: 'admin', label: 'Admin' },
+                                { id: 'sales_agent', label: 'Sales' },
+                                { id: 'product_controller', label: 'Product' },
+                                { id: 'order_manager', label: 'Order' },
+                            ].map((r) => {
+                                const isSelected = effectiveRoleKey === r.id;
+                                return (
+                                    <button
+                                        key={r.id}
+                                        type="button"
+                                        onClick={() => {
+                                            setSelectedRole(r.id);
+                                            setExpandedModuleId(null);
+                                        }}
+                                        className={cn(
+                                            'cursor-pointer rounded-lg px-2 py-1.5 text-center text-xs font-semibold transition-all',
+                                            isSelected
+                                                ? 'bg-background text-foreground shadow-sm'
+                                                : 'text-muted-foreground hover:text-foreground',
+                                        )}
+                                    >
+                                        {r.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
 
                     {/* Search Bar */}
                     <div className="relative mt-3">
@@ -316,16 +326,18 @@ export function UserGuideDrawer() {
                                                     </div>
                                                 )}
 
-                                                <div className="flex justify-end pt-1">
-                                                    <Link
-                                                        href={module.route}
-                                                        onClick={() => setOpen(false)}
-                                                        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
-                                                    >
-                                                        <span>Open {module.shortTitle}</span>
-                                                        <ExternalLink className="h-3 w-3 text-muted-foreground" />
-                                                    </Link>
-                                                </div>
+                                                {canAccessRoute(module.route) && (
+                                                    <div className="flex justify-end pt-1">
+                                                        <Link
+                                                            href={module.route}
+                                                            onClick={() => setOpen(false)}
+                                                            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
+                                                        >
+                                                            <span>Open {module.shortTitle}</span>
+                                                            <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                                                        </Link>
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </div>

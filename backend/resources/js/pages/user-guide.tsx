@@ -24,6 +24,7 @@ const breadcrumbs: BreadcrumbItem[] = [{ title: 'User Guide', href: '/user-guide
 export default function UserGuidePage() {
     const { auth } = usePage().props as { auth?: { user?: { role?: string } } };
     const userRole = auth?.user?.role ?? 'sales_agent';
+    const isAdmin = userRole === 'admin';
 
     const defaultRoleKey = useMemo(() => {
         if (['admin', 'sales_agent', 'product_controller', 'order_manager'].includes(userRole)) {
@@ -38,15 +39,22 @@ export default function UserGuidePage() {
 
     const rolesList = useMemo(
         () => [
+            { id: 'admin', label: 'Admin' },
             { id: 'sales_agent', label: 'Sales Agent' },
             { id: 'product_controller', label: 'Product Controller' },
             { id: 'order_manager', label: 'Order Manager' },
-            { id: 'admin', label: 'Admin' },
         ],
         [],
     );
 
-    const activeRoleGuide = USER_GUIDES[activeTab] ?? USER_GUIDES.sales_agent;
+    const effectiveRoleKey = isAdmin ? activeTab : defaultRoleKey;
+    const activeRoleGuide = USER_GUIDES[effectiveRoleKey] ?? USER_GUIDES.sales_agent;
+
+    const canAccessRoute = (route: string) => {
+        if (!isAdmin) return true;
+        if (effectiveRoleKey === 'admin') return true;
+        return ['/products', '/inquiries', '/quotations', '/orders', '/notifications/page', '/user-guide'].includes(route);
+    };
 
     const filteredModules = useMemo(() => {
         const query = searchQuery.trim().toLowerCase();
@@ -95,34 +103,83 @@ export default function UserGuidePage() {
                         </Button>
                     </header>
 
-                    {/* Role Tabs + Search */}
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex flex-wrap gap-1.5">
-                            {rolesList.map((tab) => {
-                                const isCurrent = activeTab === tab.id;
-                                const isUserRole = userRole === tab.id;
+                    {/* Admin-Only Cross-Process Overview */}
+                    {isAdmin && (
+                        <section className="rounded-xl border border-border bg-card p-4 shadow-2xs sm:p-5">
+                            <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+                                Administrator Overview — All Web Processes
+                            </p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                                Select any department below to inspect its complete visual workflow:
+                            </p>
+                            <div className="mt-3 flex flex-wrap items-center gap-2">
+                                {[
+                                    { id: 'product_controller', step: '1', title: 'Product Controller', desc: 'Catalog, BOM & Stock' },
+                                    { id: 'sales_agent', step: '2', title: 'Sales Agent', desc: 'Inquiries & Quotations' },
+                                    { id: 'order_manager', step: '3', title: 'Order Manager', desc: 'Production & Delivery' },
+                                    { id: 'admin', step: '4', title: 'Admin Oversight', desc: 'Analytics, Reports & Users' },
+                                ].map((proc, idx, arr) => {
+                                    const isSelected = effectiveRoleKey === proc.id;
+                                    return (
+                                        <Fragment key={proc.id}>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setActiveTab(proc.id);
+                                                    setSearchQuery('');
+                                                }}
+                                                className={cn(
+                                                    'flex cursor-pointer items-center gap-2.5 rounded-lg border px-3.5 py-2 text-left transition-colors',
+                                                    isSelected
+                                                        ? 'border-[#071d49] bg-[#071d49] text-white dark:border-[#163b78] dark:bg-[#163b78]'
+                                                        : 'border-border bg-background text-foreground hover:bg-muted',
+                                                )}
+                                            >
+                                                <span
+                                                    className={cn(
+                                                        'flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold',
+                                                        isSelected
+                                                            ? 'bg-white/20 text-white'
+                                                            : 'bg-muted text-foreground',
+                                                    )}
+                                                >
+                                                    {proc.step}
+                                                </span>
+                                                <div>
+                                                    <span className="block text-xs font-bold leading-tight">{proc.title}</span>
+                                                    <span
+                                                        className={cn(
+                                                            'block text-[11px]',
+                                                            isSelected ? 'text-white/75' : 'text-muted-foreground',
+                                                        )}
+                                                    >
+                                                        {proc.desc}
+                                                    </span>
+                                                </div>
+                                            </button>
+                                            {idx < arr.length - 1 && (
+                                                <ArrowRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                                            )}
+                                        </Fragment>
+                                    );
+                                })}
+                            </div>
+                        </section>
+                    )}
 
-                                return (
-                                    <button
-                                        key={tab.id}
-                                        type="button"
-                                        onClick={() => {
-                                            setActiveTab(tab.id);
-                                            setSearchQuery('');
-                                        }}
-                                        className={cn(
-                                            'cursor-pointer rounded-lg border px-3.5 py-2 text-xs font-semibold transition-colors',
-                                            isCurrent
-                                                ? 'border-[#071d49] bg-[#071d49] text-white dark:border-[#163b78] dark:bg-[#163b78]'
-                                                : 'border-border bg-card text-foreground hover:bg-muted',
-                                        )}
-                                    >
-                                        {tab.label}
-                                        {isUserRole && <span className="ml-1 opacity-70">(You)</span>}
-                                    </button>
-                                );
-                            })}
-                        </div>
+                    {/* Search Bar (and Role Label for Non-Admins) */}
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-xs font-medium text-muted-foreground">
+                            {isAdmin ? (
+                                <>
+                                    Viewing <strong className="font-semibold text-foreground">{activeRoleGuide.roleName}</strong> workflow ({activeRoleGuide.modules.length} steps)
+                                </>
+                            ) : (
+                                <>
+                                    Showing step-by-step instructions tailored for your <strong className="font-semibold text-foreground">{activeRoleGuide.roleName}</strong> workspace.
+                                </>
+                            )}
+                        </p>
 
                         <div className="relative w-full sm:w-64">
                             <Search className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -207,12 +264,14 @@ export default function UserGuidePage() {
                                                     </div>
                                                 </div>
 
-                                                <Button variant="outline" size="sm" asChild className="rounded-lg text-xs">
-                                                    <Link href={module.route}>
-                                                        <span>Open Page</span>
-                                                        <ExternalLink className="ml-1.5 size-3.5" />
-                                                    </Link>
-                                                </Button>
+                                                {canAccessRoute(module.route) && (
+                                                    <Button variant="outline" size="sm" asChild className="rounded-lg text-xs">
+                                                        <Link href={module.route}>
+                                                            <span>Open Page</span>
+                                                            <ExternalLink className="ml-1.5 size-3.5" />
+                                                        </Link>
+                                                    </Button>
+                                                )}
                                             </div>
 
                                             {/* Consistent 2-Column Content: Screenshot Left, Steps Right */}

@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm } from '@inertiajs/react';
-import { ChevronDown, ChevronRight, Eye, EyeOff, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Eye, EyeOff, Pencil, Plus, RotateCcw, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 
 interface MoqRule {
@@ -96,7 +96,10 @@ export default function VariantsPage({ productTypes }: Props) {
         setShowTypeModal(true);
     };
 
+    const isTypeNameAccepted = typeForm.data.name.trim().length >= 2 && typeForm.data.name.trim().length <= 150;
+
     const submitType = () => {
+        if (!isTypeNameAccepted) return;
         if (editingType) {
             typeForm.put(route('product-controller.variants.types.update', editingType.product_type_id), {
                 onSuccess: () => setShowTypeModal(false),
@@ -144,7 +147,13 @@ export default function VariantsPage({ productTypes }: Props) {
         setShowVariantModal(true);
     };
 
+    const isVariantNameAccepted = variantForm.data.name.trim().length >= 2 && variantForm.data.name.trim().length <= 150;
+    const isSizeValueAccepted =
+        variantForm.data.size_value.trim() === '' ||
+        (!Number.isNaN(Number(variantForm.data.size_value)) && Number(variantForm.data.size_value) > 0);
+
     const submitVariant = () => {
+        if (!isVariantNameAccepted || !isSizeValueAccepted) return;
         if (editingVariant) {
             variantForm.put(route('product-controller.variants.update', editingVariant.variant_id), {
                 onSuccess: () => setShowVariantModal(false),
@@ -351,9 +360,19 @@ export default function VariantsPage({ productTypes }: Props) {
 
                     <div className="space-y-4 py-2">
                         <div className="space-y-1.5">
-                            <Label htmlFor="type-name">Name</Label>
+                            <div className="flex items-center justify-between">
+                                <Label htmlFor="type-name">Name *</Label>
+                                {typeForm.data.name.length > 0 && (
+                                    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
+                                        {isTypeNameAccepted ? <Check className="size-3" /> : <X className="size-3" />}
+                                        {isTypeNameAccepted ? 'Accepted' : 'Min 2 chars'}
+                                    </span>
+                                )}
+                            </div>
                             <Input
                                 id="type-name"
+                                required
+                                maxLength={150}
                                 value={typeForm.data.name}
                                 onChange={(e) => typeForm.setData('name', e.target.value)}
                                 placeholder="e.g. Mineral Water"
@@ -364,6 +383,7 @@ export default function VariantsPage({ productTypes }: Props) {
                             <Label htmlFor="type-description">Description (optional)</Label>
                             <Input
                                 id="type-description"
+                                maxLength={500}
                                 value={typeForm.data.description}
                                 onChange={(e) => typeForm.setData('description', e.target.value)}
                                 placeholder="Brief description"
@@ -373,7 +393,7 @@ export default function VariantsPage({ productTypes }: Props) {
 
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setShowTypeModal(false)}>Cancel</Button>
-                        <Button id="submit-type-btn" onClick={submitType} disabled={typeForm.processing}>
+                        <Button id="submit-type-btn" onClick={submitType} disabled={typeForm.processing || !isTypeNameAccepted}>
                             {editingType ? 'Save Changes' : 'Create Type'}
                         </Button>
                     </DialogFooter>
@@ -392,9 +412,19 @@ export default function VariantsPage({ productTypes }: Props) {
 
                     <div className="grid grid-cols-2 gap-4 py-2">
                         <div className="col-span-2 space-y-1.5">
-                            <Label htmlFor="variant-name">Variant Name</Label>
+                            <div className="flex items-center justify-between">
+                                <Label htmlFor="variant-name">Variant Name *</Label>
+                                {variantForm.data.name.length > 0 && (
+                                    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
+                                        {isVariantNameAccepted ? <Check className="size-3" /> : <X className="size-3" />}
+                                        {isVariantNameAccepted ? 'Accepted' : 'Min 2 chars'}
+                                    </span>
+                                )}
+                            </div>
                             <Input
                                 id="variant-name"
+                                required
+                                maxLength={150}
                                 value={variantForm.data.name}
                                 onChange={(e) => variantForm.setData('name', e.target.value)}
                                 placeholder="e.g. 10 Capsules, 20g Sachet, 50ml Bottle"
@@ -403,10 +433,20 @@ export default function VariantsPage({ productTypes }: Props) {
                         </div>
 
                         <div className="space-y-1.5">
-                            <Label htmlFor="variant-size-value">Size Value</Label>
+                            <div className="flex items-center justify-between">
+                                <Label htmlFor="variant-size-value">Size Value</Label>
+                                {variantForm.data.size_value !== '' && (
+                                    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
+                                        {isSizeValueAccepted ? <Check className="size-3" /> : <X className="size-3" />}
+                                        {isSizeValueAccepted ? 'OK' : '> 0'}
+                                    </span>
+                                )}
+                            </div>
                             <Input
                                 id="variant-size-value"
                                 type="number"
+                                min="0.01"
+                                step="any"
                                 value={variantForm.data.size_value}
                                 onChange={(e) => variantForm.setData('size_value', e.target.value)}
                                 placeholder="e.g. 10, 20, 50"
@@ -485,7 +525,11 @@ export default function VariantsPage({ productTypes }: Props) {
 
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setShowVariantModal(false)}>Cancel</Button>
-                        <Button id="submit-variant-btn" onClick={submitVariant} disabled={variantForm.processing}>
+                        <Button
+                            id="submit-variant-btn"
+                            onClick={submitVariant}
+                            disabled={variantForm.processing || !isVariantNameAccepted || !isSizeValueAccepted}
+                        >
                             {editingVariant ? 'Save Changes' : 'Add Variant'}
                         </Button>
                     </DialogFooter>

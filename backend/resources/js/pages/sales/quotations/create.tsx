@@ -19,6 +19,7 @@ import {
     ArrowLeft,
     Building2,
     CalendarIcon,
+    Check,
     ClipboardList,
     Eye,
     FileText,
@@ -27,6 +28,7 @@ import {
     Package,
     Sparkles,
     User,
+    X,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -323,8 +325,12 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId, p
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
+        if (!data.inquiry_id || !(Number(data.total_amount) > 0)) return;
         post(route('quotations.store'));
     }
+
+    const numericTotal = Number(data.total_amount);
+    const isTotalAccepted = data.total_amount !== '' && !Number.isNaN(numericTotal) && numericTotal > 0;
 
     // Find the currently selected inquiry so we can display its details
     const selected = pendingInquiries.find((i) => String(i.inquiry_id) === data.inquiry_id);
@@ -412,14 +418,23 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId, p
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                     <div>
-                                        <label htmlFor="total_amount" className="mb-1 block text-sm font-medium">
-                                            Total Amount (₱) <span className="text-destructive">*</span>
-                                        </label>
+                                        <div className="mb-1 flex items-center justify-between">
+                                            <label htmlFor="total_amount" className="block text-sm font-medium">
+                                                Total Amount (₱) <span className="text-muted-foreground">*</span>
+                                            </label>
+                                            {data.total_amount !== '' && (
+                                                <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
+                                                    {isTotalAccepted ? <Check className="size-3" /> : <X className="size-3" />}
+                                                    {isTotalAccepted ? 'Accepted' : 'Must be > ₱0.00'}
+                                                </span>
+                                            )}
+                                        </div>
                                         <input
                                             id="total_amount"
                                             type="number"
-                                            min="0"
+                                            min="0.01"
                                             step="0.01"
+                                            required
                                             placeholder="0.00"
                                             value={data.total_amount}
                                             onChange={(e) => setData('total_amount', e.target.value)}
@@ -500,6 +515,7 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId, p
                                         <textarea
                                             id="item_details"
                                             rows={8}
+                                            maxLength={4000}
                                             placeholder="List the items, unit prices, quantities, or any notes for the client…"
                                             value={data.item_details}
                                             onChange={(e) => setData('item_details', e.target.value)}
@@ -517,7 +533,7 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId, p
                                 <Button variant="outline" type="button" asChild>
                                     <Link href={route('inquiries.index')}>Cancel</Link>
                                 </Button>
-                                <Button type="submit" disabled={processing || !data.inquiry_id || !data.total_amount}>
+                                <Button type="submit" disabled={processing || !data.inquiry_id || !isTotalAccepted}>
                                     {processing ? 'Sending…' : 'Send Quotation'}
                                 </Button>
                             </div>

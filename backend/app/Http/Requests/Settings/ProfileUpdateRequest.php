@@ -19,7 +19,7 @@ class ProfileUpdateRequest extends FormRequest
         $userId = $this->user('web')?->user_id;
 
         return [
-            'full_name' => ['required', 'string', 'max:100'],
+            'full_name' => ['required', 'string', 'min:2', 'max:100'],
             'email' => [
                 'required',
                 'string',
@@ -32,6 +32,7 @@ class ProfileUpdateRequest extends FormRequest
                 'nullable',
                 'string',
                 'max:20',
+                'regex:/^\+?[0-9][0-9\s\-]{8,18}[0-9]$/',
                 Rule::unique(User::class, 'phone_number')->ignore($userId, 'user_id'),
             ],
         ];

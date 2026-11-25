@@ -9,6 +9,7 @@ import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm } from '@inertiajs/react';
 import {
     Calendar,
+    Check,
     ChevronDown,
     ChevronRight,
     ChevronsUpDown,
@@ -19,6 +20,7 @@ import {
     SlidersHorizontal,
     Trash2,
     User,
+    X,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
@@ -92,7 +94,19 @@ export default function MoqPage({ variants = [], variantsWithoutMoq = [] }: Prop
         setShowModal(true);
     };
 
+    const parsedMoqQty = Number(form.data.min_quantity);
+    const isMoqQtyAccepted =
+        form.data.min_quantity.trim() !== '' &&
+        Number.isInteger(parsedMoqQty) &&
+        parsedMoqQty >= 1 &&
+        parsedMoqQty <= 1000000;
+    const isMoqFormValid =
+        (editingRule || form.data.variant_id > 0) &&
+        isMoqQtyAccepted &&
+        Boolean(form.data.effective_date);
+
     const submit = () => {
+        if (!isMoqFormValid) return;
         if (editingRule) {
             form.put(route('product-controller.moq.update', editingRule.moq_rule_id), {
                 onSuccess: () => setShowModal(false),
@@ -512,14 +526,24 @@ export default function MoqPage({ variants = [], variantsWithoutMoq = [] }: Prop
                         )}
 
                         <div className="space-y-1.5">
-                            <Label htmlFor="moq-quantity" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                Minimum Quantity (Units / Pieces)
-                            </Label>
+                            <div className="flex items-center justify-between">
+                                <Label htmlFor="moq-quantity" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                    Minimum Quantity (Units / Pieces) *
+                                </Label>
+                                {form.data.min_quantity !== '' && (
+                                    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
+                                        {isMoqQtyAccepted ? <Check className="size-3" /> : <X className="size-3" />}
+                                        {isMoqQtyAccepted ? 'Accepted' : 'Whole number ≥ 1'}
+                                    </span>
+                                )}
+                            </div>
                             <div className="relative">
                                 <Input
                                     id="moq-quantity"
                                     type="number"
                                     min={1}
+                                    step={1}
+                                    required
                                     value={form.data.min_quantity}
                                     onChange={(e) => form.setData('min_quantity', e.target.value)}
                                     placeholder="e.g. 500"
@@ -536,11 +560,12 @@ export default function MoqPage({ variants = [], variantsWithoutMoq = [] }: Prop
 
                         <div className="space-y-1.5">
                             <Label htmlFor="moq-date" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                Effective Date
+                                Effective Date *
                             </Label>
                             <Input
                                 id="moq-date"
                                 type="date"
+                                required
                                 value={form.data.effective_date}
                                 onChange={(e) => form.setData('effective_date', e.target.value)}
                                 className="h-10"
@@ -556,6 +581,7 @@ export default function MoqPage({ variants = [], variantsWithoutMoq = [] }: Prop
                             </Label>
                             <Input
                                 id="moq-notes"
+                                maxLength={255}
                                 value={form.data.notes}
                                 onChange={(e) => form.setData('notes', e.target.value)}
                                 placeholder="e.g. Updated for 2026 bulk production requirements"
@@ -568,7 +594,7 @@ export default function MoqPage({ variants = [], variantsWithoutMoq = [] }: Prop
                         <Button variant="outline" onClick={() => setShowModal(false)}>
                             Cancel
                         </Button>
-                        <Button id="submit-moq-btn" onClick={submit} disabled={form.processing}>
+                        <Button id="submit-moq-btn" onClick={submit} disabled={form.processing || !isMoqFormValid}>
                             {editingRule ? 'Save Changes' : 'Set MOQ Rule'}
                         </Button>
                     </DialogFooter>

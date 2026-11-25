@@ -789,33 +789,51 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                             </DialogHeader>
                             <form onSubmit={handleCreateProduct} className="space-y-4 py-2">
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="create-name" className="text-xs font-semibold text-foreground">
-                                        Raw Material Name <span className="text-rose-500">*</span>
-                                    </Label>
+                                    <div className="flex items-center justify-between">
+                                        <Label htmlFor="create-name" className="text-xs font-semibold text-foreground">
+                                            Raw Material Name <span className="text-muted-foreground">*</span>
+                                        </Label>
+                                        {form.data.name.length > 0 && (
+                                            <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
+                                                {form.data.name.trim().length >= 2 ? <CheckCircle2 className="size-3" /> : <X className="size-3" />}
+                                                {form.data.name.trim().length >= 2 ? 'Accepted' : 'Min 2 chars'}
+                                            </span>
+                                        )}
+                                    </div>
                                     <Input
                                         id="create-name"
+                                        maxLength={150}
                                         value={form.data.name}
                                         onChange={(e) => form.setData('name', e.target.value)}
                                         placeholder="e.g. R-BM DEXAN, R-NDC, R-Acai Berry Extract..."
                                         required
                                         className="rounded-lg"
                                     />
-                                    {form.errors.name && <p className="text-xs text-rose-500">{form.errors.name}</p>}
+                                    {form.errors.name && <p className="text-xs text-destructive">{form.errors.name}</p>}
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="create-sku" className="text-xs font-semibold text-foreground">
-                                            SKU / Code <span className="text-rose-500">*</span>
-                                        </Label>
+                                        <div className="flex items-center justify-between">
+                                            <Label htmlFor="create-sku" className="text-xs font-semibold text-foreground">
+                                                SKU / Code <span className="text-muted-foreground">*</span>
+                                            </Label>
+                                            {form.data.sku.length > 0 && (
+                                                <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
+                                                    {form.data.sku.trim().length >= 2 ? <CheckCircle2 className="size-3" /> : <X className="size-3" />}
+                                                    {form.data.sku.trim().length >= 2 ? 'Accepted' : 'Min 2 chars'}
+                                                </span>
+                                            )}
+                                        </div>
                                         <Input
                                             id="create-sku"
+                                            maxLength={50}
                                             value={form.data.sku}
                                             onChange={(e) => form.setData('sku', e.target.value)}
                                             placeholder="e.g. R-DEXAN-01"
                                             required
                                             className="rounded-lg"
                                         />
-                                        {form.errors.sku && <p className="text-xs text-rose-500">{form.errors.sku}</p>}
+                                        {form.errors.sku && <p className="text-xs text-destructive">{form.errors.sku}</p>}
                                     </div>
                                     <div className="space-y-1.5">
                                         <Label htmlFor="create-category" className="text-xs font-semibold text-foreground">
@@ -863,7 +881,7 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                     </div>
                                     <div className="space-y-1.5">
                                         <Label htmlFor="create-price" className="text-xs font-semibold text-foreground">
-                                            Rate / Unit Cost (₱) <span className="text-rose-500">*</span>
+                                            Rate / Unit Cost (₱) <span className="text-muted-foreground">*</span>
                                         </Label>
                                         <Input
                                             id="create-price"
@@ -876,7 +894,7 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                             required
                                             className="rounded-lg"
                                         />
-                                        {form.errors.price && <p className="text-xs text-rose-500">{form.errors.price}</p>}
+                                        {form.errors.price && <p className="text-xs text-destructive">{form.errors.price}</p>}
                                     </div>
                                     <div className="space-y-1.5">
                                         <Label htmlFor="create-reorder" className="text-xs font-semibold text-foreground">
@@ -892,12 +910,13 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                             placeholder="300.00"
                                             className="rounded-lg"
                                         />
+                                        {form.errors.reorder_level && <p className="text-xs text-destructive">{form.errors.reorder_level}</p>}
                                     </div>
                                 </div>
 
                                 <div className="space-y-1.5">
                                     <Label htmlFor="create-stock" className="text-xs font-semibold text-foreground">
-                                        Initial Stock on Hand <span className="text-rose-500">*</span>
+                                        Initial Stock on Hand <span className="text-muted-foreground">*</span>
                                     </Label>
                                     <Input
                                         id="create-stock"
@@ -911,7 +930,7 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                         className="rounded-lg"
                                     />
                                     {form.errors.stock_quantity && (
-                                        <p className="text-xs text-rose-500">{form.errors.stock_quantity}</p>
+                                        <p className="text-xs text-destructive">{form.errors.stock_quantity}</p>
                                     )}
                                 </div>
 
@@ -921,11 +940,13 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                     </Label>
                                     <Input
                                         id="create-desc"
+                                        maxLength={500}
                                         value={form.data.description}
                                         onChange={(e) => form.setData('description', e.target.value)}
                                         placeholder="Formulation specifications, active concentration, origin..."
                                         className="rounded-lg"
                                     />
+                                    {form.errors.description && <p className="text-xs text-destructive">{form.errors.description}</p>}
                                 </div>
 
                                 <DialogFooter className="pt-2 gap-2">
@@ -960,31 +981,49 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                             </DialogHeader>
                             <form onSubmit={handleUpdateProduct} className="space-y-4 py-2">
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="edit-name" className="text-xs font-semibold text-foreground">
-                                        Raw Material Name <span className="text-rose-500">*</span>
-                                    </Label>
+                                    <div className="flex items-center justify-between">
+                                        <Label htmlFor="edit-name" className="text-xs font-semibold text-foreground">
+                                            Raw Material Name <span className="text-muted-foreground">*</span>
+                                        </Label>
+                                        {form.data.name.length > 0 && (
+                                            <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
+                                                {form.data.name.trim().length >= 2 ? <CheckCircle2 className="size-3" /> : <X className="size-3" />}
+                                                {form.data.name.trim().length >= 2 ? 'Accepted' : 'Min 2 chars'}
+                                            </span>
+                                        )}
+                                    </div>
                                     <Input
                                         id="edit-name"
+                                        maxLength={150}
                                         value={form.data.name}
                                         onChange={(e) => form.setData('name', e.target.value)}
                                         required
                                         className="rounded-lg"
                                     />
-                                    {form.errors.name && <p className="text-xs text-rose-500">{form.errors.name}</p>}
+                                    {form.errors.name && <p className="text-xs text-destructive">{form.errors.name}</p>}
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="edit-sku" className="text-xs font-semibold text-foreground">
-                                            SKU / Code <span className="text-rose-500">*</span>
-                                        </Label>
+                                        <div className="flex items-center justify-between">
+                                            <Label htmlFor="edit-sku" className="text-xs font-semibold text-foreground">
+                                                SKU / Code <span className="text-muted-foreground">*</span>
+                                            </Label>
+                                            {form.data.sku.length > 0 && (
+                                                <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
+                                                    {form.data.sku.trim().length >= 2 ? <CheckCircle2 className="size-3" /> : <X className="size-3" />}
+                                                    {form.data.sku.trim().length >= 2 ? 'Accepted' : 'Min 2 chars'}
+                                                </span>
+                                            )}
+                                        </div>
                                         <Input
                                             id="edit-sku"
+                                            maxLength={50}
                                             value={form.data.sku}
                                             onChange={(e) => form.setData('sku', e.target.value)}
                                             required
                                             className="rounded-lg"
                                         />
-                                        {form.errors.sku && <p className="text-xs text-rose-500">{form.errors.sku}</p>}
+                                        {form.errors.sku && <p className="text-xs text-destructive">{form.errors.sku}</p>}
                                     </div>
                                     <div className="space-y-1.5">
                                         <Label htmlFor="edit-category" className="text-xs font-semibold text-foreground">
@@ -1032,7 +1071,7 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                     </div>
                                     <div className="space-y-1.5">
                                         <Label htmlFor="edit-price" className="text-xs font-semibold text-foreground">
-                                            Rate / Unit Cost (₱) <span className="text-rose-500">*</span>
+                                            Rate / Unit Cost (₱) <span className="text-muted-foreground">*</span>
                                         </Label>
                                         <Input
                                             id="edit-price"
@@ -1044,7 +1083,7 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                             required
                                             className="rounded-lg"
                                         />
-                                        {form.errors.price && <p className="text-xs text-rose-500">{form.errors.price}</p>}
+                                        {form.errors.price && <p className="text-xs text-destructive">{form.errors.price}</p>}
                                     </div>
                                     <div className="space-y-1.5">
                                         <Label htmlFor="edit-reorder" className="text-xs font-semibold text-foreground">
@@ -1059,12 +1098,13 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                             onChange={(e) => form.setData('reorder_level', e.target.value)}
                                             className="rounded-lg"
                                         />
+                                        {form.errors.reorder_level && <p className="text-xs text-destructive">{form.errors.reorder_level}</p>}
                                     </div>
                                 </div>
 
                                 <div className="space-y-1.5">
                                     <Label htmlFor="edit-stock" className="text-xs font-semibold text-foreground">
-                                        Stock on Hand <span className="text-rose-500">*</span>
+                                        Stock on Hand <span className="text-muted-foreground">*</span>
                                     </Label>
                                     <Input
                                         id="edit-stock"
@@ -1077,7 +1117,7 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                         className="rounded-lg"
                                     />
                                     {form.errors.stock_quantity && (
-                                        <p className="text-xs text-rose-500">{form.errors.stock_quantity}</p>
+                                        <p className="text-xs text-destructive">{form.errors.stock_quantity}</p>
                                     )}
                                 </div>
 
@@ -1087,11 +1127,13 @@ export default function ProductsIndex({ products = [], categories = [], error }:
                                     </Label>
                                     <Input
                                         id="edit-desc"
+                                        maxLength={500}
                                         value={form.data.description}
                                         onChange={(e) => form.setData('description', e.target.value)}
                                         placeholder="Formulation specifications, active concentration..."
                                         className="rounded-lg"
                                     />
+                                    {form.errors.description && <p className="text-xs text-destructive">{form.errors.description}</p>}
                                 </div>
 
                                 <DialogFooter className="pt-2 gap-2">

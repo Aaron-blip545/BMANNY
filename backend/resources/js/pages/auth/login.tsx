@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AuthLayout from '@/layouts/auth-layout';
 import { Head, useForm } from '@inertiajs/react';
-import { Eye, EyeOff, LoaderCircle } from 'lucide-react';
+import { Check, Eye, EyeOff, LoaderCircle, X } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 
 interface LoginProps {
@@ -22,6 +22,12 @@ export default function Login({ status, canResetPassword }: LoginProps) {
         remember: false as boolean,
     });
 
+    const isEmailAccepted =
+        data.email.trim().length > 0 &&
+        data.email.trim().length <= 150 &&
+        /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(data.email.trim());
+    const isPasswordAccepted = data.password.length > 0;
+
     const submit = (e: FormEvent) => {
         e.preventDefault();
         post(route('login'), {
@@ -36,9 +42,17 @@ export default function Login({ status, canResetPassword }: LoginProps) {
             <form onSubmit={submit} className="flex flex-col gap-7">
                 <div className="grid gap-6">
                     <div className="grid gap-2.5">
-                        <Label htmlFor="email" className="text-sm font-medium text-[#172033] dark:text-[#F8FAFC]">
-                            Email address
-                        </Label>
+                        <div className="flex items-center justify-between gap-2">
+                            <Label htmlFor="email" className="text-sm font-medium text-[#172033] dark:text-[#F8FAFC]">
+                                Email address
+                            </Label>
+                            {data.email.length > 0 && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
+                                    {isEmailAccepted ? <Check className="size-3" /> : <X className="size-3" />}
+                                    {isEmailAccepted ? 'Accepted' : 'Invalid email'}
+                                </span>
+                            )}
+                        </div>
                         <Input
                             id="email"
                             type="email"
@@ -46,6 +60,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                             value={data.email}
                             onChange={(e) => setData('email', e.target.value)}
                             required
+                            maxLength={150}
                             autoFocus
                             autoComplete="email"
                             placeholder="email@example.com"
@@ -59,6 +74,12 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                             <Label htmlFor="password" className="text-sm font-medium text-[#172033] dark:text-[#F8FAFC]">
                                 Password
                             </Label>
+                            {data.password.length > 0 && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
+                                    <Check className="size-3" />
+                                    Entered
+                                </span>
+                            )}
                         </div>
                         <div className="relative">
                             <Input

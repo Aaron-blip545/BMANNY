@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { PackageCheck, Search } from 'lucide-react';
+import { Check, PackageCheck, Search, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Orders', href: '/orders' }];
@@ -151,16 +151,18 @@ function OrderRow({ order, updatingId, onUpdateStatus, onRequestCancel, onTracki
                 <div className="flex flex-col gap-1">
                     <input
                         type="text"
+                        maxLength={100}
                         placeholder="Courier (e.g. J&T)"
                         defaultValue={order.courier_name ?? ''}
-                        onBlur={(e) => onTrackingUpdate(order.order_id, 'courier_name', e.target.value)}
+                        onBlur={(e) => onTrackingUpdate(order.order_id, 'courier_name', e.target.value.trim())}
                         className="rounded-md border border-input bg-background px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground"
                     />
                     <input
                         type="text"
+                        maxLength={100}
                         placeholder="Tracking number"
                         defaultValue={order.courier_tracking_number ?? ''}
-                        onBlur={(e) => onTrackingUpdate(order.order_id, 'courier_tracking_number', e.target.value)}
+                        onBlur={(e) => onTrackingUpdate(order.order_id, 'courier_tracking_number', e.target.value.trim())}
                         className="rounded-md border border-input bg-background px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground"
                     />
                 </div>
@@ -425,12 +427,22 @@ export default function OrdersIndex({ orders }: Props) {
                         </DialogDescription>
                     </DialogHeader>
 
-                    <Input
-                        autoFocus
-                        placeholder={`Type ${cancelTarget?.order_id ?? ''} to confirm`}
-                        value={cancelConfirmText}
-                        onChange={(e) => setCancelConfirmText(e.target.value)}
-                    />
+                    <div className="space-y-1.5">
+                        <Input
+                            autoFocus
+                            placeholder={`Type ${cancelTarget?.order_id ?? ''} to confirm`}
+                            value={cancelConfirmText}
+                            onChange={(e) => setCancelConfirmText(e.target.value)}
+                        />
+                        {cancelConfirmText.length > 0 && (
+                            <p className="flex items-center gap-1 text-xs font-medium text-foreground">
+                                {cancelInputMatches ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+                                {cancelInputMatches
+                                    ? `Order #${cancelTarget?.order_id} confirmed`
+                                    : `Enter exact order number (${cancelTarget?.order_id})`}
+                            </p>
+                        )}
+                    </div>
 
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setCancelTarget(null)}>

@@ -83,6 +83,13 @@ export async function login(email: string, password: string) {
     return data.user;
 }
 
+export async function requestPasswordReset(email: string) {
+    return request('/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+    });
+}
+
 export async function logout() {
     const { disconnectRealtime } = await import('./realtime');
     disconnectRealtime();

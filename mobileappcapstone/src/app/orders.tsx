@@ -725,18 +725,33 @@ export default function OrdersScreen() {
               "{cancelModal.title}"
             </Text>
 
-            <Text style={[styles.modalLabel, { color: colors.text }]}>
-              Reason for cancellation <Text style={{ color: '#E53935' }}>*</Text>
-            </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <Text style={[styles.modalLabel, { color: colors.text, marginBottom: 0 }]}>
+                Reason for cancellation <Text style={{ color: '#E53935' }}>*</Text>
+              </Text>
+              {cancelModal.reason.length > 0 && (
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: '700',
+                    color: cancelModal.reason.trim().length >= 5 ? '#10b981' : '#E53935',
+                  }}
+                >
+                  {cancelModal.reason.trim().length >= 5 ? '✓ Accepted' : `${cancelModal.reason.trim().length}/5 min`}
+                </Text>
+              )}
+            </View>
             <TextInput
               style={[
                 styles.modalInput,
                 {
                   backgroundColor: colors.background,
                   borderColor:
-                    cancelModal.reason.trim().length > 0 && cancelModal.reason.trim().length < 5
-                      ? '#E53935'
-                      : colors.border,
+                    cancelModal.reason.trim().length >= 5
+                      ? '#10b981'
+                      : cancelModal.reason.trim().length > 0
+                        ? '#E53935'
+                        : colors.border,
                   color: colors.text,
                 },
               ]}

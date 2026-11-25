@@ -21,59 +21,123 @@ import { register } from '../services/api';
 export default function RegisterScreen() {
   const [fullName, setFullName]               = useState('');
   const [email, setEmail]                     = useState('');
+  const [phoneNumber, setPhoneNumber]         = useState('');
   const [password, setPassword]               = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [phoneNumber, setPhoneNumber]           = useState('');
   const [errorMessage, setErrorMessage]       = useState('');
   const [loading, setLoading]                 = useState(false);
   const [showPassword, setShowPassword]       = useState(false);
   const [showConfirm, setShowConfirm]         = useState(false);
   const [showSuccess, setShowSuccess]         = useState(false);
 
-  // Focus states for input highlighting
+  // Focus & touched states for live acceptability indicators
   const [nameFocused, setNameFocused]         = useState(false);
   const [emailFocused, setEmailFocused]       = useState(false);
+  const [phoneFocused, setPhoneFocused]       = useState(false);
   const [passFocused, setPassFocused]         = useState(false);
   const [confFocused, setConfFocused]         = useState(false);
-  const [phoneFocused, setPhoneFocused]       = useState(false);
+  const [touched, setTouched]                 = useState<Record<string, boolean>>({});
 
-  const validateEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+  const markTouched = (field: string) =>
+    setTouched((prev) => (prev[field] ? prev : { ...prev, [field]: true }));
+
+  // Field validation rules
+  const trimmedName = fullName.trim();
+  const isNameAccepted =
+    trimmedName.length >= 2 &&
+    trimmedName.length <= 100 &&
+    /^[A-Za-zÀ-ÖØ-öø-ÿ\s.'-]+$/.test(trimmedName);
+
+  const trimmedEmail = email.trim();
+  const isEmailAccepted =
+    trimmedEmail.length > 0 &&
+    trimmedEmail.length <= 150 &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(trimmedEmail);
+
+  const trimmedPhone = phoneNumber.trim();
+  const phoneDigits = trimmedPhone.replace(/\D/g, '');
+  const isPhoneAccepted =
+    /^(\+?\d[\d\s-]{8,18}\d)$/.test(trimmedPhone) &&
+    phoneDigits.length >= 10 &&
+    phoneDigits.length <= 15;
+
+  // Password live criteria
+  const passwordRules = [
+    { key: 'length', label: 'At least 8 characters', met: password.length >= 8 },
+    { key: 'upper', label: 'At least 1 uppercase letter (A–Z)', met: /[A-Z]/.test(password) },
+    { key: 'lower', label: 'At least 1 lowercase letter (a–z)', met: /[a-z]/.test(password) },
+    { key: 'numSym', label: 'At least 1 number or symbol (0–9, !@#)', met: /[\d\W_]/.test(password) },
+  ];
+  const metPasswordCount = passwordRules.filter((r) => r.met).length;
+  const isPasswordAccepted = passwordRules.every((r) => r.met);
+  const isConfirmAccepted = confirmPassword.length > 0 && password === confirmPassword;
+
+  const isFormAccepted =
+    isNameAccepted &&
+    isEmailAccepted &&
+    isPhoneAccepted &&
+    isPasswordAccepted &&
+    isConfirmAccepted;
+
+  const getBorderStyle = (hasValue: boolean, isAccepted: boolean, isFocused: boolean, isTouched?: boolean) => {
+    if (hasValue && isAccepted) return styles.inputAccepted;
+    if ((hasValue || isTouched) && !isAccepted && !isFocused) return styles.inputRejected;
+    if (isFocused) return styles.inputFocused;
+    return null;
+  };
+
+  const renderStatusBadge = (hasValue: boolean, isAccepted: boolean, isTouched?: boolean) => {
+    if (!hasValue && !isTouched) return null;
+    return (
+      <View style={[styles.statusPill, isAccepted ? styles.statusPillAccepted : styles.statusPillRejected]}>
+        <Ionicons
+          name={isAccepted ? 'checkmark-circle' : 'close-circle'}
+          size={15}
+          color={isAccepted ? '#10b981' : '#ff6b6b'}
+        />
+        <Text style={[styles.statusPillText, isAccepted ? styles.statusTextAccepted : styles.statusTextRejected]}>
+          {isAccepted ? 'Accepted' : 'Invalid'}
+        </Text>
+      </View>
+    );
+  };
 
   const handleSignUp = async () => {
     setErrorMessage('');
+    setTouched({ name: true, email: true, phone: true, password: true, confirm: true });
 
-    if (!fullName.trim()) {
-      setErrorMessage('Please enter your full name.');
+    if (!isNameAccepted) {
+      setErrorMessage('Please enter a valid full name (2–100 letters).');
       return;
     }
-    if (!validateEmail(email)) {
+    if (!isEmailAccepted) {
       setErrorMessage('Please enter a valid email address.');
       return;
     }
-    if (password.length < 8) {
-      setErrorMessage('Password must be at least 8 characters.');
+    if (!isPhoneAccepted) {
+      setErrorMessage('Please enter a valid 10–15 digit phone number (e.g. 09171234567).');
       return;
     }
-    if (password !== confirmPassword) {
-      setErrorMessage('Passwords do not match.');
+    if (!isPasswordAccepted) {
+      setErrorMessage('Password must meet all security requirements below.');
       return;
     }
-    if (phoneNumber.trim().length < 10) {
-      setErrorMessage('Please enter a valid phone number.');
+    if (!isConfirmAccepted) {
+      setErrorMessage('Confirmation password does not match.');
       return;
     }
 
     setLoading(true);
     try {
       await register({
-        full_name:             fullName.trim(),
-        email:                 email.trim(),
+        full_name:             trimmedName,
+        email:                 trimmedEmail.toLowerCase(),
+        phone_number:          trimmedPhone,
         password,
-        phone_number:           phoneNumber.trim(),
         password_confirmation: confirmPassword,
-        business_name:         fullName.trim(),   // customer can update this later in profile
+        business_name:         trimmedName,   // customer can update this later in profile
         business_type:         'private_label',
-        contact_person:        fullName.trim(),
+        contact_person:        trimmedName,
         business_address:      'TBD',
       });
       setShowSuccess(true);
@@ -110,107 +174,249 @@ export default function RegisterScreen() {
 
             {/* Error */}
             {errorMessage ? (
-              <Text style={styles.errorMessage}>{errorMessage}</Text>
+              <View style={styles.errorBanner}>
+                <Ionicons name="alert-circle" size={18} color="#ff6b6b" />
+                <Text style={styles.errorMessage}>{errorMessage}</Text>
+              </View>
             ) : null}
 
-            {/* Full Name */}
-            <View style={[styles.inputContainer, nameFocused && styles.inputFocused]}>
-              <Ionicons name="person-outline" size={20} color="#2196F3" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Full Name"
-                placeholderTextColor="#888"
-                value={fullName}
-                onChangeText={setFullName}
-                autoCapitalize="words"
-                underlineColorAndroid="transparent"
-                selectionColor="#2196F3"
-                onFocus={() => setNameFocused(true)}
-                onBlur={() => setNameFocused(false)}
-              />
+            {/* 1. Full Name */}
+            <View style={styles.fieldGroup}>
+              <View
+                style={[
+                  styles.inputContainer,
+                  getBorderStyle(fullName.length > 0, isNameAccepted, nameFocused, touched.name),
+                ]}
+              >
+                <Ionicons name="person-outline" size={20} color="#2196F3" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Full Name"
+                  placeholderTextColor="#888"
+                  value={fullName}
+                  onChangeText={setFullName}
+                  autoCapitalize="words"
+                  maxLength={100}
+                  underlineColorAndroid="transparent"
+                  selectionColor="#2196F3"
+                  onFocus={() => setNameFocused(true)}
+                  onBlur={() => {
+                    setNameFocused(false);
+                    markTouched('name');
+                  }}
+                />
+                {renderStatusBadge(fullName.length > 0, isNameAccepted, touched.name)}
+              </View>
+              {(fullName.length > 0 || touched.name) && !isNameAccepted ? (
+                <Text style={styles.helperRejected}>
+                  Enter 2–100 letters (spaces, periods, hyphens, and apostrophes allowed).
+                </Text>
+              ) : null}
             </View>
 
-            {/* Email */}
-            <View style={[styles.inputContainer, emailFocused && styles.inputFocused]}>
-              <Ionicons name="mail-outline" size={20} color="#2196F3" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Email"
-                placeholderTextColor="#888"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                underlineColorAndroid="transparent"
-                selectionColor="#2196F3"
-                onFocus={() => setEmailFocused(true)}
-                onBlur={() => setEmailFocused(false)}
-              />
+            {/* 2. Email */}
+            <View style={styles.fieldGroup}>
+              <View
+                style={[
+                  styles.inputContainer,
+                  getBorderStyle(email.length > 0, isEmailAccepted, emailFocused, touched.email),
+                ]}
+              >
+                <Ionicons name="mail-outline" size={20} color="#2196F3" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Email Address"
+                  placeholderTextColor="#888"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  maxLength={150}
+                  underlineColorAndroid="transparent"
+                  selectionColor="#2196F3"
+                  onFocus={() => setEmailFocused(true)}
+                  onBlur={() => {
+                    setEmailFocused(false);
+                    markTouched('email');
+                  }}
+                />
+                {renderStatusBadge(email.length > 0, isEmailAccepted, touched.email)}
+              </View>
+              {(email.length > 0 || touched.email) && !isEmailAccepted ? (
+                <Text style={styles.helperRejected}>
+                  Enter a valid email format (e.g. name@company.com).
+                </Text>
+              ) : null}
             </View>
 
-            {/* Password */}
-            <View style={[styles.inputContainer, passFocused && styles.inputFocused]}>
-              <Ionicons name="lock-closed-outline" size={20} color="#2196F3" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Password"
-                placeholderTextColor="#888"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                underlineColorAndroid="transparent"
-                selectionColor="#2196F3"
-                onFocus={() => setPassFocused(true)}
-                onBlur={() => setPassFocused(false)}
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color="#2196F3" />
-              </TouchableOpacity>
+            {/* 3. Phone Number (Top column before Password & Confirm Password) */}
+            <View style={styles.fieldGroup}>
+              <View
+                style={[
+                  styles.inputContainer,
+                  getBorderStyle(phoneNumber.length > 0, isPhoneAccepted, phoneFocused, touched.phone),
+                ]}
+              >
+                <Ionicons name="call-outline" size={20} color="#2196F3" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Phone Number (e.g. 09171234567)"
+                  placeholderTextColor="#888"
+                  value={phoneNumber}
+                  onChangeText={(val) => setPhoneNumber(val.replace(/[^\d+\s-]/g, ''))}
+                  keyboardType="phone-pad"
+                  textContentType="telephoneNumber"
+                  maxLength={20}
+                  underlineColorAndroid="transparent"
+                  selectionColor="#2196F3"
+                  onFocus={() => setPhoneFocused(true)}
+                  onBlur={() => {
+                    setPhoneFocused(false);
+                    markTouched('phone');
+                  }}
+                />
+                {renderStatusBadge(phoneNumber.length > 0, isPhoneAccepted, touched.phone)}
+              </View>
+              {(phoneNumber.length > 0 || touched.phone) && !isPhoneAccepted ? (
+                <Text style={styles.helperRejected}>
+                  Enter 10–15 digits (e.g. 09171234567 or +639171234567).
+                </Text>
+              ) : null}
             </View>
 
-            {/* Confirm Password */}
-            <View style={[styles.inputContainer, confFocused && styles.inputFocused]}>
-              <Ionicons name="lock-closed-outline" size={20} color="#2196F3" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Confirm Password"
-                placeholderTextColor="#888"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry={!showConfirm}
-                underlineColorAndroid="transparent"
-                selectionColor="#2196F3"
-                onFocus={() => setConfFocused(true)}
-                onBlur={() => setConfFocused(false)}
-              />
+            {/* 4. Password */}
+            <View style={styles.fieldGroup}>
+              <View
+                style={[
+                  styles.inputContainer,
+                  getBorderStyle(password.length > 0, isPasswordAccepted, passFocused, touched.password),
+                ]}
+              >
+                <Ionicons name="lock-closed-outline" size={20} color="#2196F3" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Password"
+                  placeholderTextColor="#888"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  underlineColorAndroid="transparent"
+                  selectionColor="#2196F3"
+                  onFocus={() => setPassFocused(true)}
+                  onBlur={() => {
+                    setPassFocused(false);
+                    markTouched('password');
+                  }}
+                />
+                {renderStatusBadge(password.length > 0, isPasswordAccepted, touched.password)}
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
+                  <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color="#2196F3" />
+                </TouchableOpacity>
+              </View>
 
-              <TouchableOpacity onPress={() => setShowConfirm(!showConfirm)} style={styles.eyeIcon}>
-                <Ionicons name={showConfirm ? 'eye-off-outline' : 'eye-outline'} size={20} color="#2196F3" />
-              </TouchableOpacity>
+              {/* Live Password Acceptability Indicator & Checklist */}
+              <View style={styles.passwordCard}>
+                <View style={styles.passwordCardHeader}>
+                  <Text style={styles.passwordCardTitle}>Password Requirements</Text>
+                  <Text
+                    style={[
+                      styles.passwordStrengthLabel,
+                      password.length === 0
+                        ? { color: '#94a3b8' }
+                        : isPasswordAccepted
+                          ? { color: '#10b981' }
+                          : metPasswordCount >= 2
+                            ? { color: '#f59e0b' }
+                            : { color: '#ff6b6b' },
+                    ]}
+                  >
+                    {password.length === 0
+                      ? 'Enter password'
+                      : isPasswordAccepted
+                        ? 'Accepted'
+                        : 'Not yet accepted'}
+                  </Text>
+                </View>
 
+                <View style={styles.strengthMeterRow}>
+                  {[1, 2, 3, 4].map((bar) => (
+                    <View
+                      key={bar}
+                      style={[
+                        styles.strengthSegment,
+                        metPasswordCount >= bar &&
+                          (isPasswordAccepted
+                            ? styles.segmentAccepted
+                            : metPasswordCount >= 2
+                              ? styles.segmentMedium
+                              : styles.segmentWeak),
+                      ]}
+                    />
+                  ))}
+                </View>
+
+                {passwordRules.map((rule) => (
+                  <View key={rule.key} style={styles.ruleRow}>
+                    <Ionicons
+                      name={rule.met ? 'checkmark-circle' : password.length > 0 ? 'close-circle' : 'ellipse-outline'}
+                      size={15}
+                      color={rule.met ? '#10b981' : password.length > 0 ? '#ff6b6b' : '#64748b'}
+                    />
+                    <Text
+                      style={[
+                        styles.ruleText,
+                        rule.met ? styles.ruleTextMet : password.length > 0 ? styles.ruleTextUnmet : null,
+                      ]}
+                    >
+                      {rule.label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
             </View>
 
-            {/* Phone Number */}
-            <View style={[styles.inputContainer, phoneFocused && styles.inputFocused]}>
-              <Ionicons name="call-outline" size={20} color="#2196F3" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Phone Number"
-                placeholderTextColor="#888"
-                value={phoneNumber}
-                onChangeText={setPhoneNumber}
-                keyboardType="phone-pad"
-                textContentType="telephoneNumber"
-                underlineColorAndroid="transparent"
-                selectionColor="#2196F3"
-                onFocus={() => setPhoneFocused(true)}
-                onBlur={() => setPhoneFocused(false)}
-              />
+            {/* 5. Confirm Password */}
+            <View style={styles.fieldGroup}>
+              <View
+                style={[
+                  styles.inputContainer,
+                  getBorderStyle(confirmPassword.length > 0, isConfirmAccepted, confFocused, touched.confirm),
+                ]}
+              >
+                <Ionicons name="lock-closed-outline" size={20} color="#2196F3" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Confirm Password"
+                  placeholderTextColor="#888"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!showConfirm}
+                  underlineColorAndroid="transparent"
+                  selectionColor="#2196F3"
+                  onFocus={() => setConfFocused(true)}
+                  onBlur={() => {
+                    setConfFocused(false);
+                    markTouched('confirm');
+                  }}
+                />
+                {renderStatusBadge(confirmPassword.length > 0, isConfirmAccepted, touched.confirm)}
+                <TouchableOpacity onPress={() => setShowConfirm(!showConfirm)} style={styles.eyeIcon}>
+                  <Ionicons name={showConfirm ? 'eye-off-outline' : 'eye-outline'} size={20} color="#2196F3" />
+                </TouchableOpacity>
+              </View>
+              {(confirmPassword.length > 0 || touched.confirm) ? (
+                <Text style={isConfirmAccepted ? styles.helperAccepted : styles.helperRejected}>
+                  {isConfirmAccepted ? '✓ Passwords match and are accepted.' : '✕ Passwords must match exactly.'}
+                </Text>
+              ) : null}
             </View>
 
             {/* Sign Up Button */}
             <TouchableOpacity
-              style={[styles.signUpButton, loading && { opacity: 0.7 }]}
+              style={[
+                styles.signUpButton,
+                (!isFormAccepted || loading) && styles.signUpButtonMuted,
+              ]}
               onPress={handleSignUp}
               disabled={loading}
             >
@@ -312,17 +518,31 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     textAlign: 'center',
   },
-  errorMessage: {
-    color: '#ff4444',
-    fontSize: 13,
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 107, 0.45)',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     marginBottom: 16,
-    textAlign: 'left',
+  },
+  errorMessage: {
+    color: '#ff8585',
+    fontSize: 13,
+    flex: 1,
+    lineHeight: 18,
+  },
+  fieldGroup: {
+    marginBottom: 14,
   },
   inputContainer: {
     backgroundColor: '#1e2a4a',
     borderRadius: 12,
-    marginBottom: 14,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#3d4a6a',
     flexDirection: 'row',
     alignItems: 'center',
@@ -331,6 +551,12 @@ const styles = StyleSheet.create({
   },
   inputFocused: {
     borderColor: '#2196F3',
+  },
+  inputAccepted: {
+    borderColor: '#10b981',
+  },
+  inputRejected: {
+    borderColor: '#ff6b6b',
   },
   inputIcon: {
     marginRight: 12,
@@ -343,8 +569,105 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderWidth: 0,
   },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    marginLeft: 6,
+  },
+  statusPillAccepted: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+  },
+  statusPillRejected: {
+    backgroundColor: 'rgba(255, 107, 107, 0.15)',
+  },
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  statusTextAccepted: {
+    color: '#10b981',
+  },
+  statusTextRejected: {
+    color: '#ff6b6b',
+  },
+  helperRejected: {
+    color: '#ff8585',
+    fontSize: 12,
+    marginTop: 5,
+    marginLeft: 4,
+  },
+  helperAccepted: {
+    color: '#34d399',
+    fontSize: 12,
+    marginTop: 5,
+    marginLeft: 4,
+    fontWeight: '600',
+  },
+  passwordCard: {
+    marginTop: 8,
+    backgroundColor: 'rgba(20, 30, 56, 0.92)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2f3d5e',
+    padding: 12,
+    gap: 6,
+  },
+  passwordCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  passwordCardTitle: {
+    color: '#cbd5e1',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  passwordStrengthLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  strengthMeterRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 4,
+  },
+  strengthSegment: {
+    flex: 1,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: '#334155',
+  },
+  segmentAccepted: {
+    backgroundColor: '#10b981',
+  },
+  segmentMedium: {
+    backgroundColor: '#f59e0b',
+  },
+  segmentWeak: {
+    backgroundColor: '#ff6b6b',
+  },
+  ruleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  ruleText: {
+    color: '#94a3b8',
+    fontSize: 12,
+  },
+  ruleTextMet: {
+    color: '#d1fae5',
+    fontWeight: '600',
+  },
+  ruleTextUnmet: {
+    color: '#fca5a5',
+  },
   eyeIcon: {
-    paddingLeft: 12,
+    paddingLeft: 10,
   },
   signUpButton: {
     backgroundColor: '#2196F3',
@@ -353,6 +676,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
     marginBottom: 24,
+  },
+  signUpButtonMuted: {
+    opacity: 0.85,
   },
   signUpButtonText: {
     color: '#fff',
