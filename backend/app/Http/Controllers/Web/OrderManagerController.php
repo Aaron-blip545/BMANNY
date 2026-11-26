@@ -46,8 +46,9 @@ class OrderManagerController extends Controller
     public function index(): Response
     {
         $orders = Order::with([
-            'client.user',  // business name + contact person
-            'quotation',    // amount reference
+            'client.user',
+            'quotation.inquiry.customizations',
+            'items.product',
         ])
         ->orderByDesc('created_at')
         ->get();

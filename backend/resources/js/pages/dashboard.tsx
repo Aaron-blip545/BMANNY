@@ -39,31 +39,39 @@ export default function Dashboard() {
                         ))}
                     </section>
 
-                    <section aria-label="Dashboard details" className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-                        <Card className="bmanny-workspace xl:col-span-2">
+                    <section aria-label="Dashboard details" className="space-y-4">
+                        <Card className="bmanny-workspace">
                             <CardContent className="p-5 sm:p-6">
-                                <h2 className="text-base font-semibold text-card-foreground">Recent Activity</h2>
-                                <div className="mt-4 border-t border-border pt-5">
-                                    <p className="text-sm text-muted-foreground">No recent activity.</p>
-                                </div>
+                                <h2 className="text-base font-semibold text-card-foreground">Quick Access</h2>
+                                <nav aria-label="Quick access" className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                    {quickAccessItems.map((item) => {
+                                        const Icon = item.icon;
+                                        return (
+                                            <Link
+                                                key={item.title}
+                                                href={item.href}
+                                                className="group flex items-center justify-between rounded-xl border border-border/70 bg-card p-4 transition-all hover:border-primary/40 hover:bg-muted/50 hover:shadow-xs"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground group-hover:text-primary">
+                                                        <Icon className="size-4 shrink-0" />
+                                                    </div>
+                                                    <span className="text-sm font-semibold text-foreground group-hover:text-primary">{item.title}</span>
+                                                </div>
+                                                <ArrowUpRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-foreground" />
+                                            </Link>
+                                        );
+                                    })}
+                                </nav>
                             </CardContent>
                         </Card>
 
                         <Card className="bmanny-workspace">
                             <CardContent className="p-5 sm:p-6">
-                                <h2 className="text-base font-semibold text-card-foreground">Quick Access</h2>
-                                <nav aria-label="Quick access" className="mt-4 divide-y divide-border border-t border-border">
-                                    {quickAccessItems.map((item) => {
-                                        const Icon = item.icon;
-                                        return (
-                                            <Link key={item.title} href={item.href} className="group flex items-center gap-3 px-1 py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
-                                                <Icon className="size-4 shrink-0 text-muted-foreground" />
-                                                <span className="flex-1">{item.title}</span>
-                                                <ArrowUpRight className="size-4 text-muted-foreground transition-colors group-hover:text-primary" />
-                                            </Link>
-                                        );
-                                    })}
-                                </nav>
+                                <h2 className="text-base font-semibold text-card-foreground">Recent Activity</h2>
+                                <div className="mt-4 border-t border-border pt-5">
+                                    <p className="text-sm text-muted-foreground">No recent activity.</p>
+                                </div>
                             </CardContent>
                         </Card>
                     </section>

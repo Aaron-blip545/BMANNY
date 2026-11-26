@@ -26,7 +26,7 @@ return new class extends Migration
 
         if (! Schema::hasColumn('products', 'unit_of_measure')) {
             Schema::table('products', function (Blueprint $table) {
-                $table->string('unit_of_measure', 20)->default('kg')->after('reorder_level');
+                $table->string('unit_of_measure', 20)->default('pcs')->after('reorder_level');
             });
         }
 

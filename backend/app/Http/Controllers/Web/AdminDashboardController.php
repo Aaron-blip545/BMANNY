@@ -91,6 +91,38 @@ class AdminDashboardController extends Controller
         }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
+    public function exportPdf(Request $request, string $report): \Illuminate\View\View
+    {
+        [$from, $to] = $this->reportRange($request);
+
+        $inquiries = Inquiry::with('client.user')->whereBetween('created_at', [$from, $to])->orderBy('inquiry_id');
+        $quotations = Quotation::with('inquiry.client')->whereBetween('created_at', [$from, $to])->orderBy('quotation_id');
+        $orders = Order::with('client')->whereBetween('created_at', [$from, $to])->orderBy('order_id');
+
+        $summary = [
+            'inquiries'  => (clone $inquiries)->count(),
+            'quotations' => (clone $quotations)->count(),
+            'orders'     => (clone $orders)->count(),
+            'orderValue' => (float) (clone $orders)->where('status', '!=', 'cancelled')->sum('total_amount'),
+        ];
+
+        $items = match ($report) {
+            'inquiries'  => $inquiries->get(),
+            'quotations' => $quotations->get(),
+            'orders'     => $orders->get(),
+            'summary'    => null,
+            default      => abort(404),
+        };
+
+        return view('reports.pdf', [
+            'report'  => $report,
+            'from'    => $from,
+            'to'      => $to,
+            'summary' => $summary,
+            'items'   => $items,
+        ]);
+    }
+
     /** Download the header-only CSV template for an admin report import. */
     public function importTemplate(string $type): StreamedResponse
     {

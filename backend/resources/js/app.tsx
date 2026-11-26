@@ -69,3 +69,19 @@ void boot();
 
 // This will set light / dark mode on load...
 initializeTheme();
+
+// Global auto-hiding scrollbar activity listener (disappears the moment movement stops)
+if (typeof window !== 'undefined') {
+    let activityTimer: number | null = null;
+    const onActivity = () => {
+        document.documentElement.classList.add('is-scrolling');
+        if (activityTimer) window.clearTimeout(activityTimer);
+        activityTimer = window.setTimeout(() => {
+            document.documentElement.classList.remove('is-scrolling');
+        }, 200);
+    };
+
+    window.addEventListener('scroll', onActivity, { passive: true, capture: true });
+    window.addEventListener('wheel', onActivity, { passive: true, capture: true });
+    window.addEventListener('mousemove', onActivity, { passive: true, capture: true });
+}

@@ -18,15 +18,15 @@ export default function AdminAnalytics({ analytics }: Props) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Analytics" />
-            <main className="bmanny-page">
-                <div className="mx-auto w-full max-w-[1600px]">
+            <div className="bmanny-page">
+                <div className="bmanny-page-inner space-y-6">
                     <DashboardAnalytics
-                        title="Analytics"
-                        description="Business activity at a glance."
+                        title="ANALYTICS"
+                        description="Business activity and pipeline performance at a glance."
                         periods={analytics.periods}
                     />
                 </div>
-            </main>
+            </div>
         </AppLayout>
     );
 }

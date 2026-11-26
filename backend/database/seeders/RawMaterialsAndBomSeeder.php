@@ -30,7 +30,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 1200.00,
                 'stock_quantity'  => 0.0060,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Lady finger botanical extract',
             ],
             [
@@ -40,7 +40,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 1100.00,
                 'stock_quantity'  => 0.0000,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Serpentina herbal extract powder',
             ],
             [
@@ -50,7 +50,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 1800.00,
                 'stock_quantity'  => 12.3785,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Acai berry pink active extract powder',
             ],
             [
@@ -60,7 +60,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 650.00,
                 'stock_quantity'  => -2.1399,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Acai berry white flavor powder compound',
             ],
             [
@@ -70,7 +70,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 980.00,
                 'stock_quantity'  => 0.0000,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Momordica charantia (bitter melon) extract',
             ],
             [
@@ -80,7 +80,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 1450.00,
                 'stock_quantity'  => 5.9000,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Angelica keiskei chalcone botanical extract',
             ],
             [
@@ -90,7 +90,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 350.00,
                 'stock_quantity'  => 3.0000,
                 'reorder_level'   => 2.0000,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'High-intensity non-caloric sweetener powder',
             ],
             [
@@ -100,7 +100,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 920.00,
                 'stock_quantity'  => 0.0000,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Lagerstroemia speciosa corosolic acid extract',
             ],
             [
@@ -110,7 +110,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 850.00,
                 'stock_quantity'  => 1.3200,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Organic young barley leaf microfine powder',
             ],
             [
@@ -120,7 +120,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 2200.00,
                 'stock_quantity'  => 3.0130,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Vaccinium myrtillus anthocyanin eye health extract',
             ],
             [
@@ -130,7 +130,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 45.00,
                 'stock_quantity'  => 1599.0000,
                 'reorder_level'   => 500.0000,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Refined roasted corn base powder',
             ],
             [
@@ -140,7 +140,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 69.12,
                 'stock_quantity'  => 409.5200,
                 'reorder_level'   => 300.0000,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Dextrin carrier bulking agent',
             ],
             [
@@ -150,7 +150,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 1600.00,
                 'stock_quantity'  => 1.0900,
                 'reorder_level'   => 1.0000,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Pure L-Carnitine tartrate fat burner amino',
             ],
             [
@@ -160,7 +160,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 2800.00,
                 'stock_quantity'  => 1.3980,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Marigold flower lutein 10% beadlets/powder',
             ],
             [
@@ -170,7 +170,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 880.00,
                 'stock_quantity'  => 6.0090,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Morinda citrifolia noni fruit botanical extract',
             ],
             [
@@ -180,7 +180,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 750.00,
                 'stock_quantity'  => 13.8000,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Abelmoschus esculentus okra mucilage extract',
             ],
             [
@@ -190,7 +190,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 1150.00,
                 'stock_quantity'  => 6.0090,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Rosa canina rosehip vitamin C extract',
             ],
             [
@@ -200,7 +200,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 650.00,
                 'stock_quantity'  => 0.0000,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Corchorus olitorius jute leaves extract powder',
             ],
             [
@@ -210,7 +210,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 180.00,
                 'stock_quantity'  => 51.5551,
                 'reorder_level'   => 3.0000,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Specialty stabilizing compound SK',
             ],
             [
@@ -220,7 +220,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 3200.00,
                 'stock_quantity'  => 0.0000,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Eurycoma longifolia root herbal extract',
             ],
             [
@@ -230,7 +230,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 480.00,
                 'stock_quantity'  => 53.8900,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Non-acidic alkaline sodium ascorbate powder',
             ],
             [
@@ -240,7 +240,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 55.00,
                 'stock_quantity'  => 1786.8784,
                 'reorder_level'   => 800.0000,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Roasted soybean meal base flour',
             ],
             [
@@ -250,7 +250,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 48.00,
                 'stock_quantity'  => -6719.1129,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Bulk manufacturing compound BMC',
             ],
 
@@ -262,7 +262,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 52.00,
                 'stock_quantity'  => -111.5500,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Bulk mix premix formulation compound BMX',
             ],
             [
@@ -282,7 +282,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 380.00,
                 'stock_quantity'  => 23.0000,
                 'reorder_level'   => 7.0000,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Rich butterscotch confectionery flavor powder',
             ],
             [
@@ -292,7 +292,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 850.00,
                 'stock_quantity'  => 25.0000,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Natural crystalline camphor USP grade',
             ],
             [
@@ -302,7 +302,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 2600.00,
                 'stock_quantity'  => 0.0030,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Myrciaria dubia camu camu vitamin C extract',
             ],
             [
@@ -312,7 +312,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 340.00,
                 'stock_quantity'  => 15.3317,
                 'reorder_level'   => 8.0000,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Clean whole black Salvia hispanica chia seeds',
             ],
             [
@@ -322,7 +322,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 290.00,
                 'stock_quantity'  => 10.0000,
                 'reorder_level'   => 1.0000,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Dark Dutch-process cocoa flavoring powder',
             ],
             [
@@ -332,7 +332,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 240.00,
                 'stock_quantity'  => 8.0000,
                 'reorder_level'   => 6.0000,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Carboxymethylcellulose food grade thickener',
             ],
             [
@@ -342,7 +342,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 520.00,
                 'stock_quantity'  => 9.0000,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Concentrated roasted coffee booster flavor 590552',
             ],
             [
@@ -352,7 +352,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 1450.00,
                 'stock_quantity'  => 1.0900,
                 'reorder_level'   => 1.0000,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Hydrolyzed marine peptide collagen powder',
             ],
             [
@@ -362,7 +362,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 680.00,
                 'stock_quantity'  => 37.6600,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Herbal detox fiber colon cleanser active blend',
             ],
             [
@@ -412,7 +412,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 260.00,
                 'stock_quantity'  => 2.3300,
                 'reorder_level'   => 2.0000,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Emulsifying agent EPEM formulation grade',
             ],
             [
@@ -422,7 +422,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 370.30,
                 'stock_quantity'  => 71.6482,
                 'reorder_level'   => 50.0000,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Functional coffee mix active blend',
             ],
             [
@@ -432,7 +432,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 266.67,
                 'stock_quantity'  => 8.4369,
                 'reorder_level'   => 3.0000,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Flavor modifier and aroma enhancer',
             ],
             [
@@ -442,7 +442,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 420.00,
                 'stock_quantity'  => 0.0000,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Zingiber officinale ginger rhizome powder',
             ],
             [
@@ -452,7 +452,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 4500.00,
                 'stock_quantity'  => 0.6900,
                 'reorder_level'   => 1.0000,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Reduced L-Glutathione pharma/food grade',
             ],
             [
@@ -462,7 +462,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 890.00,
                 'stock_quantity'  => 2.0000,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Annona muricata soursop/guyabano leaf extract',
             ],
             [
@@ -472,7 +472,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 380.00,
                 'stock_quantity'  => 50.0000,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'High-grade instant agglomerated spray-dried coffee 50',
             ],
             [
@@ -492,7 +492,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 320.00,
                 'stock_quantity'  => 13.0000,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Moringa oleifera dehydrated green leaf powder',
             ],
             [
@@ -502,7 +502,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 1600.00,
                 'stock_quantity'  => 2.5000,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Garcinia mangostana xanthones extract',
             ],
             [
@@ -512,7 +512,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 720.00,
                 'stock_quantity'  => 13.0000,
                 'reorder_level'   => 8.0000,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Whole mangosteen pericarp powder',
             ],
             [
@@ -522,7 +522,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 980.00,
                 'stock_quantity'  => 35.0000,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Pure USP natural cooling menthol crystals',
             ],
             [
@@ -532,7 +532,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 66.67,
                 'stock_quantity'  => 168.1627,
                 'reorder_level'   => 200.0000,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Malt extract compound base ML2',
             ],
             [
@@ -542,7 +542,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 850.00,
                 'stock_quantity'  => 0.0000,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Moringa botanical nutrient extract',
             ],
             [
@@ -552,7 +552,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 149.75,
                 'stock_quantity'  => -1274.2275,
                 'reorder_level'   => 500.0000,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Non-Dairy Creamer beverage grade powder',
             ],
 
@@ -564,7 +564,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 310.00,
                 'stock_quantity'  => -734.7732,
                 'reorder_level'   => 1000.0000,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'PCVG liquid/powder coffee concentrate C624A',
             ],
             [
@@ -574,7 +574,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 42.00,
                 'stock_quantity'  => -1088.6234,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Refined fine corn base powder',
             ],
             [
@@ -584,7 +584,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 50.00,
                 'stock_quantity'  => -298928.4292,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Bulk refined soya bean flour',
             ],
             [
@@ -594,7 +594,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 46.00,
                 'stock_quantity'  => 153.0000,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Coarsely roasted corn beverage grain',
             ],
             [
@@ -604,7 +604,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 58.00,
                 'stock_quantity'  => 187.0000,
                 'reorder_level'   => 300.0000,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Golden roasted soya beans for coffee blends',
             ],
             [
@@ -624,7 +624,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 360.00,
                 'stock_quantity'  => 2.2400,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Anti-caking flow agent silicon dioxide',
             ],
             [
@@ -634,7 +634,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 1400.00,
                 'stock_quantity'  => 0.0000,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Stevia rebaudiana zero-calorie sweetener',
             ],
             [
@@ -644,7 +644,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 68.00,
                 'stock_quantity'  => -95.7258,
                 'reorder_level'   => 100.0000,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Refined white cane sugar granules',
             ],
             [
@@ -654,7 +654,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 520.00,
                 'stock_quantity'  => -178.3290,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Sodium ascorbate super alkaline vitamin C',
             ],
             [
@@ -664,7 +664,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 420.00,
                 'stock_quantity'  => 3.0000,
                 'reorder_level'   => 4.0000,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Specialty formulation compound Tof.Car',
             ],
             [
@@ -674,7 +674,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 950.00,
                 'stock_quantity'  => 2.0000,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Curcuma longa 95% curcuminoids extract',
             ],
             [
@@ -684,7 +684,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 1850.00,
                 'stock_quantity'  => 0.7950,
                 'reorder_level'   => 1.0000,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'D-alpha tocopherol acetate powder',
             ],
             [
@@ -694,7 +694,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 950.28,
                 'stock_quantity'  => 48.8188,
                 'reorder_level'   => 100.0000,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Vitamin & mineral active premix 225',
             ],
             [
@@ -704,7 +704,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 420.00,
                 'stock_quantity'  => 2.0000,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => '80-mesh food hydrocolloid xanthan gum',
             ],
             [
@@ -714,7 +714,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 780.00,
                 'stock_quantity'  => 3.8850,
                 'reorder_level'   => 2.0000,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Dioscorea wild yam root extract',
             ],
             [
@@ -724,7 +724,7 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'price'           => 340.00,
                 'stock_quantity'  => 3.0000,
                 'reorder_level'   => 0,
-                'unit_of_measure' => 'kg',
+                'unit_of_measure' => 'pcs',
                 'description'     => 'Zinc sulfate monohydrate dietary mineral',
             ],
         ];

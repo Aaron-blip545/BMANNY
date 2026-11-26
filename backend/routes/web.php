@@ -66,6 +66,9 @@ Route::middleware(['backend.auth'])->group(function () {
     Route::middleware(['backend.role:admin'])->get('admin/reports/{report}/export', [AdminDashboardController::class, 'exportReport'])
         ->whereIn('report', ['inquiries', 'quotations', 'orders'])
         ->name('admin.reports.export');
+    Route::middleware(['backend.role:admin'])->get('admin/reports/{report}/pdf', [AdminDashboardController::class, 'exportPdf'])
+        ->whereIn('report', ['inquiries', 'quotations', 'orders', 'summary'])
+        ->name('admin.reports.pdf');
     Route::middleware(['backend.role:admin'])->get('admin/reports/import/{type}/template', [AdminDashboardController::class, 'importTemplate'])
         ->whereIn('type', ['inquiries', 'quotations', 'orders'])
         ->name('admin.reports.import-template');

@@ -172,14 +172,20 @@ class AnalyticsService
             ->pluck('total', 'status');
 
         return collect([
-            ['label' => 'Approved', 'status' => 'approved', 'color' => '#0A1A3C'],
-            ['label' => 'In production', 'status' => 'in_production', 'color' => '#5b6472'],
-            ['label' => 'For delivery', 'status' => 'for_delivery', 'color' => '#d4a72c'],
-            ['label' => 'Completed', 'status' => 'completed', 'color' => '#0f766e'],
+            ['label' => 'Approved', 'status' => 'approved', 'color' => '#2563eb'],
+            ['label' => 'In production', 'status' => 'in_production', 'color' => '#9333ea'],
+            ['label' => 'Ready for pickup', 'status' => 'ready_for_pickup', 'color' => '#d97706'],
+            ['label' => 'Completed', 'status' => 'completed', 'color' => '#059669'],
+            ['label' => 'Cancelled', 'status' => 'cancelled', 'color' => '#e11d48'],
         ])->map(fn (array $item) => [
             'label' => $item['label'],
             'color' => $item['color'],
-            'value' => (int) ($counts[$item['status']] ?? 0),
+            'value' => (int) match ($item['status']) {
+                'in_production'    => ($counts['in_production'] ?? 0) + ($counts['packed'] ?? 0),
+                'ready_for_pickup' => ($counts['ready_for_pickup'] ?? 0) + ($counts['for_delivery'] ?? 0),
+                'completed'        => ($counts['completed'] ?? 0) + ($counts['delivered'] ?? 0),
+                default            => ($counts[$item['status']] ?? 0),
+            },
         ])->all();
     }
 

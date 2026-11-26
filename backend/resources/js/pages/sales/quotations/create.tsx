@@ -20,6 +20,7 @@ import {
     Building2,
     CalendarIcon,
     Check,
+    ChevronDown,
     ClipboardList,
     Eye,
     FileText,
@@ -298,9 +299,9 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId, p
     const initialDetails = initialInq ? buildAutoItemDetails(initialInq, packageCatalog) : '';
 
     const { data, setData, post, processing, errors } = useForm({
-        inquiry_id:   selectedInquiryId ? String(selectedInquiryId) : '',
+        inquiry_id: selectedInquiryId ? String(selectedInquiryId) : '',
         total_amount: initialTotal,
-        valid_until:  '',
+        valid_until: '',
         item_details: initialDetails,
     });
 
@@ -340,113 +341,133 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId, p
             <Head title="New Quotation" />
 
             <main className="bmanny-page">
-                <div className="mb-6 flex items-center gap-4">
-                    <Button variant="ghost" size="sm" asChild>
-                        <Link href={route('inquiries.index')}>
-                            <ArrowLeft className="mr-1 h-4 w-4" />
-                            Back to Inquiries
-                        </Link>
-                    </Button>
-                </div>
-
-                <div className="mx-auto max-w-5xl">
-                    <p className="bmanny-page-eyebrow">Sales Workspace</p>
-                    <h1 className="mb-1 text-2xl font-semibold tracking-tight">New Quotation</h1>
-                    <p className="mb-6 text-sm text-muted-foreground">
-                        Select an inquiry, review or adjust the item details and price, and send the quote to the client.
-                    </p>
+                <div className="bmanny-page-inner space-y-6">
+                    {/* Header Banner matching inquiries.tsx */}
+                    <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="border-l-4 border-amber-400 pl-3.5">
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Sales Workspace</p>
+                            <h1 className="text-2xl font-black uppercase tracking-tight text-foreground sm:text-3xl">NEW QUOTATION</h1>
+                            <p className="text-xs text-muted-foreground sm:text-sm">
+                                Select an inquiry, review or adjust the item details and price, and send the quote to the client
+                            </p>
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            asChild
+                            className="h-10 rounded-lg border-border/80 bg-card px-4 text-xs font-semibold text-foreground shadow-sm hover:bg-muted"
+                        >
+                            <Link href={route('inquiries.index')}>
+                                <ArrowLeft className="mr-1.5 h-4 w-4 text-muted-foreground" />
+                                Back to Inquiries
+                            </Link>
+                        </Button>
+                    </header>
 
                     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                         {/* Form column */}
                         <form onSubmit={handleSubmit} className="space-y-6 lg:col-span-2">
                             {/* Inquiry selector */}
-                            <Card className="bmanny-form-card">
-                                <CardHeader className="border-b border-border pb-3">
-                                    <CardTitle className="text-base">Select Inquiry</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-3">
+                            <div className="rounded-xl border border-border/70 bg-card p-6 shadow-sm space-y-4">
+                                <div className="flex items-center gap-2 border-b border-border/60 pb-3">
+                                    <ClipboardList className="size-4 text-primary" />
+                                    <h2 className="text-base font-bold text-foreground">Select Inquiry</h2>
+                                </div>
+                                <div>
                                     {pendingInquiries.length === 0 ? (
-                                        <p className="text-sm text-muted-foreground">
+                                        <p className="text-xs text-muted-foreground py-2">
                                             No pending inquiries awaiting a quotation.
                                         </p>
                                     ) : (
-                                        <select
-                                            id="inquiry_id"
-                                            value={data.inquiry_id}
-                                            onChange={(e) => {
-                                                const inqId = e.target.value;
-                                                const inq = pendingInquiries.find((i) => String(i.inquiry_id) === inqId);
-                                                if (inq) {
-                                                    const autoTotal = calculateInquiryTotal(inq, packageCatalog);
-                                                    const autoDetails = buildAutoItemDetails(inq, packageCatalog);
-                                                    setData((prev) => ({
-                                                        ...prev,
-                                                        inquiry_id: inqId,
-                                                        total_amount: autoTotal || prev.total_amount,
-                                                        item_details: autoDetails,
-                                                    }));
-                                                } else {
-                                                    setData((prev) => ({
-                                                        ...prev,
-                                                        inquiry_id: '',
-                                                        total_amount: '',
-                                                        item_details: '',
-                                                    }));
-                                                }
-                                            }}
-                                            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                                        >
-                                            <option value="">— Choose an inquiry —</option>
-                                            {pendingInquiries.map((inq) => (
-                                                <option key={inq.inquiry_id} value={String(inq.inquiry_id)}>
-                                                    #{inq.inquiry_id} — {inq.client?.business_name ?? 'Unknown'} (
-                                                    {(inq.customizations ?? []).map((c) => c.packaging_type).join(', ')})
-                                                </option>
-                                            ))}
-                                        </select>
+                                        <div className="relative">
+                                            <select
+                                                id="inquiry_id"
+                                                value={data.inquiry_id}
+                                                onChange={(e) => {
+                                                    const inqId = e.target.value;
+                                                    const inq = pendingInquiries.find((i) => String(i.inquiry_id) === inqId);
+                                                    if (inq) {
+                                                        const autoTotal = calculateInquiryTotal(inq, packageCatalog);
+                                                        const autoDetails = buildAutoItemDetails(inq, packageCatalog);
+                                                        setData((prev) => ({
+                                                            ...prev,
+                                                            inquiry_id: inqId,
+                                                            total_amount: autoTotal || prev.total_amount,
+                                                            item_details: autoDetails,
+                                                        }));
+                                                    } else {
+                                                        setData((prev) => ({
+                                                            ...prev,
+                                                            inquiry_id: '',
+                                                            total_amount: '',
+                                                            item_details: '',
+                                                        }));
+                                                    }
+                                                }}
+                                                className="h-10 w-full appearance-none rounded-lg border border-input/80 bg-muted/20 px-3.5 pr-10 text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                            >
+                                                <option value="">— Choose an inquiry —</option>
+                                                {pendingInquiries.map((inq) => (
+                                                    <option key={inq.inquiry_id} value={String(inq.inquiry_id)}>
+                                                        #{inq.inquiry_id} — {inq.client?.business_name ?? 'Unknown'} (
+                                                        {(inq.customizations ?? []).map((c) => c.packaging_type).join(', ')})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                        </div>
                                     )}
                                     {errors.inquiry_id && (
-                                        <p className="text-xs text-destructive">{errors.inquiry_id}</p>
+                                        <p className="mt-1.5 text-xs text-destructive">{errors.inquiry_id}</p>
                                     )}
-                                </CardContent>
-                            </Card>
+                                </div>
+                            </div>
 
-                            {/* Pricing */}
-                            <Card className="bmanny-form-card">
-                                <CardHeader className="border-b border-border pb-3">
-                                    <CardTitle className="text-base">Pricing & Validity</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
+                            {/* Pricing & Validity */}
+                            <div className="rounded-xl border border-border/70 bg-card p-6 shadow-sm space-y-4">
+                                <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                                    <h2 className="text-base font-bold text-foreground">Pricing &amp; Validity</h2>
+                                    {data.total_amount !== '' && (
+                                        <span
+                                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${isTotalAccepted
+                                                    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-700/10 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                                    : 'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-700/10 dark:bg-rose-950/40 dark:text-rose-300'
+                                                }`}
+                                        >
+                                            {isTotalAccepted ? <Check className="size-3" /> : <X className="size-3" />}
+                                            {isTotalAccepted ? 'Accepted' : 'Must be > ₱0.00'}
+                                        </span>
+                                    )}
+                                </div>
+
+                                <div className="space-y-4 pt-1">
                                     <div>
-                                        <div className="mb-1 flex items-center justify-between">
-                                            <label htmlFor="total_amount" className="block text-sm font-medium">
-                                                Total Amount (₱) <span className="text-muted-foreground">*</span>
-                                            </label>
-                                            {data.total_amount !== '' && (
-                                                <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
-                                                    {isTotalAccepted ? <Check className="size-3" /> : <X className="size-3" />}
-                                                    {isTotalAccepted ? 'Accepted' : 'Must be > ₱0.00'}
-                                                </span>
-                                            )}
+                                        <label htmlFor="total_amount" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                                            Total Amount (₱) <span className="text-destructive">*</span>
+                                        </label>
+                                        <div className="relative">
+                                            <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">
+                                                ₱
+                                            </span>
+                                            <input
+                                                id="total_amount"
+                                                type="number"
+                                                min="0.01"
+                                                step="0.01"
+                                                required
+                                                placeholder="0.00"
+                                                value={data.total_amount}
+                                                onChange={(e) => setData('total_amount', e.target.value)}
+                                                className="h-10 w-full rounded-lg border border-input/80 bg-muted/20 pl-8 pr-3.5 text-sm font-semibold text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                            />
                                         </div>
-                                        <input
-                                            id="total_amount"
-                                            type="number"
-                                            min="0.01"
-                                            step="0.01"
-                                            required
-                                            placeholder="0.00"
-                                            value={data.total_amount}
-                                            onChange={(e) => setData('total_amount', e.target.value)}
-                                            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                                        />
                                         {errors.total_amount && (
                                             <p className="mt-1 text-xs text-destructive">{errors.total_amount}</p>
                                         )}
                                     </div>
 
                                     <div>
-                                        <label htmlFor="valid_until" className="mb-1 block text-sm font-medium">
+                                        <label htmlFor="valid_until" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-muted-foreground">
                                             Valid Until
                                         </label>
                                         <Popover open={validUntilOpen} onOpenChange={setValidUntilOpen}>
@@ -456,11 +477,11 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId, p
                                                     type="button"
                                                     variant="outline"
                                                     className={cn(
-                                                        'w-full justify-start bg-background px-3 py-2 text-left font-normal',
+                                                        'h-10 w-full justify-start rounded-lg border border-input/80 bg-muted/20 px-3.5 py-2 text-left text-xs font-semibold',
                                                         !data.valid_until && 'text-muted-foreground',
                                                     )}
                                                 >
-                                                    <CalendarIcon className="h-4 w-4" />
+                                                    <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
                                                     {data.valid_until ? format(new Date(data.valid_until + 'T00:00:00'), 'PPP') : 'Pick a date'}
                                                 </Button>
                                             </PopoverTrigger>
@@ -483,8 +504,8 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId, p
                                     </div>
 
                                     <div>
-                                        <div className="mb-1 flex items-center justify-between">
-                                            <label htmlFor="item_details" className="text-sm font-medium">
+                                        <div className="mb-1.5 flex items-center justify-between">
+                                            <label htmlFor="item_details" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                                                 Item Details / Notes
                                             </label>
                                             {selected && (
@@ -492,7 +513,7 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId, p
                                                     type="button"
                                                     variant="ghost"
                                                     size="sm"
-                                                    className="h-7 px-2 text-xs text-primary hover:text-primary/90"
+                                                    className="h-7 rounded-md px-2 text-xs font-semibold text-primary hover:bg-primary/10"
                                                     onClick={() => {
                                                         const autoDetails = buildAutoItemDetails(selected, packageCatalog);
                                                         const autoTotal = calculateInquiryTotal(selected, packageCatalog);
@@ -504,7 +525,7 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId, p
                                                     }}
                                                     title="Re-populate item details from the selected inquiry"
                                                 >
-                                                    <Sparkles className="mr-1 h-3 w-3" />
+                                                    <Sparkles className="mr-1 h-3.5 w-3.5" />
                                                     Auto-fill from Inquiry
                                                 </Button>
                                             )}
@@ -519,21 +540,30 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId, p
                                             placeholder="List the items, unit prices, quantities, or any notes for the client…"
                                             value={data.item_details}
                                             onChange={(e) => setData('item_details', e.target.value)}
-                                            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring"
+                                            className="w-full rounded-lg border border-input/80 bg-muted/20 p-3.5 text-xs font-mono leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary drawer-scrollbar"
                                         />
                                         {errors.item_details && (
                                             <p className="mt-1 text-xs text-destructive">{errors.item_details}</p>
                                         )}
                                     </div>
-                                </CardContent>
-                            </Card>
+                                </div>
+                            </div>
 
                             {/* Actions */}
-                            <div className="flex items-center justify-end gap-3">
-                                <Button variant="outline" type="button" asChild>
+                            <div className="flex items-center justify-end gap-3 pt-2">
+                                <Button
+                                    variant="outline"
+                                    type="button"
+                                    asChild
+                                    className="h-10 rounded-lg border-border/80 bg-card px-5 text-xs font-semibold text-foreground shadow-sm hover:bg-muted"
+                                >
                                     <Link href={route('inquiries.index')}>Cancel</Link>
                                 </Button>
-                                <Button type="submit" disabled={processing || !data.inquiry_id || !isTotalAccepted}>
+                                <Button
+                                    type="submit"
+                                    disabled={processing || !data.inquiry_id || !isTotalAccepted}
+                                    className="h-10 rounded-lg bg-blue-600 px-6 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+                                >
                                     {processing ? 'Sending…' : 'Send Quotation'}
                                 </Button>
                             </div>
@@ -542,133 +572,169 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId, p
                         {/* Inquiry details sidebar */}
                         <div className="lg:col-span-1">
                             <div className="lg:sticky lg:top-6">
-                                <Card className="bmanny-workspace overflow-hidden">
-                                    <CardHeader className="border-b border-border pb-3">
-                                        <CardTitle className="text-base">Inquiry Details</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        {!selected ? (
-                                            <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-muted-foreground">
-                                                <ClipboardList className="h-8 w-8 opacity-40" />
-                                                <p className="text-sm">Select an inquiry to see its details here.</p>
+                                <div className="rounded-xl border border-border/70 bg-card p-6 shadow-sm space-y-4">
+                                    <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                                        <h2 className="text-base font-bold text-foreground">Inquiry Details</h2>
+                                        {selected && (
+                                            <span className="font-mono text-xs font-bold text-primary">
+                                                #{selected.inquiry_id}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {!selected ? (
+                                        <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-muted-foreground">
+                                            <ClipboardList className="h-8 w-8 opacity-40" />
+                                            <p className="text-xs">Select an inquiry to see its details here.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4 text-xs">
+                                            <div>
+                                                <p className="text-[11px] font-mono text-muted-foreground">
+                                                    Submitted {formatDate(selected.created_at)}
+                                                </p>
                                             </div>
-                                        ) : (
-                                            <div className="space-y-4 text-sm">
-                                                <div>
-                                                    <span className="font-mono text-xs text-muted-foreground">
-                                                        #{selected.inquiry_id}
-                                                    </span>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        Submitted {formatDate(selected.created_at)}
-                                                    </p>
-                                                </div>
 
-                                                <div className="space-y-2 border-t border-border/60 pt-3">
-                                                    <div className="flex items-start gap-2">
-                                                        <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                                                        <div>
-                                                            <p className="font-medium">{selected.client?.business_name ?? '—'}</p>
-                                                            {selected.client?.business_type && (
-                                                                <p className="text-xs text-muted-foreground">
-                                                                    {selected.client.business_type}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="flex items-start gap-2">
-                                                        <User className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                                                        <p>{selected.client?.contact_person ?? '—'}</p>
-                                                    </div>
-
-                                                    {selected.client?.user?.email && (
-                                                        <div className="flex items-start gap-2">
-                                                            <Mail className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                                                            <p className="break-all">{selected.client.user.email}</p>
-                                                        </div>
-                                                    )}
-
-                                                    {selected.client?.business_address && (
-                                                        <div className="flex items-start gap-2">
-                                                            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                                                            <p className="text-muted-foreground">
-                                                                {selected.client.business_address}
+                                            <div className="space-y-2.5 rounded-lg border border-border/60 bg-muted/20 p-3.5">
+                                                <div className="flex items-start gap-2.5">
+                                                    <Building2 className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                                                    <div>
+                                                        <p className="font-bold text-foreground">{selected.client?.business_name ?? '—'}</p>
+                                                        {selected.client?.business_type && (
+                                                            <p className="text-[11px] text-muted-foreground">
+                                                                {selected.client.business_type}
                                                             </p>
-                                                        </div>
-                                                    )}
+                                                        )}
+                                                    </div>
                                                 </div>
 
-                                                {selected.product_request_review?.suggested_variant?.product_type && (
-                                                    <div className="space-y-2 border-t border-border/60 pt-3">
-                                                        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Approved Product Specification</p>
-                                                        <div className="space-y-1 rounded-md border border-primary/20 bg-primary/5 p-3 text-xs">
-                                                            {(() => {
-                                                                const variant = selected.product_request_review!.suggested_variant!;
-                                                                const product = variant.product_type!;
-                                                                return <>
-                                                                    <p className="font-semibold text-foreground">{product.name}{variant.name ? ` — ${variant.name}` : ''}</p>
-                                                                    {product.net_weight && <p><span className="font-medium">Net content:</span> {product.net_weight}</p>}
-                                                                    {(selected.product_request_review?.suggested_packaging?.name || product.packaging_specification) && <p><span className="font-medium">Packaging:</span> {selected.product_request_review?.suggested_packaging?.name ?? product.packaging_specification}</p>}
-                                                                    {product.label_specification && <p><span className="font-medium">Label:</span> {product.label_specification}</p>}
-                                                                    {product.formulation_notes && <p><span className="font-medium">Ingredients:</span> {product.formulation_notes}</p>}
-                                                                    {variant.current_moq?.min_quantity && <p><span className="font-medium">MOQ:</span> {variant.current_moq.min_quantity}</p>}
-                                                                    <p><span className="font-medium">Reference price:</span> ₱{Number(product.suggested_srp ?? 0).toFixed(2)} · <span className="font-medium">Lead time:</span> {product.lead_time_days ?? 'Not set'} days</p>
-                                                                </>;
-                                                            })()}
-                                                        </div>
-                                                        <p className="text-xs text-muted-foreground">This approved specification will be saved with the quotation when it is sent.</p>
+                                                <div className="flex items-center gap-2.5">
+                                                    <User className="size-4 shrink-0 text-muted-foreground" />
+                                                    <p className="font-medium text-foreground">{selected.client?.contact_person ?? '—'}</p>
+                                                </div>
+
+                                                {selected.client?.user?.email && (
+                                                    <div className="flex items-center gap-2.5">
+                                                        <Mail className="size-4 shrink-0 text-muted-foreground" />
+                                                        <p className="break-all font-mono text-[11px] text-foreground">{selected.client.user.email}</p>
                                                     </div>
                                                 )}
 
-                                                <div className="space-y-3 border-t border-border/60 pt-3">
-                                                    <div className="flex items-center justify-between">
-                                                        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                                                            Requested Customizations
+                                                {selected.client?.business_address && (
+                                                    <div className="flex items-start gap-2.5">
+                                                        <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                                                        <p className="text-muted-foreground">
+                                                            {selected.client.business_address}
                                                         </p>
                                                     </div>
-                                                    {(selected.customizations ?? []).length === 0 ? (
-                                                        <p className="text-xs text-muted-foreground">No customization details provided.</p>
-                                                    ) : (
-                                                        (selected.customizations ?? []).map((c, idx) => {
-                                                            const sheet = parseCustomizationSheet(c, selected, selectedPackage(selected, packageCatalog));
-                                                            return (
-                                                                <div
-                                                                    key={c.customization_id || idx}
-                                                                    className="space-y-2 rounded-lg border border-border/70 bg-card p-3 shadow-2xs"
-                                                                >
-                                                                    <div className="flex items-center justify-between">
-                                                                        <span className="font-semibold text-foreground text-sm">
-                                                                            {sheet.productName}
-                                                                        </span>
-                                                                        <span className="text-[11px] font-bold text-red-600 bg-red-50 dark:bg-red-950/40 px-2 py-0.5 rounded border border-red-200 dark:border-red-900">
-                                                                            {sheet.priceUnit}
-                                                                        </span>
-                                                                    </div>
-                                                                    <div className="grid grid-cols-2 gap-1.5 text-xs text-muted-foreground">
-                                                                        <p><span className="font-medium text-foreground">Package:</span> {sheet.primary}</p>
-                                                                        <p><span className="font-medium text-foreground">Finish:</span> {sheet.printing}</p>
-                                                                        <p><span className="font-medium text-foreground">Net Wt:</span> {sheet.netWeight}</p>
-                                                                        <p><span className="font-medium text-foreground">MOQ:</span> {sheet.moq}</p>
-                                                                    </div>
-                                                                    <Button
-                                                                        type="button"
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        className="w-full h-7 text-xs font-medium gap-1.5 text-primary border-primary/30 hover:bg-primary hover:text-white transition-all cursor-pointer"
-                                                                        onClick={() => setViewCustomizationsOpen(true)}
-                                                                    >
-                                                                        <FileText className="h-3.5 w-3.5" />
-                                                                        View {selectedPackage(selected, packageCatalog)?.name ?? 'Package'} Sheet
-                                                                    </Button>
-                                                                </div>
-                                                            );
-                                                        })
-                                                    )}
-                                                </div>
+                                                )}
                                             </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
+
+                                            {selected.product_request_review?.suggested_variant?.product_type && (
+                                                <div className="space-y-2 border-t border-border/60 pt-3">
+                                                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                                        Approved Product Specification
+                                                    </p>
+                                                    <div className="space-y-1.5 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs">
+                                                        {(() => {
+                                                            const variant = selected.product_request_review!.suggested_variant!;
+                                                            const product = variant.product_type!;
+                                                            return (
+                                                                <>
+                                                                    <p className="font-bold text-foreground">
+                                                                        {product.name}
+                                                                        {variant.name ? ` — ${variant.name}` : ''}
+                                                                    </p>
+                                                                    {product.net_weight && (
+                                                                        <p><span className="font-medium text-muted-foreground">Net content:</span> {product.net_weight}</p>
+                                                                    )}
+                                                                    {(selected.product_request_review?.suggested_packaging?.name || product.packaging_specification) && (
+                                                                        <p>
+                                                                            <span className="font-medium text-muted-foreground">Packaging:</span>{' '}
+                                                                            {selected.product_request_review?.suggested_packaging?.name ?? product.packaging_specification}
+                                                                        </p>
+                                                                    )}
+                                                                    {product.label_specification && (
+                                                                        <p><span className="font-medium text-muted-foreground">Label:</span> {product.label_specification}</p>
+                                                                    )}
+                                                                    {product.formulation_notes && (
+                                                                        <p><span className="font-medium text-muted-foreground">Ingredients:</span> {product.formulation_notes}</p>
+                                                                    )}
+                                                                    {variant.current_moq?.min_quantity && (
+                                                                        <p><span className="font-medium text-muted-foreground">MOQ:</span> {variant.current_moq.min_quantity}</p>
+                                                                    )}
+                                                                    <p>
+                                                                        <span className="font-medium text-muted-foreground">Reference price:</span> ₱{Number(product.suggested_srp ?? 0).toFixed(2)} ·{' '}
+                                                                        <span className="font-medium text-muted-foreground">Lead time:</span> {product.lead_time_days ?? 'Not set'} days
+                                                                    </p>
+                                                                </>
+                                                            );
+                                                        })()}
+                                                    </div>
+                                                    <p className="text-[11px] text-muted-foreground">This approved specification will be saved with the quotation when it is sent.</p>
+                                                </div>
+                                            )}
+
+                                            <div className="space-y-3 border-t border-border/60 pt-3">
+                                                <div className="flex items-center justify-between">
+                                                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                                        Requested Customizations
+                                                    </p>
+                                                </div>
+                                                {(selected.customizations ?? []).length === 0 ? (
+                                                    <p className="text-xs text-muted-foreground">No customization details provided.</p>
+                                                ) : (
+                                                    (selected.customizations ?? []).map((c, idx) => {
+                                                        const sheet = parseCustomizationSheet(c, selected, selectedPackage(selected, packageCatalog));
+                                                        return (
+                                                            <div
+                                                                key={c.customization_id || idx}
+                                                                className="space-y-2.5 rounded-lg border border-border/70 bg-card p-3.5 shadow-2xs"
+                                                            >
+                                                                <div className="flex items-center justify-between">
+                                                                    <span className="font-bold text-foreground text-xs">
+                                                                        {sheet.productName}
+                                                                    </span>
+                                                                    <span className="inline-flex items-center rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700 ring-1 ring-inset ring-rose-700/10 dark:bg-rose-950/40 dark:text-rose-300">
+                                                                        {sheet.priceUnit}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                                                                    <div>
+                                                                        <p className="text-[10px] uppercase text-muted-foreground">Package</p>
+                                                                        <p className="font-medium text-foreground">{sheet.primary}</p>
+                                                                    </div>
+                                                                    <div>
+                                                                        <p className="text-[10px] uppercase text-muted-foreground">Finish</p>
+                                                                        <p className="font-medium text-foreground">{sheet.printing}</p>
+                                                                    </div>
+                                                                    <div>
+                                                                        <p className="text-[10px] uppercase text-muted-foreground">Net Wt</p>
+                                                                        <p className="font-medium text-foreground">{sheet.netWeight}</p>
+                                                                    </div>
+                                                                    <div>
+                                                                        <p className="text-[10px] uppercase text-muted-foreground">MOQ</p>
+                                                                        <p className="font-medium text-foreground">{sheet.moq}</p>
+                                                                    </div>
+                                                                </div>
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    className="w-full h-8 text-xs font-semibold gap-1.5 rounded-lg border-border/80 bg-muted/20 text-foreground hover:bg-muted"
+                                                                    onClick={() => setViewCustomizationsOpen(true)}
+                                                                >
+                                                                    <FileText className="size-3.5" />
+                                                                    View {selectedPackage(selected, packageCatalog)?.name ?? 'Package'} Sheet
+                                                                </Button>
+                                                            </div>
+                                                        );
+                                                    })
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>

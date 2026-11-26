@@ -88,11 +88,12 @@ function formatCurrency(value: string | number) {
     }).format(amount);
 }
 
-function formatQuantity(value: string | number, unit: string = 'kg') {
+function formatQuantity(value: string | number, unit: string = 'pcs') {
     const qty = typeof value === 'string' ? parseFloat(value) : value;
-    if (isNaN(qty)) return `0 ${unit}`;
+    const displayUnit = (!unit || unit === 'kg' || unit === 'pieces') ? 'pcs' : unit;
+    if (isNaN(qty)) return `0 ${displayUnit}`;
     const formatted = parseFloat(qty.toFixed(4)).toString();
-    return `${formatted} ${unit}`;
+    return `${formatted} ${displayUnit}`;
 }
 
 function getStockStatus(stock: number, reorder: number = 0) {
@@ -139,7 +140,7 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
         price: '',
         stock_quantity: '',
         reorder_level: '',
-        unit_of_measure: 'kg',
+        unit_of_measure: 'pcs',
         description: '',
         product_image: '',
     });
@@ -275,7 +276,7 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
             price: '',
             stock_quantity: '',
             reorder_level: '',
-            unit_of_measure: 'kg',
+            unit_of_measure: 'pcs',
             description: '',
             product_image: '',
         });
@@ -302,7 +303,7 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
             price: String(product.price),
             stock_quantity: String(product.stock_quantity),
             reorder_level: product.reorder_level ? String(product.reorder_level) : '0',
-            unit_of_measure: product.unit_of_measure ?? 'kg',
+            unit_of_measure: product.unit_of_measure ?? 'pcs',
             description: product.description ?? '',
             product_image: product.product_image ?? '',
         });
@@ -494,15 +495,6 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
                         <table className="w-full min-w-[1000px] border-separate border-spacing-y-2.5 text-left text-sm">
                             <thead>
                                 <tr>
-                                    {canManageInventory && (
-                                        <th className="px-5 py-3 text-center text-sm font-bold text-foreground w-12">
-                                            <Checkbox
-                                                checked={isAllSelected}
-                                                onCheckedChange={toggleSelectAll}
-                                                aria-label="Select all"
-                                            />
-                                        </th>
-                                    )}
                                     <th className="px-5 py-3 text-sm font-bold text-foreground">
                                         <button
                                             type="button"
@@ -565,26 +557,16 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
                                     const reorderNum = Number(product.reorder_level) || 0;
                                     const status = getStockStatus(stockNum, reorderNum);
                                     const isSelected = selectedIds.includes(product.product_id);
-                                    const unit = product.unit_of_measure ?? 'kg';
+                                    const rawUnit = product.unit_of_measure ?? 'pcs';
+                                    const unit = (!rawUnit || rawUnit === 'kg' || rawUnit === 'pieces') ? 'pcs' : rawUnit;
 
                                     return (
                                         <tr
                                             key={product.product_id}
                                             className="group rounded-xl border border-border/70 bg-card shadow-xs transition-shadow hover:shadow-md"
                                         >
-                                            {/* Checkbox */}
-                                            {canManageInventory && (
-                                                <td className="rounded-l-xl border-y border-l border-border/70 p-5 align-middle text-center">
-                                                    <Checkbox
-                                                        checked={isSelected}
-                                                        onCheckedChange={() => toggleSelectOne(product.product_id)}
-                                                        aria-label={`Select ${product.name}`}
-                                                    />
-                                                </td>
-                                            )}
-
                                             {/* Raw Material Details */}
-                                            <td className={`${!canManageInventory ? 'rounded-l-xl border-l' : ''} border-y border-border/70 p-5 align-middle`}>
+                                            <td className="rounded-l-xl border-y border-l border-border/70 p-5 align-middle">
                                                 <div className="flex items-center gap-3.5">
                                                     <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-muted/60 overflow-hidden shadow-xs">
                                                         {product.product_image ? (
@@ -640,7 +622,9 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
                                                 <p className="text-base font-semibold text-foreground">
                                                     {formatCurrency(product.price)}
                                                 </p>
-                                                <p className="mt-0.5 text-xs text-muted-foreground">per {unit}</p>
+                                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                                    per {unit === 'pieces' || unit === 'pcs' || unit === 'kg' ? 'piece' : unit}
+                                                </p>
                                             </td>
 
                                             {/* Status Badge */}
@@ -829,11 +813,11 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
+                                                <SelectItem value="pcs">pcs (Pieces)</SelectItem>
                                                 <SelectItem value="kg">kg (Kilograms)</SelectItem>
                                                 <SelectItem value="g">g (Grams)</SelectItem>
                                                 <SelectItem value="L">L (Liters)</SelectItem>
                                                 <SelectItem value="mL">mL (Milliliters)</SelectItem>
-                                                <SelectItem value="pcs">pcs (Pieces)</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -1008,11 +992,11 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
+                                                <SelectItem value="pcs">pcs (Pieces)</SelectItem>
                                                 <SelectItem value="kg">kg (Kilograms)</SelectItem>
                                                 <SelectItem value="g">g (Grams)</SelectItem>
                                                 <SelectItem value="L">L (Liters)</SelectItem>
                                                 <SelectItem value="mL">mL (Milliliters)</SelectItem>
-                                                <SelectItem value="pcs">pcs (Pieces)</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
