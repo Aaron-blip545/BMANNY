@@ -27,14 +27,14 @@ function getStatusConfig(status: string) {
     switch (status) {
         case 'new':
             return { label: 'New', pill: 'bg-blue-100 text-blue-900 dark:bg-blue-500/20 dark:text-blue-300' };
-        case 'follow_up':
-            return { label: 'Follow Up', pill: 'bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300' };
+        case 'for_quotation':
+            return { label: 'For Quotation', pill: 'bg-purple-100 text-purple-900 dark:bg-purple-500/20 dark:text-purple-300' };
         case 'quotation_sent':
-            return { label: 'Quotation Sent', pill: 'bg-purple-100 text-purple-900 dark:bg-purple-500/20 dark:text-purple-300' };
+            return { label: 'Quotation Sent', pill: 'bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300' };
         case 'converted':
             return { label: 'Converted', pill: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-300' };
-        case 'closed':
-            return { label: 'Closed', pill: 'bg-rose-100 text-rose-900 dark:bg-rose-500/20 dark:text-rose-300' };
+        case 'cancelled':
+            return { label: 'Cancelled', pill: 'bg-rose-100 text-rose-900 dark:bg-rose-500/20 dark:text-rose-300' };
         default:
             return { label: status.replace('_', ' '), pill: 'bg-muted text-foreground' };
     }

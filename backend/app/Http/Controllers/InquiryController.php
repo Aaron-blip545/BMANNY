@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\ClientPackagingBalance;
 use App\Models\Inquiry;
 use App\Models\InquiryCustomization;
 use App\Models\Order;
+use App\Models\ProductRequestReview;
 use App\Services\NotificationService;
 use Illuminate\Support\Facades\DB;
 
@@ -136,9 +138,16 @@ class InquiryController extends Controller
                     'has_order'            => $inquiry->quotation?->order !== null,
                     'quotation_id'         => $inquiry->quotation?->quotation_id,
                     'quotation_amount'     => $inquiry->quotation?->total_amount,
-                    'quotation_payment_due_amount' => $inquiry->quotation?->total_amount
-                        ? ((float) $inquiry->quotation->total_amount / 2)
-                        : null,
+                    'quotation_payment_due_amount' => $inquiry->quotation?->initial_payment_amount !== null
+                        ? (float) $inquiry->quotation->initial_payment_amount
+                        : ($inquiry->quotation?->total_amount
+                            ? round((float) $inquiry->quotation->total_amount / 2, 2)
+                            : null),
+                    'quotation_balance_due_amount' => $inquiry->quotation?->balance_payment_amount !== null
+                        ? (float) $inquiry->quotation->balance_payment_amount
+                        : ($inquiry->quotation?->total_amount
+                            ? round((float) $inquiry->quotation->total_amount / 2, 2)
+                            : null),
                     'quotation_status'     => $inquiry->quotation?->status,
                     'quotation_item_details' => $inquiry->quotation?->item_details,
                     'quotation_valid_until' => $inquiry->quotation?->valid_until,
@@ -159,6 +168,7 @@ class InquiryController extends Controller
                         ] : null,
                     ] : null,
                     'cancelled_at'         => $inquiry->cancelled_at,
+                    'cancellation_reason'  => $inquiry->cancellation_reason,
                 ];
             })
             ->reverse()
@@ -214,10 +224,23 @@ class InquiryController extends Controller
         }
 
         $inquiry->update([
-            'status'               => 'closed',
+            'status'               => 'cancelled',
             'cancelled_at'         => now(),
             'cancellation_reason'  => $request->cancellation_reason,
         ]);
+
+        $clientName = $client->business_name ?? $request->user()->full_name ?? 'Client';
+        NotificationService::sendToRoles(
+            ['sales_agent', 'admin'],
+            'inquiry',
+            'Inquiry Cancelled by Client',
+            "{$clientName} cancelled Inquiry #{$inquiry->inquiry_id}. Reason: {$request->cancellation_reason}",
+            [
+                'inquiry_id' => $inquiry->inquiry_id,
+                'client_id'  => $client->client_id,
+                'cancelled'  => true,
+            ]
+        );
 
         return response()->json([
             'message' => 'Inquiry cancelled.',
@@ -285,13 +308,16 @@ class InquiryController extends Controller
                     : $reorderTag;
 
                 InquiryCustomization::create([
-                    'inquiry_id'         => $newInquiry->inquiry_id,
-                    'customization_type' => $cust->customization_type ?? 'Custom Rebrand & Packaging',
-                    'packaging_type'     => $cust->packaging_type,
-                    'packaging_finish'   => $cust->packaging_finish,
-                    'serving_size'       => $cust->serving_size,
-                    'formulation_notes'  => $cust->formulation_notes,
-                    'client_notes'       => $newNotes,
+                    'inquiry_id'                => $newInquiry->inquiry_id,
+                    'customization_type'        => $cust->customization_type ?? 'Custom Rebrand & Packaging',
+                    'selected_package'          => $cust->selected_package,
+                    'packaging_type'            => $cust->packaging_type,
+                    'packaging_finish'          => $cust->packaging_finish,
+                    'serving_size'              => $cust->serving_size,
+                    'formulation_notes'         => $cust->formulation_notes,
+                    'requested_ingredient_note' => $cust->requested_ingredient_note,
+                    'design_file_path'          => $cust->design_file_path,
+                    'client_notes'              => $newNotes,
                 ]);
             }
 
@@ -320,6 +346,216 @@ class InquiryController extends Controller
             DB::rollBack();
             return response()->json([
                 'error'   => 'Failed to submit reorder.',
+                'details' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Return all Gold/Elite stored packaging (MOQ) balances for the authenticated customer.
+     */
+    public function packagingBalances(Request $request)
+    {
+        $client = $request->user()->businessClient;
+        if (! $client) {
+            return response()->json([]);
+        }
+
+        $balances = ClientPackagingBalance::with('sourceOrder')
+            ->where('client_id', $client->client_id)
+            ->orderByDesc('updated_at')
+            ->get()
+            ->map(function (ClientPackagingBalance $balance) {
+                $status = $balance->effectiveStatus();
+                if ($balance->status !== $status) {
+                    $balance->update(['status' => $status]);
+                }
+
+                $needsReplenishment = $balance->needsReplenishment();
+                $effectiveMin = $needsReplenishment
+                    ? (int) $balance->batch_min_quantity
+                    : min((int) $balance->batch_min_quantity, (int) $balance->remaining_pouches);
+                $sourceStatus = $balance->sourceOrder?->status;
+                $canReorder = ! $balance->sourceOrder || in_array($sourceStatus, ['completed', 'delivered'], true);
+
+                return [
+                    'balance_id'                   => $balance->balance_id,
+                    'source_order_id'              => $balance->source_order_id,
+                    'source_order_status'          => $sourceStatus,
+                    'can_reorder'                  => $canReorder,
+                    'brand_name'                   => $balance->brand_name,
+                    'package_slug'                 => $balance->package_slug,
+                    'package_name'                 => ucfirst($balance->package_slug) . ' Package',
+                    'total_pouches'                => (int) $balance->total_pouches,
+                    'used_pouches'                 => (int) $balance->used_pouches,
+                    'remaining_pouches'            => (int) $balance->remaining_pouches,
+                    'production_unit_cost'         => (float) $balance->production_unit_cost,
+                    'packaging_unit_cost'          => (float) $balance->packaging_unit_cost,
+                    'batch_min_quantity'           => (int) $balance->batch_min_quantity,
+                    'min_order_quantity'           => $effectiveMin,
+                    'max_order_quantity'           => $needsReplenishment ? (int) $balance->total_pouches : (int) $balance->remaining_pouches,
+                    'cylinder_paid'                => (bool) $balance->cylinder_paid,
+                    'packaging_replenishment_cost' => $balance->packagingReplenishmentCost(),
+                    'expires_at'                   => $balance->expires_at?->toIso8601String(),
+                    'is_expired'                   => $balance->isExpired(),
+                    'needs_replenishment'          => $needsReplenishment,
+                    'status'                       => $status,
+                ];
+            })
+            ->values();
+
+        return response()->json($balances);
+    }
+
+    /**
+     * Submit a Gold/Elite repeat-batch reorder (when remaining pouches > 0)
+     * or packaging replenishment (strictly unlocked only when remaining pouches === 0 or expired).
+     */
+    public function reorderFromBalance(Request $request, $balance_id)
+    {
+        $client = $request->user()->businessClient;
+        if (! $client) {
+            return response()->json(['message' => 'No business client profile found.'], 422);
+        }
+
+        $balance = ClientPackagingBalance::with([
+            'sourceOrder.quotation.inquiry.customizations',
+            'sourceOrder.quotation.inquiry.productRequestReview',
+        ])->findOrFail($balance_id);
+
+        if ((int) $balance->client_id !== (int) $client->client_id) {
+            return response()->json(['message' => 'This packaging balance does not belong to you.'], 403);
+        }
+
+        if ($balance->sourceOrder && ! in_array($balance->sourceOrder->status, ['completed', 'delivered'], true)) {
+            return response()->json([
+                'message' => 'You can only reorder once your initial order is completed.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'batch_quantity' => 'required|integer|min:1',
+            'request_replenishment' => 'nullable|boolean',
+        ]);
+
+        $batchQty = (int) $validated['batch_quantity'];
+        $needsReplenishment = $balance->needsReplenishment();
+
+        // Strict guard: refill is ONLY allowed once remaining pouches reach 0 (or expired).
+        if (! $needsReplenishment && ! empty($validated['request_replenishment'])) {
+            return response()->json([
+                'message' => 'Packaging refill is only available once your remaining MOQ pouches reach 0.',
+            ], 422);
+        }
+
+        if ($needsReplenishment) {
+            if ($batchQty < (int) $balance->batch_min_quantity || $batchQty > (int) $balance->total_pouches) {
+                return response()->json([
+                    'message' => "Batch quantity must be between {$balance->batch_min_quantity} and {$balance->total_pouches} pouches.",
+                ], 422);
+            }
+            $inquiryType = 'packaging_replenishment';
+        } else {
+            $effectiveMin = min((int) $balance->batch_min_quantity, (int) $balance->remaining_pouches);
+            if ($batchQty < $effectiveMin || $batchQty > (int) $balance->remaining_pouches) {
+                return response()->json([
+                    'message' => "Batch quantity must be between {$effectiveMin} and {$balance->remaining_pouches} remaining pouches.",
+                ], 422);
+            }
+            $inquiryType = 'reorder_batch';
+        }
+
+        $sourceInquiry = $balance->sourceOrder?->quotation?->inquiry;
+        $sourceCustomizations = $sourceInquiry?->customizations;
+        $sourceReview = $sourceInquiry?->productRequestReview;
+
+        DB::beginTransaction();
+        try {
+            $newInquiry = Inquiry::create([
+                'client_id'              => $client->client_id,
+                'status'                 => 'for_quotation',
+                'inquiry_type'           => $inquiryType,
+                'packaging_balance_id'   => $balance->balance_id,
+                'reorder_batch_quantity' => $batchQty,
+                'source_order_id'        => $balance->source_order_id,
+            ]);
+
+            $tag = $inquiryType === 'packaging_replenishment'
+                ? "[Packaging Replenishment ({$balance->total_pouches} pouches, Cylinder Paid) + {$batchQty} Batch from Order #{$balance->source_order_id}]"
+                : "[Repeat Batch Reorder: {$batchQty} pouches from Stored MOQ ({$balance->remaining_pouches} left) — Order #{$balance->source_order_id}]";
+
+            if ($sourceCustomizations && $sourceCustomizations->isNotEmpty()) {
+                foreach ($sourceCustomizations as $cust) {
+                    $existingNotes = $cust->client_notes ?? '';
+                    InquiryCustomization::create([
+                        'inquiry_id'                => $newInquiry->inquiry_id,
+                        'customization_type'        => ($inquiryType === 'packaging_replenishment' ? 'Packaging Replenishment — ' : 'Repeat Batch — ') . ucfirst($balance->package_slug) . ' Package',
+                        'selected_package'          => $balance->package_slug,
+                        'packaging_type'            => $cust->packaging_type ?? 'Stand-up pouch, 12 × 20 cm',
+                        'packaging_finish'          => $cust->packaging_finish ?? 'Full-color pouch print',
+                        'serving_size'              => "120 g × {$batchQty} pouches",
+                        'formulation_notes'         => $cust->formulation_notes,
+                        'requested_ingredient_note' => $cust->requested_ingredient_note,
+                        'design_file_path'          => $cust->design_file_path,
+                        'client_notes'              => $existingNotes ? "{$existingNotes} | {$tag}" : $tag,
+                    ]);
+                }
+            } else {
+                InquiryCustomization::create([
+                    'inquiry_id'         => $newInquiry->inquiry_id,
+                    'customization_type' => ($inquiryType === 'packaging_replenishment' ? 'Packaging Replenishment — ' : 'Repeat Batch — ') . ucfirst($balance->package_slug) . ' Package',
+                    'selected_package'   => $balance->package_slug,
+                    'packaging_type'     => 'Stand-up pouch, 12 × 20 cm',
+                    'packaging_finish'   => 'Full-color pouch print',
+                    'serving_size'       => "120 g × {$batchQty} pouches",
+                    'client_notes'       => "Brand: {$balance->brand_name} | {$tag}",
+                ]);
+            }
+
+            // Auto-carry approved Product Control review so Sales can quote immediately
+            ProductRequestReview::create([
+                'inquiry_id'             => $newInquiry->inquiry_id,
+                'suggested_variant_id'   => $sourceReview?->suggested_variant_id,
+                'suggested_packaging_id' => $sourceReview?->suggested_packaging_id,
+                'status'                 => 'available',
+                'response_notes'         => 'Auto-approved from previous ' . ucfirst($balance->package_slug) . " order (#{$balance->source_order_id}).",
+                'reviewed_at'            => now(),
+            ]);
+
+            DB::commit();
+
+            $clientName = $client->business_name ?? $request->user()->full_name;
+            $notifTitle = $inquiryType === 'packaging_replenishment'
+                ? 'Packaging Replenishment Request'
+                : 'Repeat Batch Reorder Received';
+            $notifBody = $inquiryType === 'packaging_replenishment'
+                ? "{$clientName} requested packaging replenishment (" . number_format($balance->total_pouches) . " pouches, cylinder already paid) + {$batchQty}-pouch batch."
+                : "{$clientName} requested a repeat batch of {$batchQty} pouches from stored " . ucfirst($balance->package_slug) . ' packaging.';
+
+            NotificationService::sendToRoles(
+                ['sales_agent', 'admin'],
+                'inquiry',
+                $notifTitle,
+                $notifBody,
+                [
+                    'inquiry_id'           => $newInquiry->inquiry_id,
+                    'client_id'            => $client->client_id,
+                    'packaging_balance_id' => $balance->balance_id,
+                    'inquiry_type'         => $inquiryType,
+                ]
+            );
+
+            return response()->json([
+                'message' => $inquiryType === 'packaging_replenishment'
+                    ? 'Packaging replenishment request submitted to Sales.'
+                    : "Repeat batch reorder ({$batchQty} pouches) submitted to Sales.",
+                'inquiry' => $newInquiry->load(['customizations', 'packagingBalance']),
+            ], 201);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'error'   => 'Failed to submit batch reorder.',
                 'details' => $e->getMessage(),
             ], 500);
         }

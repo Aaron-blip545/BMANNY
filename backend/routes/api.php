@@ -86,8 +86,11 @@ Route::middleware(['auth:sanctum', 'active.api'])->group(function () {
         Route::post('/orders/{order_id}/balance-payment', [OrderController::class, 'submitBalancePayment'])->middleware('throttle:write');
         Route::get('/orders/my-orders', [OrderController::class, 'myOrders']);
 
-        // Quick-reorder
+        // Quick-reorder & per-client stored packaging MOQ balances
         Route::post('/orders/{order_id}/reorder', [InquiryController::class, 'reorder'])
+            ->middleware('throttle:write');
+        Route::get('/packaging-balances', [InquiryController::class, 'packagingBalances']);
+        Route::post('/packaging-balances/{balance_id}/reorder', [InquiryController::class, 'reorderFromBalance'])
             ->middleware('throttle:write');
     });
 

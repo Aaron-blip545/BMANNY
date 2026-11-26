@@ -816,17 +816,17 @@ export default function ProductsPage({
                         </p>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full min-w-[1000px] border-separate border-spacing-y-2 text-left text-sm">
+                    <div className="w-full overflow-x-auto">
+                        <table className="w-full border-separate border-spacing-y-2 text-left text-sm">
                             <thead>
                                 <tr>
-                                    <th className="px-4 py-2.5 text-xs font-bold text-foreground uppercase tracking-wider whitespace-nowrap">Product &amp; Code</th>
-                                    <th className="px-4 py-2.5 text-xs font-bold text-foreground uppercase tracking-wider whitespace-nowrap">Category</th>
-                                    <th className="px-4 py-2.5 text-xs font-bold text-foreground uppercase tracking-wider whitespace-nowrap">Formulation (BOM)</th>
-                                    <th className="px-4 py-2.5 text-xs font-bold text-foreground uppercase tracking-wider whitespace-nowrap">Suggested SRP</th>
-                                    <th className="px-4 py-2.5 text-xs font-bold text-foreground uppercase tracking-wider whitespace-nowrap">MOQ</th>
-                                    <th className="px-4 py-2.5 text-xs font-bold text-foreground uppercase tracking-wider whitespace-nowrap">Status</th>
-                                    <th className="px-4 py-2.5 text-right text-xs font-bold text-foreground uppercase tracking-wider whitespace-nowrap">Actions</th>
+                                    <th className="px-3 py-2 text-[11px] font-bold text-foreground uppercase tracking-wider whitespace-nowrap">Product &amp; Code</th>
+                                    <th className="px-3 py-2 text-[11px] font-bold text-foreground uppercase tracking-wider whitespace-nowrap">Category</th>
+                                    <th className="px-3 py-2 text-[11px] font-bold text-foreground uppercase tracking-wider whitespace-nowrap">Formulation (BOM)</th>
+                                    <th className="px-3 py-2 text-[11px] font-bold text-foreground uppercase tracking-wider whitespace-nowrap">Suggested SRP</th>
+                                    <th className="px-3 py-2 text-[11px] font-bold text-foreground uppercase tracking-wider whitespace-nowrap">MOQ</th>
+                                    <th className="px-3 py-2 text-[11px] font-bold text-foreground uppercase tracking-wider whitespace-nowrap">Status</th>
+                                    <th className="px-3 py-2 text-right text-[11px] font-bold text-foreground uppercase tracking-wider whitespace-nowrap">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -841,9 +841,9 @@ export default function ProductsPage({
                                             className="group bg-card shadow-sm transition-shadow hover:shadow-md"
                                         >
                                             {/* Product & Code */}
-                                            <td className="rounded-l-xl border-y border-l border-border/70 py-3.5 px-5 align-middle">
-                                                <div className="flex items-center gap-3.5">
-                                                    <div className="size-13 rounded-xl bg-muted border border-border flex-shrink-0 flex items-center justify-center overflow-hidden">
+                                            <td className="rounded-l-xl border-y border-l border-border/70 py-3 px-3 align-middle">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="size-11 rounded-lg bg-muted border border-border flex-shrink-0 flex items-center justify-center overflow-hidden">
                                                         {product.image_url ? (
                                                             <img
                                                                 src={product.image_url}
@@ -854,19 +854,19 @@ export default function ProductsPage({
                                                                 }}
                                                             />
                                                         ) : (
-                                                            <Package className="size-6 text-muted-foreground stroke-[1.5]" />
+                                                            <Package className="size-5 text-muted-foreground stroke-[1.5]" />
                                                         )}
                                                     </div>
-                                                    <div className="min-w-0">
-                                                        <div className="flex items-center gap-2">
-                                                            <p className="text-base font-bold text-foreground truncate whitespace-nowrap">
+                                                    <div className="min-w-0 max-w-[230px]">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <p className="text-sm font-bold text-foreground truncate">
                                                                 {product.name}
                                                             </p>
-                                                            <span className="font-mono text-xs font-bold text-foreground bg-muted/80 border border-border/80 px-2 py-0.5 rounded-md whitespace-nowrap">
+                                                            <span className="font-mono text-[11px] font-bold text-foreground bg-muted/80 border border-border/80 px-1.5 py-0.5 rounded whitespace-nowrap shrink-0">
                                                                 {code}
                                                             </span>
                                                         </div>
-                                                        <p className="text-xs sm:text-[13px] text-muted-foreground truncate mt-0.5 max-w-sm whitespace-nowrap">
+                                                        <p className="text-xs text-muted-foreground truncate mt-0.5">
                                                             {product.description || `${product.category_code} composite finished good`}
                                                         </p>
                                                     </div>
@@ -874,9 +874,9 @@ export default function ProductsPage({
                                             </td>
 
                                             {/* Category */}
-                                            <td className="border-y border-border/70 py-3.5 px-5 align-middle whitespace-nowrap">
+                                            <td className="border-y border-border/70 py-3 px-3 align-middle whitespace-nowrap">
                                                 <span
-                                                    className={`inline-flex items-center px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap ${getCategoryBadgeClass(
+                                                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap ${getCategoryBadgeClass(
                                                         product.category_code
                                                     )}`}
                                                 >
@@ -885,16 +885,16 @@ export default function ProductsPage({
                                             </td>
 
                                             {/* Formulation (BOM) */}
-                                            <td className="border-y border-border/70 py-3.5 px-5 align-middle whitespace-nowrap">
+                                            <td className="border-y border-border/70 py-3 px-3 align-middle whitespace-nowrap">
                                                 <button
                                                     type="button"
                                                     onClick={() => openBomModal(product)}
-                                                    className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-primary hover:underline cursor-pointer whitespace-nowrap"
+                                                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline cursor-pointer whitespace-nowrap"
                                                 >
-                                                    <Layers className="size-4 shrink-0" />
+                                                    <Layers className="size-3.5 shrink-0" />
                                                     <span>
                                                         {recipeCount > 0 ? (
-                                                            `₱${recipeCost.toFixed(2)} / unit (${recipeCount} materials)`
+                                                            `₱${recipeCost.toFixed(2)} / unit (${recipeCount})`
                                                         ) : (
                                                             '+ Set BOM Recipe'
                                                         )}
@@ -903,27 +903,27 @@ export default function ProductsPage({
                                             </td>
 
                                             {/* Suggested SRP */}
-                                            <td className="border-y border-border/70 py-3.5 px-5 align-middle whitespace-nowrap">
-                                                <span className="text-base font-bold text-foreground whitespace-nowrap">
+                                            <td className="border-y border-border/70 py-3 px-3 align-middle whitespace-nowrap">
+                                                <span className="text-sm font-bold text-foreground whitespace-nowrap">
                                                     {product.formatted_price}
                                                 </span>
                                             </td>
 
                                             {/* MOQ */}
-                                            <td className="border-y border-border/70 py-3.5 px-5 align-middle whitespace-nowrap">
+                                            <td className="border-y border-border/70 py-3 px-3 align-middle whitespace-nowrap">
                                                 {product.min_quantity ? (
-                                                    <span className="inline-flex items-center gap-1 font-mono text-xs sm:text-[13px] font-bold text-foreground bg-muted/80 px-2.5 py-1 rounded-md border border-border/80 whitespace-nowrap">
+                                                    <span className="inline-flex items-center gap-1 font-mono text-xs font-bold text-foreground bg-muted/80 px-2 py-0.5 rounded-md border border-border/80 whitespace-nowrap">
                                                         {product.min_quantity} pcs
                                                     </span>
                                                 ) : (
-                                                    <span className="text-xs sm:text-[13px] text-muted-foreground italic whitespace-nowrap">
+                                                    <span className="text-xs text-muted-foreground italic whitespace-nowrap">
                                                         Not set
                                                     </span>
                                                 )}
                                             </td>
 
                                             {/* Status */}
-                                            <td className="border-y border-border/70 py-3.5 px-5 align-middle whitespace-nowrap">
+                                            <td className="border-y border-border/70 py-3 px-3 align-middle whitespace-nowrap">
                                                 <button
                                                     type="button"
                                                     onClick={() => toggleProductStatus(product)}
@@ -931,7 +931,7 @@ export default function ProductsPage({
                                                     className="transition-opacity hover:opacity-80 cursor-pointer whitespace-nowrap"
                                                 >
                                                     <span
-                                                        className={`inline-flex items-center rounded-full px-4 py-1.5 text-sm font-bold whitespace-nowrap ${product.is_active
+                                                        className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold whitespace-nowrap ${product.is_active
                                                             ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
                                                             : 'bg-slate-100 text-slate-700 dark:bg-slate-800/40 dark:text-slate-300'
                                                             }`}
@@ -942,7 +942,7 @@ export default function ProductsPage({
                                             </td>
 
                                             {/* Actions */}
-                                            <td className="rounded-r-xl border-y border-r border-border/70 py-3.5 px-5 align-middle text-right whitespace-nowrap">
+                                            <td className="rounded-r-xl border-y border-r border-border/70 py-3 px-3 align-middle text-right whitespace-nowrap">
                                                 <div className="inline-flex flex-col items-end gap-1.5">
                                                     <Button
                                                         size="sm"

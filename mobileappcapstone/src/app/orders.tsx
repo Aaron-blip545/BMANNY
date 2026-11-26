@@ -13,11 +13,12 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  AppState,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
-import { getMyOrders, getMyInquiries, cancelInquiry } from '../services/api';
+import { getMyOrders, getMyInquiries, cancelInquiry, getPackagingBalances, submitBatchReorder } from '../services/api';
 import { subscribeToRealtime } from '../services/realtime';
 import { MobileNavDock } from '../components/mobile-nav-dock';
 
@@ -34,12 +35,37 @@ const ProfileIcon = ({ colors, isActive }: { colors: any; isActive?: boolean }) 
   <Image source={require('@/assets/images/homepageicon/profile.png')} style={styles.navIcon} tintColor={isActive ? '#2196F3' : colors.text} />
 );
 
+interface PackagingBalance {
+  balance_id: number;
+  source_order_id: number | null;
+  source_order_status?: string | null;
+  can_reorder?: boolean;
+  brand_name: string;
+  package_slug: string;
+  package_name: string;
+  total_pouches: number;
+  used_pouches: number;
+  remaining_pouches: number;
+  production_unit_cost: number;
+  packaging_unit_cost: number;
+  batch_min_quantity: number;
+  min_order_quantity: number;
+  max_order_quantity: number;
+  cylinder_paid: boolean;
+  packaging_replenishment_cost: number;
+  expires_at: string | null;
+  is_expired: boolean;
+  needs_replenishment: boolean;
+  status: 'active' | 'depleted' | 'expired';
+}
+
 interface Order {
   order_id: number;
   brand_name?: string | null;
   status: string;
   total_amount: string;
-  balance_payment_amount?: string | null;
+  initial_payment_amount?: string | number | null;
+  balance_payment_amount?: string | number | null;
   balance_payment_submitted_at?: string | null;
   balance_payment_verified_at?: string | null;
   timeline?: { label: string; at: string }[];
@@ -61,6 +87,7 @@ interface Inquiry {
   quotation_id: number | null;
   quotation_amount: string | null;
   quotation_payment_due_amount?: string | number | null;
+  quotation_balance_due_amount?: string | number | null;
   quotation_status: string | null;
   quotation_item_details?: string | null;
   quotation_valid_until?: string | null;
@@ -80,6 +107,7 @@ interface Inquiry {
   } | null;
   payment_submitted_at: string | null;
   cancelled_at: string | null;
+  cancellation_reason?: string | null;
   manufacturing_review?: {
     status: 'pending' | 'available' | 'alternative' | 'unavailable';
     response_notes: string | null;
@@ -138,14 +166,22 @@ export default function OrdersScreen() {
     source?: string;
     tab?: string;
   }>();
-  const [view, setView] = useState<'inquiries' | 'history' | 'orders'>('inquiries');
+  const [view, setView] = useState<'inquiries' | 'history' | 'orders' | 'reorder'>('inquiries');
   const [orders, setOrders] = useState<Order[]>([]);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [packagingBalances, setPackagingBalances] = useState<PackagingBalance[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
+  const [historyFilter, setHistoryFilter] = useState<'all' | 'converted' | 'cancelled'>('all');
   const [quotationDetails, setQuotationDetails] = useState<Inquiry | null>(null);
   const [manufacturingReviewDetails, setManufacturingReviewDetails] = useState<Inquiry | null>(null);
+  const [reorderModal, setReorderModal] = useState<{
+    visible: boolean;
+    balance: PackagingBalance | null;
+    quantityText: string;
+    submitting: boolean;
+  }>({ visible: false, balance: null, quantityText: '', submitting: false });
 
   // Cancel-with-reason modal state
   const [cancelModal, setCancelModal] = useState<{
@@ -177,12 +213,14 @@ export default function OrdersScreen() {
 
   const loadAll = useCallback(async () => {
     try {
-      const [ordersData, inquiriesData] = await Promise.all([
+      const [ordersData, inquiriesData, balancesData] = await Promise.all([
         getMyOrders(),
         getMyInquiries(),
+        getPackagingBalances().catch(() => []),
       ]);
       setOrders(ordersData);
       setInquiries(inquiriesData);
+      setPackagingBalances(Array.isArray(balancesData) ? balancesData : []);
     } catch (err) {
       console.error('Failed to load data:', err);
     } finally {
@@ -196,17 +234,50 @@ export default function OrdersScreen() {
   // (or after the sales agent accepts it elsewhere) kept showing whatever
   // was fetched the first time the screen mounted, since expo-router
   // doesn't remount already-visited screens by default.
+  const modalOpenRef = React.useRef(false);
+  const pollingInFlightRef = React.useRef(false);
+  useEffect(() => {
+    modalOpenRef.current =
+      cancelModal.visible ||
+      reorderModal.visible ||
+      Boolean(quotationDetails) ||
+      Boolean(manufacturingReviewDetails);
+  }, [cancelModal.visible, reorderModal.visible, quotationDetails, manufacturingReviewDetails]);
+
+  const silentRefresh = useCallback(async () => {
+    if (pollingInFlightRef.current || modalOpenRef.current) return;
+    pollingInFlightRef.current = true;
+    try {
+      await loadAll();
+    } finally {
+      pollingInFlightRef.current = false;
+    }
+  }, [loadAll]);
+
   useFocusEffect(
     useCallback(() => {
       loadAll();
-    }, [loadAll])
+      // Silent background sync every 5s while screen is focused (paused if a modal is open)
+      const interval = setInterval(() => {
+        silentRefresh();
+      }, 5000);
+      const appStateSub = AppState.addEventListener('change', (state) => {
+        if (state === 'active') {
+          silentRefresh();
+        }
+      });
+      return () => {
+        clearInterval(interval);
+        appStateSub.remove();
+      };
+    }, [loadAll, silentRefresh])
   );
 
   useEffect(() => {
-    // Order, quotation, and inquiry notifications mean the server has
+    // Order, quotation, payment, and inquiry notifications mean the server has
     // changed data that this screen presents, so refresh it immediately.
     return subscribeToRealtime((event) => {
-      if (event.type === 'notification.created' && ['order', 'quotation', 'inquiry', 'product_request'].includes(event.payload.type)) {
+      if (event.type === 'notification.created' && ['order', 'quotation', 'inquiry', 'product_request', 'payment'].includes(event.payload.type)) {
         loadAll();
       }
     });
@@ -285,6 +356,48 @@ export default function OrdersScreen() {
     }
   };
 
+  const openReorderModal = (balance: PackagingBalance) => {
+    setReorderModal({
+      visible: true,
+      balance,
+      quantityText: String(balance.min_order_quantity || balance.batch_min_quantity),
+      submitting: false,
+    });
+  };
+
+  const closeReorderModal = () => {
+    if (reorderModal.submitting) return;
+    setReorderModal({ visible: false, balance: null, quantityText: '', submitting: false });
+  };
+
+  const handleSubmitBatchReorder = async () => {
+    const bal = reorderModal.balance;
+    if (!bal) return;
+    const qty = parseInt(reorderModal.quantityText.replace(/[^0-9]/g, ''), 10);
+    if (isNaN(qty) || qty < bal.min_order_quantity || qty > bal.max_order_quantity) {
+      Alert.alert(
+        'Invalid Batch Quantity',
+        `Please enter a quantity between ${bal.min_order_quantity.toLocaleString()} and ${bal.max_order_quantity.toLocaleString()} pouches.`
+      );
+      return;
+    }
+
+    setReorderModal((prev) => ({ ...prev, submitting: true }));
+    try {
+      const res = await submitBatchReorder(bal.balance_id, qty, bal.needs_replenishment);
+      await loadAll();
+      setReorderModal({ visible: false, balance: null, quantityText: '', submitting: false });
+      Alert.alert(
+        bal.needs_replenishment ? 'Refill Request Sent!' : 'Batch Reorder Sent!',
+        res?.message || 'Your reorder request has been sent to Sales.',
+        [{ text: 'View Inquiries', onPress: () => setView('inquiries') }]
+      );
+    } catch (err: any) {
+      setReorderModal((prev) => ({ ...prev, submitting: false }));
+      Alert.alert('Reorder Failed', err?.message || 'Unable to submit reorder request.');
+    }
+  };
+
   const filteredOrders = activeTab === 'all'
     ? orders
     : orders.filter(o => o.status === activeTab);
@@ -292,6 +405,13 @@ export default function OrdersScreen() {
   const activeInquiries = inquiries.filter(inq => !inq.has_order && !inq.cancelled_at);
   // All inquiries for history tab (already sorted newest-first by backend)
   const allInquiries = inquiries;
+  const cancelledInquiriesCount = inquiries.filter(inq => Boolean(inq.cancelled_at)).length;
+  const convertedInquiriesCount = inquiries.filter(inq => inq.has_order).length;
+  const filteredHistoryInquiries = allInquiries.filter((inq) => {
+    if (historyFilter === 'cancelled') return Boolean(inq.cancelled_at);
+    if (historyFilter === 'converted') return inq.has_order;
+    return true;
+  });
 
   if (loading) {
     return (
@@ -307,34 +427,48 @@ export default function OrdersScreen() {
       {/* HEADER */}
       <View style={styles.header}>
         <Text style={styles.title}>
-          {view === 'inquiries' ? 'My Inquiries' : view === 'history' ? 'Inquiry History' : 'My Orders'}
+          {view === 'inquiries'
+            ? 'My Inquiries'
+            : view === 'history'
+              ? 'Inquiry History'
+              : view === 'reorder'
+                ? 'Stored MOQ & Reorder'
+                : 'My Orders'}
         </Text>
       </View>
 
-      {/* SWITCHER: Inquiries | History | Orders */}
+      {/* SWITCHER: Inquiries | Orders | Reorder | History */}
       <View style={[styles.switcherRow, { borderColor: colors.border }]}>
         <TouchableOpacity
           style={[styles.switcherBtn, view === 'inquiries' && styles.switcherActive]}
           onPress={() => setView('inquiries')}
         >
-          <Text style={[styles.switcherText, { color: view === 'inquiries' ? '#ffffff' : colors.textSecondary }]}>
+          <Text style={[styles.switcherText, { color: view === 'inquiries' ? '#ffffff' : colors.textSecondary }]} numberOfLines={1}>
             Inquiries{activeInquiries.length > 0 ? ` (${activeInquiries.length})` : ''}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.switcherBtn, view === 'history' && styles.switcherActive]}
-          onPress={() => setView('history')}
-        >
-          <Text style={[styles.switcherText, { color: view === 'history' ? '#ffffff' : colors.textSecondary }]}>
-            History
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.switcherBtn, view === 'orders' && styles.switcherActive]}
           onPress={() => setView('orders')}
         >
-          <Text style={[styles.switcherText, { color: view === 'orders' ? '#ffffff' : colors.textSecondary }]}>
+          <Text style={[styles.switcherText, { color: view === 'orders' ? '#ffffff' : colors.textSecondary }]} numberOfLines={1}>
             Orders{orders.length > 0 ? ` (${orders.length})` : ''}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.switcherBtn, view === 'reorder' && styles.switcherActive]}
+          onPress={() => setView('reorder')}
+        >
+          <Text style={[styles.switcherText, { color: view === 'reorder' ? '#ffffff' : colors.textSecondary }]} numberOfLines={1}>
+            Reorder{packagingBalances.length > 0 ? ` (${packagingBalances.length})` : ''}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.switcherBtn, view === 'history' && styles.switcherActive]}
+          onPress={() => setView('history')}
+        >
+          <Text style={[styles.switcherText, { color: view === 'history' ? '#ffffff' : colors.textSecondary }]} numberOfLines={1}>
+            History
           </Text>
         </TouchableOpacity>
       </View>
@@ -408,6 +542,22 @@ export default function OrdersScreen() {
                         {inq.has_quotation ? `₱${parseFloat(inq.quotation_amount!).toLocaleString()}` : 'Awaiting quote...'}
                       </Text>
                     </View>
+                    {inq.has_quotation && inq.quotation_payment_due_amount != null && (
+                      <View style={styles.row}>
+                        <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Before Production:</Text>
+                        <Text style={[styles.rowValue, { color: colors.text }]}>
+                          ₱{Number(inq.quotation_payment_due_amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                        </Text>
+                      </View>
+                    )}
+                    {inq.has_quotation && inq.quotation_balance_due_amount != null && (
+                      <View style={styles.row}>
+                        <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Before Pickup:</Text>
+                        <Text style={[styles.rowValue, { color: colors.text }]}>
+                          ₱{Number(inq.quotation_balance_due_amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                        </Text>
+                      </View>
+                    )}
                     {inq.product_specification && (
                       <View style={styles.row}>
                         <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Approved:</Text>
@@ -470,24 +620,57 @@ export default function OrdersScreen() {
         </ScrollView>
       )}
 
-      {/* ── HISTORY VIEW (all inquiries including converted ones = receipts) ── */}
+      {/* ── HISTORY VIEW (all inquiries including converted & cancelled) ── */}
       {view === 'history' && (
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadAll(); }} tintColor="#2196F3" />}
-        >
-          {allInquiries.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyIcon}>🗂️</Text>
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No History Yet</Text>
-              <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
-                All your past inquiries and receipts will appear here.
-              </Text>
-            </View>
-          ) : (
-            allInquiries.map((inq) => {
+        <>
+          <View style={styles.historyFilterRow}>
+            {(
+              [
+                { id: 'all', label: `All (${allInquiries.length})` },
+                { id: 'converted', label: `Converted (${convertedInquiriesCount})` },
+                { id: 'cancelled', label: `Cancelled (${cancelledInquiriesCount})` },
+              ] as const
+            ).map((chip) => {
+              const active = historyFilter === chip.id;
+              return (
+                <TouchableOpacity
+                  key={chip.id}
+                  style={[
+                    styles.historyFilterChip,
+                    {
+                      backgroundColor: active ? (chip.id === 'cancelled' ? '#E53935' : '#2196F3') : colors.card,
+                      borderColor: active ? (chip.id === 'cancelled' ? '#E53935' : '#2196F3') : colors.border,
+                    },
+                  ]}
+                  onPress={() => setHistoryFilter(chip.id)}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: active ? '#fff' : colors.textSecondary }}>
+                    {chip.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadAll(); }} tintColor="#2196F3" />}
+          >
+            {filteredHistoryInquiries.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyIcon}>{historyFilter === 'cancelled' ? '🚫' : '🗂️'}</Text>
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                  {historyFilter === 'cancelled' ? 'No Cancelled Inquiries' : 'No History Yet'}
+                </Text>
+                <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+                  {historyFilter === 'cancelled'
+                    ? 'Cancelled inquiries and their reasons will appear here.'
+                    : 'All your past inquiries and receipts will appear here.'}
+                </Text>
+              </View>
+            ) : (
+              filteredHistoryInquiries.map((inq) => {
               const inqTitle = getBrandTitle(inq, `Inquiry #${inq.client_inquiry_number ?? inq.inquiry_id}`);
               const isCancelled = !!inq.cancelled_at;
               const convertedToOrder = inq.has_order;
@@ -558,12 +741,22 @@ export default function OrdersScreen() {
                       </Text>
                     </View>
                     {isCancelled && inq.cancelled_at ? (
-                      <View style={styles.row}>
-                        <Text style={[styles.rowLabel, { color: '#E53935' }]}>Cancelled:</Text>
-                        <Text style={[styles.rowValue, { color: '#E53935' }]}>
-                          {new Date(inq.cancelled_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
-                        </Text>
-                      </View>
+                      <>
+                        <View style={styles.row}>
+                          <Text style={[styles.rowLabel, { color: '#E53935' }]}>Cancelled:</Text>
+                          <Text style={[styles.rowValue, { color: '#E53935' }]}>
+                            {new Date(inq.cancelled_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
+                          </Text>
+                        </View>
+                        {inq.cancellation_reason ? (
+                          <View style={[styles.cancelReasonBox, { borderColor: 'rgba(229, 57, 53, 0.35)', backgroundColor: 'rgba(229, 57, 53, 0.08)' }]}>
+                            <Text style={styles.cancelReasonLabel}>CANCELLATION REASON</Text>
+                            <Text style={[styles.cancelReasonText, { color: colors.text }]}>
+                              {inq.cancellation_reason}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </>
                     ) : null}
                   </View>
                 </View>
@@ -571,6 +764,7 @@ export default function OrdersScreen() {
             })
           )}
         </ScrollView>
+        </>
       )}
 
       {/* ── ORDERS VIEW ── */}
@@ -639,6 +833,22 @@ export default function OrdersScreen() {
                         <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Amount:</Text>
                         <Text style={[styles.rowValue, { color: colors.text }]}>₱{parseFloat(order.total_amount).toLocaleString()}</Text>
                       </View>
+                      {order.initial_payment_amount != null && (
+                        <View style={styles.row}>
+                          <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Before Production:</Text>
+                          <Text style={[styles.rowValue, { color: colors.text }]}>
+                            ₱{Number(order.initial_payment_amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                          </Text>
+                        </View>
+                      )}
+                      {order.balance_payment_amount != null && (
+                        <View style={styles.row}>
+                          <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Before Pickup:</Text>
+                          <Text style={[styles.rowValue, { color: colors.text }]}>
+                            ₱{Number(order.balance_payment_amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                          </Text>
+                        </View>
+                      )}
                       {order.internal_tracking_number ? (
                         <View style={styles.row}>
                           <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Tracking:</Text>
@@ -703,8 +913,267 @@ export default function OrdersScreen() {
         </>
       )}
 
+      {/* ── REORDER / STORED MOQ VIEW ── */}
+      {view === 'reorder' && (
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadAll(); }} tintColor="#2196F3" />}
+        >
+          {packagingBalances.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyIcon}>🔁</Text>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No Stored Packaging Yet</Text>
+              <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+                Once your Gold (5,000 pouches) or Elite (10,000 pouches) order is confirmed, your remaining MOQ pouches will appear here for quick repeat-batch reorders.
+              </Text>
+            </View>
+          ) : (
+            packagingBalances.map((bal) => {
+              const pct = bal.total_pouches > 0 ? Math.min(100, Math.round((bal.remaining_pouches / bal.total_pouches) * 100)) : 0;
+              const statusColor = bal.status === 'active' ? '#10B981' : bal.status === 'depleted' ? '#F59E0B' : '#E53935';
+              const statusLabel = bal.status === 'active' ? 'Active' : bal.status === 'depleted' ? 'Depleted (Refill Ready)' : 'Expired';
+
+              return (
+                <View key={bal.balance_id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <View style={styles.cardHeader}>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={1}>
+                        {bal.brand_name}
+                      </Text>
+                      <Text style={{ fontSize: 12.5, color: '#2196F3', fontWeight: '700', marginTop: 2 }}>
+                        {bal.package_name}{bal.source_order_id ? ` · Order #${bal.source_order_id}` : ''}
+                      </Text>
+                    </View>
+                    <View style={[styles.badge, { backgroundColor: statusColor }]}>
+                      <Text style={styles.badgeText}>{statusLabel}</Text>
+                    </View>
+                  </View>
+
+                  {/* MOQ Progress Bar */}
+                  <View style={{ marginBottom: 12 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <Text style={{ fontSize: 13, fontWeight: '800', color: colors.text }}>
+                        {bal.remaining_pouches.toLocaleString()} / {bal.total_pouches.toLocaleString()} pouches left
+                      </Text>
+                      <Text style={{ fontSize: 12, color: colors.textSecondary }}>
+                        {bal.used_pouches.toLocaleString()} used
+                      </Text>
+                    </View>
+                    <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
+                      <View style={[styles.progressFill, { width: `${pct}%`, backgroundColor: statusColor }]} />
+                    </View>
+                  </View>
+
+                  <View style={styles.cardBody}>
+                    <View style={styles.row}>
+                      <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Production Rate:</Text>
+                      <Text style={[styles.rowValue, { color: colors.text }]}>₱{bal.production_unit_cost.toLocaleString('en-PH')}/pouch</Text>
+                    </View>
+                    <View style={styles.row}>
+                      <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Min Batch MOQ:</Text>
+                      <Text style={[styles.rowValue, { color: colors.text }]}>{bal.min_order_quantity.toLocaleString()} pouches</Text>
+                    </View>
+                    <View style={styles.row}>
+                      <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Cylinder Fee:</Text>
+                      <Text style={[styles.rowValue, { color: '#10B981' }]}>Paid (One-time · ₱0)</Text>
+                    </View>
+                    {bal.expires_at ? (
+                      <View style={styles.row}>
+                        <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Storage Valid Until:</Text>
+                        <Text style={[styles.rowValue, { color: bal.is_expired ? '#E53935' : colors.text }]}>
+                          {new Date(bal.expires_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  {bal.can_reorder === false ? (
+                    <View style={[styles.viewBtn, { backgroundColor: colors.border, opacity: 0.75 }]}>
+                      <Text style={[styles.viewBtnText, { color: colors.textSecondary }]}>
+                        Available once Order #{bal.source_order_id} is completed
+                      </Text>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.viewBtn, bal.needs_replenishment && { backgroundColor: '#F59E0B' }]}
+                      onPress={() => openReorderModal(bal)}
+                    >
+                      <Text style={styles.viewBtnText}>
+                        {bal.needs_replenishment
+                          ? `Replenish Packaging (₱${bal.packaging_replenishment_cost.toLocaleString('en-PH')} · ₱0 Cylinder)`
+                          : 'Order Next Batch'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              );
+            })
+          )}
+        </ScrollView>
+      )}
+
       {/* BOTTOM NAV */}
       <MobileNavDock activeTab="orders" />
+
+      {/* ── BATCH REORDER / REFILL MODAL ── */}
+      <Modal
+        visible={reorderModal.visible}
+        transparent
+        animationType="slide"
+        onRequestClose={closeReorderModal}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
+            <View style={[styles.modalHandle, { backgroundColor: colors.border }]} />
+            {reorderModal.balance ? (() => {
+              const bal = reorderModal.balance;
+              const parsedQty = parseInt(reorderModal.quantityText.replace(/[^0-9]/g, ''), 10) || 0;
+              const isValidQty = parsedQty >= bal.min_order_quantity && parsedQty <= bal.max_order_quantity;
+              const prodCost = parsedQty * bal.production_unit_cost;
+              const packCost = bal.needs_replenishment ? bal.packaging_replenishment_cost : 0;
+              const totalCost = prodCost + packCost;
+              const projectedRemaining = bal.needs_replenishment
+                ? Math.max(0, bal.total_pouches - parsedQty)
+                : Math.max(0, bal.remaining_pouches - parsedQty);
+
+              const presetCandidates = bal.needs_replenishment
+                ? [bal.batch_min_quantity, 500, 1000]
+                : [bal.min_order_quantity, 300, 500, 1000, bal.remaining_pouches];
+              const presets = Array.from(
+                new Set(presetCandidates.filter((q) => q >= bal.min_order_quantity && q <= bal.max_order_quantity))
+              );
+
+              return (
+                <>
+                  <Text style={[styles.modalTitle, { color: colors.text }]}>
+                    {bal.needs_replenishment ? 'Replenish Packaging & Batch' : 'Order Next Batch'}
+                  </Text>
+                  <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+                    {bal.brand_name} · {bal.package_name}
+                  </Text>
+
+                  <Text style={[styles.modalLabel, { color: colors.text }]}>
+                    Batch Quantity ({bal.min_order_quantity.toLocaleString()} – {bal.max_order_quantity.toLocaleString()} pouches)
+                  </Text>
+
+                  <View style={styles.presetRow}>
+                    {presets.map((qty) => {
+                      const active = parsedQty === qty;
+                      const isAll = !bal.needs_replenishment && qty === bal.remaining_pouches && qty !== bal.min_order_quantity;
+                      return (
+                        <TouchableOpacity
+                          key={qty}
+                          style={[
+                            styles.presetChip,
+                            { borderColor: active ? '#2196F3' : colors.border, backgroundColor: active ? '#2196F3' : 'transparent' },
+                          ]}
+                          onPress={() => setReorderModal((prev) => ({ ...prev, quantityText: String(qty) }))}
+                        >
+                          <Text style={{ fontSize: 12, fontWeight: '700', color: active ? '#fff' : colors.text }}>
+                            {isAll ? `All (${qty.toLocaleString()})` : qty.toLocaleString()}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  <TextInput
+                    style={[
+                      styles.modalInput,
+                      {
+                        minHeight: 46,
+                        color: colors.text,
+                        borderColor: isValidQty ? '#2196F3' : '#E53935',
+                        backgroundColor: colors.background,
+                      },
+                    ]}
+                    keyboardType="number-pad"
+                    value={reorderModal.quantityText}
+                    onChangeText={(text) => setReorderModal((prev) => ({ ...prev, quantityText: text.replace(/[^0-9]/g, '') }))}
+                    placeholder={`Min ${bal.min_order_quantity}`}
+                    placeholderTextColor={colors.textSecondary}
+                    editable={!reorderModal.submitting}
+                  />
+                  {!isValidQty && (
+                    <Text style={styles.modalInputHint}>
+                      Enter between {bal.min_order_quantity.toLocaleString()} and {bal.max_order_quantity.toLocaleString()} pouches.
+                    </Text>
+                  )}
+
+                  <View style={[styles.reorderSummaryBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                    {bal.needs_replenishment ? (
+                      <>
+                        <View style={styles.row}>
+                          <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Packaging Refill ({bal.total_pouches.toLocaleString()}):</Text>
+                          <Text style={[styles.rowValue, { color: colors.text }]}>₱{packCost.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</Text>
+                        </View>
+                        <View style={styles.row}>
+                          <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Cylinder Cost:</Text>
+                          <Text style={[styles.rowValue, { color: '#10B981' }]}>₱0.00 (Already Paid)</Text>
+                        </View>
+                        <View style={styles.row}>
+                          <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Production ({parsedQty.toLocaleString()} × ₱{bal.production_unit_cost}):</Text>
+                          <Text style={[styles.rowValue, { color: colors.text }]}>₱{prodCost.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</Text>
+                        </View>
+                      </>
+                    ) : (
+                      <>
+                        <View style={styles.row}>
+                          <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Packaging & Cylinder:</Text>
+                          <Text style={[styles.rowValue, { color: '#10B981' }]}>₱0.00 (Already Paid)</Text>
+                        </View>
+                        <View style={styles.row}>
+                          <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Production ({parsedQty.toLocaleString()} × ₱{bal.production_unit_cost}):</Text>
+                          <Text style={[styles.rowValue, { color: colors.text }]}>₱{prodCost.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</Text>
+                        </View>
+                      </>
+                    )}
+                    <View style={[styles.row, { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8, marginTop: 4 }]}>
+                      <Text style={{ fontSize: 14, fontWeight: '800', color: colors.text }}>Estimated Total:</Text>
+                      <Text style={{ fontSize: 16, fontWeight: '800', color: '#2196F3' }}>
+                        ₱{totalCost.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
+                      Remaining MOQ after this batch: {projectedRemaining.toLocaleString()} pouches
+                    </Text>
+                  </View>
+
+                  <View style={styles.modalActions}>
+                    <TouchableOpacity
+                      style={[styles.modalBtn, styles.modalBtnOutline, { borderColor: colors.border }]}
+                      onPress={closeReorderModal}
+                      disabled={reorderModal.submitting}
+                    >
+                      <Text style={[styles.modalBtnText, { color: colors.text }]}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.modalBtn,
+                        { backgroundColor: '#2196F3' },
+                        (!isValidQty || reorderModal.submitting) && styles.modalBtnDisabled,
+                      ]}
+                      onPress={handleSubmitBatchReorder}
+                      disabled={!isValidQty || reorderModal.submitting}
+                    >
+                      {reorderModal.submitting ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                      ) : (
+                        <Text style={styles.modalBtnDangerText}>Submit Reorder</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </>
+              );
+            })() : null}
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* ── CANCEL INQUIRY MODAL (with reason) ── */}
       <Modal
@@ -1222,5 +1691,62 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '700',
+  },
+  progressTrack: {
+    height: 8,
+    borderRadius: 99,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 99,
+  },
+  presetRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+  },
+  presetChip: {
+    borderWidth: 1,
+    borderRadius: 99,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  reorderSummaryBox: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 14,
+    gap: 4,
+  },
+  historyFilterRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 20,
+    marginBottom: 12,
+  },
+  historyFilterChip: {
+    borderWidth: 1,
+    borderRadius: 99,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  cancelReasonBox: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 8,
+  },
+  cancelReasonLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    color: '#E53935',
+    marginBottom: 3,
+  },
+  cancelReasonText: {
+    fontSize: 13,
+    lineHeight: 18,
   },
 });

@@ -391,7 +391,7 @@
     }
 
     .bmanny-page {
-        @apply min-h-full flex-1 bg-[#edf2f9] px-4 py-6 dark:bg-background sm:px-6 lg:px-8 lg:py-8;
+        @apply min-h-full min-w-0 w-full flex-1 overflow-x-hidden bg-[#edf2f9] px-4 py-6 dark:bg-background sm:px-6 lg:px-8 lg:py-8;
     }
 
     .bmanny-page-inner {

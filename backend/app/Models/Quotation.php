@@ -16,6 +16,8 @@ class Quotation extends Model
     protected $fillable = [
         'inquiry_id',
         'total_amount',
+        'initial_payment_amount',
+        'balance_payment_amount',
         'item_details',
         'product_specification',
         'status',
@@ -26,6 +28,8 @@ class Quotation extends Model
     ];
 
     protected $casts = [
+        'initial_payment_amount' => 'decimal:2',
+        'balance_payment_amount' => 'decimal:2',
         'payment_submitted_at' => 'datetime',
         'product_specification' => 'array',
     ];

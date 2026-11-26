@@ -91,6 +91,10 @@ interface Order {
     order_id: number;
     status: OrderStatus;
     total_amount: string;
+    initial_payment_amount?: string | number | null;
+    initial_payment_verified_at?: string | null;
+    balance_payment_amount?: string | number | null;
+    balance_payment_verified_at?: string | null;
     created_at: string;
     courier_name: string | null;
     courier_tracking_number: string | null;
@@ -636,6 +640,26 @@ export default function OrdersIndex({ orders }: Props) {
                                                 <span className="text-muted-foreground">Total Quoted: </span>
                                                 <span className="font-bold text-foreground">{formatAmount(viewingOrder.total_amount)}</span>
                                             </p>
+                                            {viewingOrder.initial_payment_amount != null && (
+                                                <p className="text-xs text-foreground">
+                                                    <span className="text-muted-foreground">Before Production: </span>
+                                                    <span className="font-semibold text-foreground">{formatAmount(String(viewingOrder.initial_payment_amount))}</span>
+                                                    {viewingOrder.initial_payment_verified_at ? (
+                                                        <span className="ml-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">(Verified)</span>
+                                                    ) : null}
+                                                </p>
+                                            )}
+                                            {viewingOrder.balance_payment_amount != null && (
+                                                <p className="text-xs text-foreground">
+                                                    <span className="text-muted-foreground">Before Pickup: </span>
+                                                    <span className="font-semibold text-foreground">{formatAmount(String(viewingOrder.balance_payment_amount))}</span>
+                                                    {viewingOrder.balance_payment_verified_at ? (
+                                                        <span className="ml-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">(Verified)</span>
+                                                    ) : (
+                                                        <span className="ml-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">(Pending)</span>
+                                                    )}
+                                                </p>
+                                            )}
                                             <p className="text-xs text-muted-foreground">
                                                 <span>Date Placed: </span>
                                                 <span className="font-mono">{formatDate(viewingOrder.created_at)}</span>

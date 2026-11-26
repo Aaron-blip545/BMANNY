@@ -1,10 +1,11 @@
 import { confirmModal } from '@/lib/sweetalert';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { CheckCircle2, ChevronDown, Clock, FileText, ImageIcon, Plus, Search, Send } from 'lucide-react';
+import { CheckCircle2, ChevronDown, Clock, FileText, ImageIcon, Layers, Plus, Search, Send } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -18,15 +19,29 @@ interface BusinessClient {
     user: { email: string } | null;
 }
 
+interface InquiryCustomization {
+    customization_id: number;
+    selected_package?: string | null;
+    packaging_type?: string | null;
+    packaging_finish?: string | null;
+    serving_size?: string | null;
+    formulation_notes?: string | null;
+    requested_ingredient_note?: string | null;
+    client_notes?: string | null;
+}
+
 interface Inquiry {
     inquiry_id: number;
     client: BusinessClient | null;
+    customizations?: InquiryCustomization[];
 }
 
 interface Quotation {
     quotation_id: number;
     status: 'sent' | 'accepted' | 'rejected';
     total_amount: string | number;
+    initial_payment_amount?: string | number | null;
+    balance_payment_amount?: string | number | null;
     valid_until: string | null;
     item_details: string | null;
     created_at: string;
@@ -80,12 +95,33 @@ function formatCurrency(amount: string | number) {
     }).format(Number(amount));
 }
 
+function parseClientNotes(raw?: string | null): Array<{ label: string; value: string }> | null {
+    if (!raw || !raw.includes('|')) return null;
+    const entries = raw
+        .split('|')
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .map((part) => {
+            const colonIdx = part.indexOf(':');
+            if (colonIdx > 0 && colonIdx < 40) {
+                return {
+                    label: part.slice(0, colonIdx).trim(),
+                    value: part.slice(colonIdx + 1).trim(),
+                };
+            }
+            return { label: 'Note', value: part };
+        })
+        .filter((item) => item.value.length > 0);
+    return entries.length > 0 ? entries : null;
+}
+
 export default function QuotationsPage({ quotations }: Props) {
     const { flash, errors } = usePage().props as any;
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
     const [proofPreview, setProofPreview] = useState<{ url: string; quotationId: number } | null>(null);
     const [receiptPreview, setReceiptPreview] = useState<{ url: string; quotationId: number; milestone: 'Initial' | 'Balance' } | null>(null);
+    const [viewingQuotation, setViewingQuotation] = useState<Quotation | null>(null);
 
     async function handleAccept(quotation: Quotation) {
         const client = quotation.inquiry?.client;
@@ -302,7 +338,8 @@ export default function QuotationsPage({ quotations }: Props) {
                                     return (
                                         <tr
                                             key={quotation.quotation_id}
-                                            className="group rounded-xl border border-border/70 bg-card shadow-xs transition-shadow hover:shadow-md"
+                                            onClick={() => setViewingQuotation(quotation)}
+                                            className="group cursor-pointer rounded-xl border border-border/70 bg-card shadow-xs transition-shadow hover:shadow-md"
                                         >
                                             {/* Quote # */}
                                             <td className="rounded-l-xl border-y border-l border-border/70 p-5 align-middle">
@@ -337,6 +374,12 @@ export default function QuotationsPage({ quotations }: Props) {
                                                 <p className="text-base font-bold font-mono text-foreground">
                                                     {formatCurrency(quotation.total_amount)}
                                                 </p>
+                                                <p className="mt-1 text-[11px] font-mono text-muted-foreground">
+                                                    Initial: {formatCurrency(quotation.initial_payment_amount ?? Number(quotation.total_amount) / 2)}
+                                                </p>
+                                                <p className="text-[11px] font-mono text-muted-foreground">
+                                                    Pickup: {formatCurrency(quotation.balance_payment_amount ?? Number(quotation.total_amount) / 2)}
+                                                </p>
                                             </td>
 
                                             {/* Status */}
@@ -349,7 +392,10 @@ export default function QuotationsPage({ quotations }: Props) {
                                             </td>
 
                                             {/* Payment */}
-                                            <td className="border-y border-border/70 p-5 align-middle">
+                                            <td
+                                                className="border-y border-border/70 p-5 align-middle"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
                                                 {paymentSubmitted ? (
                                                     <div className="space-y-1.5">
                                                         <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-900 dark:bg-blue-500/20 dark:text-blue-300">
@@ -386,7 +432,10 @@ export default function QuotationsPage({ quotations }: Props) {
                                             </td>
 
                                             {/* Action */}
-                                            <td className="rounded-r-xl border-y border-r border-border/70 p-5 align-middle">
+                                            <td
+                                                className="rounded-r-xl border-y border-r border-border/70 p-5 align-middle"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
                                                 {paymentSubmitted ? (
                                                     <div className="flex items-center gap-2">
                                                         <Button
@@ -525,6 +574,167 @@ export default function QuotationsPage({ quotations }: Props) {
                     </DialogContent>
                 </Dialog>
             </div>
+            {/* Quotation Details Slide-Over Sheet (matching Order Manager) */}
+            <Sheet open={Boolean(viewingQuotation)} onOpenChange={(open) => !open && setViewingQuotation(null)}>
+                <SheetContent className="w-full overflow-y-auto sm:max-w-2xl space-y-5 p-6">
+                    {viewingQuotation && (
+                        <>
+                            <SheetHeader className="space-y-1.5 text-left">
+                                <div className="flex items-center justify-between pr-8">
+                                    <span className="font-mono text-xs font-bold uppercase tracking-wider text-primary">
+                                        Quotation #{viewingQuotation.quotation_id}
+                                    </span>
+                                    <span
+                                        className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold capitalize ${STATUS_COLORS[viewingQuotation.status] ?? 'bg-muted text-muted-foreground'}`}
+                                    >
+                                        {viewingQuotation.status}
+                                    </span>
+                                </div>
+                                <SheetTitle className="text-xl font-black uppercase tracking-tight text-foreground">
+                                    QUOTED PRODUCTION SPECIFICATIONS
+                                </SheetTitle>
+                                <SheetDescription className="text-xs text-muted-foreground">
+                                    Quotation details, payment milestones, and package specifications.
+                                </SheetDescription>
+                            </SheetHeader>
+
+                            <div className="rounded-xl border border-border/70 bg-muted/20 p-4 space-y-3">
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    <div>
+                                        <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Client Information</p>
+                                        <p className="mt-1 text-sm font-bold text-foreground">{viewingQuotation.inquiry?.client?.business_name ?? '—'}</p>
+                                        <p className="text-xs text-muted-foreground">{viewingQuotation.inquiry?.client?.contact_person ?? ''}</p>
+                                        {viewingQuotation.inquiry?.client?.user?.email && (
+                                            <p className="text-xs font-mono text-muted-foreground">{viewingQuotation.inquiry.client.user.email}</p>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Quotation &amp; Order Reference</p>
+                                        {viewingQuotation.inquiry && (
+                                            <p className="mt-1 text-xs text-foreground">
+                                                <span className="text-muted-foreground">Inquiry: </span>
+                                                <span className="font-mono font-bold text-primary">#{viewingQuotation.inquiry.inquiry_id}</span>
+                                            </p>
+                                        )}
+                                        {viewingQuotation.order && (
+                                            <p className="text-xs text-foreground">
+                                                <span className="text-muted-foreground">Order: </span>
+                                                <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">#{viewingQuotation.order.order_id}</span>
+                                            </p>
+                                        )}
+                                        <p className="text-xs text-foreground">
+                                            <span className="text-muted-foreground">Total Quoted: </span>
+                                            <span className="font-bold text-foreground">{formatCurrency(viewingQuotation.total_amount)}</span>
+                                        </p>
+                                        <p className="text-xs text-foreground">
+                                            <span className="text-muted-foreground">Before Production: </span>
+                                            <span className="font-semibold text-foreground">
+                                                {formatCurrency(viewingQuotation.initial_payment_amount ?? Number(viewingQuotation.total_amount) / 2)}
+                                            </span>
+                                        </p>
+                                        <p className="text-xs text-foreground">
+                                            <span className="text-muted-foreground">Before Pickup: </span>
+                                            <span className="font-semibold text-foreground">
+                                                {formatCurrency(viewingQuotation.balance_payment_amount ?? Number(viewingQuotation.total_amount) / 2)}
+                                            </span>
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                            <span>Sent: </span>
+                                            <span className="font-mono">{formatDate(viewingQuotation.created_at)}</span>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="rounded-xl border border-border/70 bg-card p-4 space-y-2 shadow-xs">
+                                <div className="flex items-center gap-2 border-b border-border/60 pb-2.5">
+                                    <FileText className="size-4 text-primary" />
+                                    <h3 className="text-sm font-bold text-foreground">Quoted Item Details &amp; Commercial Terms</h3>
+                                </div>
+                                {viewingQuotation.item_details ? (
+                                    <pre className="mt-2 whitespace-pre-wrap rounded-lg bg-muted/40 p-3.5 font-mono text-xs leading-relaxed text-foreground border border-input/60">
+                                        {viewingQuotation.item_details}
+                                    </pre>
+                                ) : (
+                                    <p className="py-2 text-xs italic text-muted-foreground">
+                                        No item details text was included in this quotation.
+                                    </p>
+                                )}
+                            </div>
+
+                            {viewingQuotation.inquiry?.customizations && viewingQuotation.inquiry.customizations.length > 0 && (
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-2">
+                                        <Layers className="size-4 text-primary" />
+                                        <h3 className="text-sm font-bold text-foreground">Package &amp; Formulation Specifications</h3>
+                                    </div>
+                                    {viewingQuotation.inquiry.customizations.map((c, idx) => {
+                                        const parsedNotes = parseClientNotes(c.client_notes);
+                                        return (
+                                            <div key={c.customization_id || idx} className="rounded-xl border border-border/70 bg-card p-4 shadow-xs space-y-3">
+                                                <p className="text-xs font-bold text-primary uppercase tracking-wide">
+                                                    Specification #{idx + 1}: {c.selected_package ?? c.packaging_type ?? 'Custom Package'}
+                                                </p>
+                                                <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
+                                                    <div className="rounded-lg bg-muted/30 p-2.5">
+                                                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Package</p>
+                                                        <p className="mt-0.5 font-semibold capitalize text-foreground">{c.selected_package ?? 'Standard'}</p>
+                                                    </div>
+                                                    <div className="rounded-lg bg-muted/30 p-2.5">
+                                                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Packaging Type</p>
+                                                        <p className="mt-0.5 font-semibold text-foreground">{c.packaging_type ?? '—'}</p>
+                                                    </div>
+                                                    <div className="rounded-lg bg-muted/30 p-2.5">
+                                                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Finish</p>
+                                                        <p className="mt-0.5 font-semibold text-foreground">{c.packaging_finish ?? '—'}</p>
+                                                    </div>
+                                                    <div className="rounded-lg bg-muted/30 p-2.5">
+                                                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Serving Size</p>
+                                                        <p className="mt-0.5 font-semibold text-foreground">{c.serving_size ?? '—'}</p>
+                                                    </div>
+                                                </div>
+                                                {c.client_notes && (
+                                                    <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2.5">
+                                                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Customer Details</p>
+                                                        {parsedNotes ? (
+                                                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                                                {parsedNotes.map((item, pIdx) => {
+                                                                    const isWide = item.value.length > 48 || item.label.toLowerCase().includes('terms') || item.label.toLowerCase().includes('instruction');
+                                                                    return (
+                                                                        <div
+                                                                            key={pIdx}
+                                                                            className={`rounded-md border border-border/50 bg-card/80 px-3 py-2 ${isWide ? 'sm:col-span-2' : ''}`}
+                                                                        >
+                                                                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                                                                {item.label}
+                                                                            </p>
+                                                                            <p className="mt-0.5 text-xs font-medium leading-relaxed text-foreground">
+                                                                                {item.value}
+                                                                            </p>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-xs leading-relaxed text-foreground whitespace-pre-wrap">{c.client_notes}</p>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            <SheetFooter className="pt-2">
+                                <Button type="button" variant="outline" onClick={() => setViewingQuotation(null)}>
+                                    Close
+                                </Button>
+                            </SheetFooter>
+                        </>
+                    )}
+                </SheetContent>
+            </Sheet>
         </AppLayout>
     );
 }

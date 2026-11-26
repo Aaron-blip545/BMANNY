@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Models\ClientPackagingBalance;
 use App\Models\Inquiry;
 use App\Models\InquiryFollowup;
 use App\Models\ConversationArchive;
@@ -38,6 +39,11 @@ class SalesAgentController extends Controller
         $inquiries = Inquiry::with([
             'client.user',       // business name + contact info
             'customizations',    // packaging specs
+            'quotation.order',   // quotation & order details
+            'packagingBalance.inquiries' => fn ($query) => $query
+                ->with('quotation.order')
+                ->whereIn('inquiry_type', ['reorder_batch', 'packaging_replenishment'])
+                ->orderByDesc('created_at'),
             'productRequestReview.suggestedVariant.productType',
             'productRequestReview.suggestedPackaging',
             'followUps.creator',
@@ -64,7 +70,7 @@ class SalesAgentController extends Controller
         ]);
 
         $inquiry = Inquiry::findOrFail($inquiryId);
-        if (in_array($inquiry->status, ['converted', 'closed'], true)) {
+        if (in_array($inquiry->status, ['converted', 'cancelled'], true) || $inquiry->cancelled_at) {
             return back()->withErrors(['follow_up' => 'Follow-ups can only be scheduled for active leads.']);
         }
 
@@ -74,8 +80,6 @@ class SalesAgentController extends Controller
             'follow_up_date' => $data['follow_up_date'],
             'note' => $data['note'],
         ]);
-
-        $inquiry->update(['status' => 'follow_up']);
 
         return back()->with('success', 'Follow-up scheduled.');
     }
@@ -133,7 +137,7 @@ class SalesAgentController extends Controller
     {
         // Pass leads ready for quotation that have been reviewed by the Product Controller
         // and do not yet have a quotation, so the sales agent can pick one from a dropdown.
-        $pendingInquiries = Inquiry::with(['client.user', 'customizations', 'productRequestReview.suggestedVariant.productType', 'productRequestReview.suggestedVariant.currentMoq', 'productRequestReview.suggestedPackaging'])
+        $pendingInquiries = Inquiry::with(['client.user', 'customizations', 'packagingBalance', 'productRequestReview.suggestedVariant.productType', 'productRequestReview.suggestedVariant.currentMoq', 'productRequestReview.suggestedPackaging'])
             ->whereIn('status', ['new', 'for_quotation', 'follow_up'])
             ->whereDoesntHave('quotation')
             ->whereHas('productRequestReview', function ($query) {
@@ -155,25 +159,70 @@ class SalesAgentController extends Controller
     public function storeQuotation(Request $request)
     {
         $validated = $request->validate([
-            'inquiry_id'   => 'required|exists:inquiries,inquiry_id',
-            'total_amount' => 'required|numeric|min:0',
-            'valid_until'  => 'nullable|date|after_or_equal:today',
-            'item_details' => 'nullable|string',
+            'inquiry_id'             => 'required|exists:inquiries,inquiry_id',
+            'total_amount'           => 'required|numeric|min:0',
+            'initial_payment_amount' => 'nullable|numeric|min:0',
+            'balance_payment_amount' => 'nullable|numeric|min:0',
+            'valid_until'            => 'nullable|date|after_or_equal:today',
+            'item_details'           => 'nullable|string',
         ]);
 
-        $inquiry = Inquiry::with(['client.user', 'productRequestReview'])->findOrFail($validated['inquiry_id']);
+        $inquiry = Inquiry::with(['client.user', 'customizations', 'packagingBalance', 'productRequestReview'])->findOrFail($validated['inquiry_id']);
 
         if (!$inquiry->productRequestReview || !in_array($inquiry->productRequestReview->status, ['available', 'alternative'], true)) {
             return back()->withErrors(['inquiry_id' => 'The inquiry must be reviewed by the Product Controller before a quotation can be created.']);
         }
 
+        $totalAmount = round((float) $validated['total_amount'], 2);
+        $initialAmount = isset($validated['initial_payment_amount']) && $validated['initial_payment_amount'] !== ''
+            ? round((float) $validated['initial_payment_amount'], 2)
+            : null;
+        $balanceAmount = isset($validated['balance_payment_amount']) && $validated['balance_payment_amount'] !== ''
+            ? round((float) $validated['balance_payment_amount'], 2)
+            : null;
+
+        if ($initialAmount === null || $balanceAmount === null) {
+            if ($inquiry->inquiry_type === 'reorder_batch') {
+                // Repeat-batch reorder: production cost only, 100% before production, ₱0 before pickup.
+                $initialAmount = $initialAmount ?? $totalAmount;
+                $balanceAmount = $balanceAmount ?? round(max(0, $totalAmount - $initialAmount), 2);
+            } elseif ($inquiry->inquiry_type === 'packaging_replenishment' && $inquiry->packagingBalance) {
+                // Packaging replenishment: packaging cost (excluding cylinder) before production, production cost before pickup.
+                $packCost = $inquiry->packagingBalance->packagingReplenishmentCost();
+                $initialAmount = $initialAmount ?? min($packCost, $totalAmount);
+                $balanceAmount = $balanceAmount ?? round(max(0, $totalAmount - $initialAmount), 2);
+            } else {
+                $selectedSlug = $inquiry->customizations->first()?->selected_package;
+                $package = $selectedSlug
+                    ? ProductPackage::where('slug', $selectedSlug)->where('is_active', true)->first()
+                    : null;
+
+                if ($package && $package->before_production_amount !== null) {
+                    $defaultInitial = round((float) $package->before_production_amount, 2);
+                    $initialAmount = $initialAmount ?? min($defaultInitial, $totalAmount);
+                    $balanceAmount = $balanceAmount ?? round(max(0, $totalAmount - $initialAmount), 2);
+                } else {
+                    $initialAmount = $initialAmount ?? round($totalAmount / 2, 2);
+                    $balanceAmount = $balanceAmount ?? round($totalAmount - $initialAmount, 2);
+                }
+            }
+        }
+
+        if (abs(($initialAmount + $balanceAmount) - $totalAmount) > 0.01) {
+            return back()->withErrors([
+                'initial_payment_amount' => 'Before production and before pickup amounts must add up to the total amount.',
+            ]);
+        }
+
         $quotation = Quotation::create([
-            'inquiry_id'   => $validated['inquiry_id'],
-            'total_amount' => $validated['total_amount'],
-            'valid_until'  => $validated['valid_until'] ?? null,
-            'item_details' => $validated['item_details'] ?? null,
-            'product_specification' => QuotationSpecificationService::forInquiry($inquiry),
-            'status'       => 'sent',
+            'inquiry_id'             => $validated['inquiry_id'],
+            'total_amount'           => $totalAmount,
+            'initial_payment_amount' => $initialAmount,
+            'balance_payment_amount' => $balanceAmount,
+            'valid_until'            => $validated['valid_until'] ?? null,
+            'item_details'           => $validated['item_details'] ?? null,
+            'product_specification'  => QuotationSpecificationService::forInquiry($inquiry),
+            'status'                 => 'sent',
         ]);
 
         // Mark the lead as quotation sent once the client can review it.
@@ -204,7 +253,7 @@ class SalesAgentController extends Controller
      */
     public function quotations(): Response
     {
-        $quotations = Quotation::with(['inquiry.client.user', 'order'])
+        $quotations = Quotation::with(['inquiry.client.user', 'inquiry.customizations', 'order'])
             ->orderByDesc('created_at')
             ->get();
 
@@ -234,7 +283,7 @@ class SalesAgentController extends Controller
      */
     public function acceptQuotation($id)
     {
-        $quotation = Quotation::with('inquiry.client.user')->findOrFail($id);
+        $quotation = Quotation::with(['inquiry.client.user', 'inquiry.customizations', 'inquiry.packagingBalance'])->findOrFail($id);
 
         if ($quotation->status !== 'sent') {
             return back()->withErrors(['status' => 'Only a sent quotation can be accepted.']);
@@ -251,21 +300,64 @@ class SalesAgentController extends Controller
         $order = null;
 
         DB::transaction(function () use ($quotation, &$order) {
+            $totalAmount = round((float) $quotation->total_amount, 2);
+            $initialAmount = $quotation->initial_payment_amount !== null
+                ? round((float) $quotation->initial_payment_amount, 2)
+                : round($totalAmount / 2, 2);
+            $balanceAmount = $quotation->balance_payment_amount !== null
+                ? round((float) $quotation->balance_payment_amount, 2)
+                : round(max(0, $totalAmount - $initialAmount), 2);
+
             $order = Order::create([
                 'client_id'    => $quotation->inquiry->client->client_id,
                 'quotation_id' => $quotation->quotation_id,
-                // The quotation is the complete package total. Payment is
-                // split equally: 50% before production and 50% before pickup.
-                'total_amount' => $quotation->total_amount,
-                'initial_payment_amount' => $quotation->total_amount / 2,
+                'total_amount' => $totalAmount,
+                'initial_payment_amount' => $initialAmount,
                 'initial_payment_verified_at' => now(),
-                'balance_payment_amount' => $quotation->total_amount / 2,
+                'balance_payment_amount' => $balanceAmount,
+                'balance_payment_verified_at' => $balanceAmount <= 0 ? now() : null,
                 'status'       => 'approved', // matches Figure 6.3's first order stage
             ]);
 
             $quotation->status = 'accepted';
             $quotation->save();
             $quotation->inquiry->update(['status' => 'converted']);
+
+            // Update or initialize per-client Gold/Elite stored packaging MOQ tracker
+            $inquiry = $quotation->inquiry;
+            if ($inquiry->inquiry_type === 'reorder_batch' && $inquiry->packagingBalance) {
+                $batchQty = (int) ($inquiry->reorder_batch_quantity ?: $inquiry->packagingBalance->batch_min_quantity);
+                $inquiry->packagingBalance->deductBatch($batchQty);
+            } elseif ($inquiry->inquiry_type === 'packaging_replenishment' && $inquiry->packagingBalance) {
+                $batchQty = (int) ($inquiry->reorder_batch_quantity ?: $inquiry->packagingBalance->batch_min_quantity);
+                $inquiry->packagingBalance->replenish($batchQty, $order->order_id);
+            } else {
+                $firstCust = $inquiry->customizations->first();
+                $selectedSlug = $firstCust?->selected_package;
+                $rules = ClientPackagingBalance::rulesForSlug($selectedSlug);
+                if ($rules) {
+                    $brandName = $inquiry->client->business_name ?? 'Client Brand';
+                    if ($firstCust?->client_notes && preg_match('/Brand:\s*([^|]+)/i', $firstCust->client_notes, $matches)) {
+                        $brandName = trim($matches[1]);
+                    }
+                    $usedFirstBatch = $rules['batch_min_quantity'];
+                    ClientPackagingBalance::create([
+                        'client_id'            => $inquiry->client->client_id,
+                        'source_order_id'      => $order->order_id,
+                        'brand_name'           => $brandName,
+                        'package_slug'         => strtolower($selectedSlug),
+                        'total_pouches'        => $rules['total_pouches'],
+                        'used_pouches'         => $usedFirstBatch,
+                        'remaining_pouches'    => max(0, $rules['total_pouches'] - $usedFirstBatch),
+                        'production_unit_cost' => $rules['production_unit_cost'],
+                        'packaging_unit_cost'  => $rules['packaging_unit_cost'],
+                        'batch_min_quantity'   => $rules['batch_min_quantity'],
+                        'cylinder_paid'        => true,
+                        'expires_at'           => now()->addYears(2),
+                        'status'               => 'active',
+                    ]);
+                }
+            }
         });
 
         // Notify client that payment was accepted and order created
@@ -305,7 +397,7 @@ class SalesAgentController extends Controller
      */
     public function rejectPayment($id)
     {
-        $quotation = Quotation::with('inquiry.client.user')->findOrFail($id);
+        $quotation = Quotation::with(['inquiry.client.user', 'inquiry.customizations', 'inquiry.packagingBalance'])->findOrFail($id);
 
         if (! $quotation->payment_submitted_at) {
             return back()->withErrors(['status' => 'This quotation has no payment submission to reject.']);

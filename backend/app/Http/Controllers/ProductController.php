@@ -141,6 +141,14 @@ class ProductController extends Controller
                         'net_weight' => $package->net_weight,
                         'lead_time_text' => $package->lead_time_text,
                         'initial_price' => (float) $package->initial_price,
+                        'before_production_amount' => $package->before_production_amount !== null
+                            ? (float) $package->before_production_amount
+                            : round((float) $package->initial_price / 2, 2),
+                        'before_production_label' => $package->before_production_label ?: 'Before production (50%)',
+                        'before_pickup_amount' => $package->before_pickup_amount !== null
+                            ? (float) $package->before_pickup_amount
+                            : round((float) $package->initial_price / 2, 2),
+                        'before_pickup_label' => $package->before_pickup_label ?: 'Before pickup (50%)',
                         'payment_terms' => $package->payment_terms,
                         'public_ingredients' => $package->public_ingredients,
                         'cost_breakdown' => $package->cost_breakdown,

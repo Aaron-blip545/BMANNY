@@ -18,11 +18,16 @@ class Inquiry extends Model
         'subject',
         'message',
         'status',
+        'inquiry_type',
+        'packaging_balance_id',
+        'reorder_batch_quantity',
+        'source_order_id',
         'cancelled_at',
         'cancellation_reason',
     ];
 
     protected $casts = [
+        'reorder_batch_quantity' => 'integer',
         'cancelled_at' => 'datetime',
     ];
 
@@ -53,5 +58,15 @@ class Inquiry extends Model
         return $this->hasMany(InquiryFollowup::class, 'inquiry_id', 'inquiry_id')
             ->orderBy('completed_at')
             ->orderBy('follow_up_date');
+    }
+
+    public function packagingBalance()
+    {
+        return $this->belongsTo(ClientPackagingBalance::class, 'packaging_balance_id', 'balance_id');
+    }
+
+    public function sourceOrder()
+    {
+        return $this->belongsTo(Order::class, 'source_order_id', 'order_id');
     }
 }

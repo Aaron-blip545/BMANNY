@@ -5,7 +5,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   Platform,
+  AppState,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
@@ -16,8 +18,11 @@ interface MobileNavDockProps {
   activeTab: 'home' | 'orders' | 'messages' | 'profile';
 }
 
+const ORDER_NOTIFICATION_TYPES = ['inquiry', 'quotation', 'order', 'payment', 'product_request', 'follow_up'];
+
 export function MobileNavDock({ activeTab }: MobileNavDockProps) {
   const { colors, isDarkMode } = useTheme();
+  const insets = useSafeAreaInsets();
   const [attention, setAttention] = useState({ orders: 0, messages: 0 });
 
   const loadAttention = useCallback(async () => {
@@ -26,9 +31,9 @@ export function MobileNavDock({ activeTab }: MobileNavDockProps) {
       const unread = (data.notifications ?? []).filter((item: any) => !item.is_read);
       setAttention({
         messages: unread.filter((item: any) => item.type === 'message').length,
-        // The Orders tab contains inquiries, quotations, and orders, so one
+        // The Orders tab contains inquiries, quotations, payments, and orders, so one
         // count here tells the customer which tab has an update to review.
-        orders: unread.filter((item: any) => ['inquiry', 'quotation', 'order', 'product_request', 'follow_up'].includes(item.type)).length,
+        orders: unread.filter((item: any) => ORDER_NOTIFICATION_TYPES.includes(item.type)).length,
       });
     } catch {
       // Navigation stays usable if the notification request is temporarily unavailable.
@@ -37,17 +42,28 @@ export function MobileNavDock({ activeTab }: MobileNavDockProps) {
 
   useEffect(() => {
     loadAttention();
-    return subscribeToRealtime((event) => {
+    const unsubscribe = subscribeToRealtime((event) => {
       if (event.type === 'notification.created' || event.type === 'chat.message.created') {
         loadAttention();
       }
     });
+    const interval = setInterval(() => {
+      loadAttention();
+    }, 6000);
+    const appStateSub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        loadAttention();
+      }
+    });
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+      appStateSub.remove();
+    };
   }, [loadAttention]);
 
   const clearTabAttention = useCallback(async (tab: 'orders' | 'messages') => {
-    const types = tab === 'messages'
-      ? ['message']
-      : ['inquiry', 'quotation', 'order', 'product_request', 'follow_up'];
+    const types = tab === 'messages' ? ['message'] : ORDER_NOTIFICATION_TYPES;
 
     setAttention((current) => ({ ...current, [tab]: 0 }));
 
@@ -104,69 +120,89 @@ export function MobileNavDock({ activeTab }: MobileNavDockProps) {
   const squircleBg = isDarkMode ? 'rgba(255, 255, 255, 0.12)' : 'rgba(33, 150, 243, 0.12)';
   const squircleBorder = isDarkMode ? 'rgba(255, 255, 255, 0.18)' : 'rgba(33, 150, 243, 0.25)';
 
+  const bottomSafePadding = Math.max(insets.bottom, Platform.OS === 'ios' ? 20 : 12) + 6;
+
   return (
-    <View style={[styles.dockContainer, { backgroundColor: dockBg, borderColor: dockBorder }]}>
-      <View style={styles.navRow}>
-        {navItems.map((item) => {
-          const isActive = activeTab === item.id;
-          const count = item.id === 'messages' ? attention.messages : item.id === 'orders' ? attention.orders : 0;
-          const hasAttention = count > 0;
-          return (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.navItem}
-              onPress={() => {
-                if (item.id === 'orders' || item.id === 'messages') {
-                  void clearTabAttention(item.id);
-                }
-                if (!isActive) {
-                  router.push(item.route as any);
-                }
-              }}
-              activeOpacity={0.7}
-            >
-              {isActive ? (
-                <View
-                  style={[
-                    styles.activeSquircle,
-                    { backgroundColor: squircleBg, borderColor: squircleBorder },
-                  ]}
-                >
-                  <Ionicons
-                    name={item.iconFilled}
-                    size={20}
-                    color="#2196F3"
-                  />
-                  <Text style={[styles.activeLabel, { color: colors.text }]}>
-                    {item.label}
-                  </Text>
-                  <View style={styles.indicatorBar} />
-                </View>
-              ) : (
-                <View style={styles.inactiveTab}>
-                  {hasAttention && <View style={styles.attentionLine} />}
-                  <Ionicons
-                    name={item.iconOutline}
-                    size={21}
-                    color={hasAttention ? '#2196F3' : colors.textSecondary}
-                  />
-                  <Text style={[styles.inactiveLabel, { color: hasAttention ? '#2196F3' : colors.textSecondary }]}>
-                    {item.label}{hasAttention ? ` ${count > 99 ? '99+' : count}` : ''}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          );
-        })}
+    <View style={[styles.safeWrapper, { backgroundColor: colors.background, paddingBottom: bottomSafePadding }]}>
+      <View style={[styles.dockContainer, { backgroundColor: dockBg, borderColor: dockBorder }]}>
+        <View style={styles.navRow}>
+          {navItems.map((item) => {
+            const isActive = activeTab === item.id;
+            const count = item.id === 'messages' ? attention.messages : item.id === 'orders' ? attention.orders : 0;
+            const hasAttention = count > 0;
+            const badgeText = count > 99 ? '99+' : String(count);
+            return (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.navItem}
+                onPress={() => {
+                  if (item.id === 'orders' || item.id === 'messages') {
+                    void clearTabAttention(item.id);
+                  }
+                  if (!isActive) {
+                    router.push(item.route as any);
+                  }
+                }}
+                activeOpacity={0.7}
+              >
+                {isActive ? (
+                  <View
+                    style={[
+                      styles.activeSquircle,
+                      { backgroundColor: squircleBg, borderColor: squircleBorder },
+                    ]}
+                  >
+                    <View style={styles.iconWrapper}>
+                      <Ionicons
+                        name={item.iconFilled}
+                        size={20}
+                        color="#2196F3"
+                      />
+                      {hasAttention && (
+                        <View style={styles.badge}>
+                          <Text style={styles.badgeText}>{badgeText}</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={[styles.activeLabel, { color: colors.text }]}>
+                      {item.label}
+                    </Text>
+                    <View style={styles.indicatorBar} />
+                  </View>
+                ) : (
+                  <View style={styles.inactiveTab}>
+                    <View style={styles.iconWrapper}>
+                      <Ionicons
+                        name={item.iconOutline}
+                        size={21}
+                        color={hasAttention ? '#2196F3' : colors.textSecondary}
+                      />
+                      {hasAttention && (
+                        <View style={styles.badge}>
+                          <Text style={styles.badgeText}>{badgeText}</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={[styles.inactiveLabel, { color: hasAttention ? '#2196F3' : colors.textSecondary }]}>
+                      {item.label}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  safeWrapper: {
+    paddingTop: 6,
+  },
   dockContainer: {
     marginHorizontal: 16,
-    marginBottom: Platform.OS === 'ios' ? 24 : 12,
     borderRadius: 26,
     borderWidth: 1.5,
     paddingVertical: 8,
@@ -176,6 +212,31 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 18,
     elevation: 4,
+  },
+  iconWrapper: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badge: {
+    position: 'absolute',
+    top: -6,
+    right: -12,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#1a2232',
+  },
+  badgeText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '800',
+    lineHeight: 12,
   },
   navRow: {
     flexDirection: 'row',

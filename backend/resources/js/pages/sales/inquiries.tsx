@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
@@ -15,7 +16,10 @@ import {
     Clock,
     FileCheck,
     FilePenLine,
+    FileText,
     History,
+    Layers,
+    MapPin,
     MessageSquare,
     Plus,
     Search,
@@ -26,13 +30,20 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Inquiries', href: '/inquiries' }];
-const LEAD_STATUSES = ['new', 'for_quotation', 'quotation_sent', 'follow_up', 'converted', 'closed'] as const;
+const LEAD_STATUSES = ['new', 'for_quotation', 'quotation_sent', 'converted', 'cancelled'] as const;
 
 type LeadStatus = (typeof LEAD_STATUSES)[number];
 
 interface Customization {
     customization_id: number;
+    customization_type?: string | null;
     packaging_type: string;
+    packaging_finish?: string | null;
+    serving_size?: string | null;
+    formulation_notes?: string | null;
+    requested_ingredient_note?: string | null;
+    design_file_path?: string | null;
+    client_notes?: string | null;
     selected_package: string | null;
 }
 
@@ -45,14 +56,53 @@ interface FollowUp {
     creator: { full_name: string } | null;
 }
 
+interface ReorderHistoryEntry {
+    inquiry_id: number;
+    inquiry_type: string;
+    reorder_batch_quantity: number | null;
+    status: string;
+    created_at: string;
+    cancelled_at: string | null;
+    quotation?: {
+        quotation_id: number;
+        total_amount?: string | number;
+        order?: { order_id: number; status: string } | null;
+    } | null;
+}
+
+interface PackagingBalanceInfo {
+    balance_id: number;
+    source_order_id?: number | null;
+    brand_name: string;
+    package_slug: string;
+    total_pouches: number;
+    used_pouches: number;
+    remaining_pouches: number;
+    expires_at: string | null;
+    status: string;
+    inquiries?: ReorderHistoryEntry[];
+}
+
 interface Inquiry {
     inquiry_id: number;
     status: LeadStatus;
+    inquiry_type?: 'new' | 'reorder_batch' | 'packaging_replenishment' | string;
+    reorder_batch_quantity?: number | null;
+    source_order_id?: number | null;
+    packaging_balance?: PackagingBalanceInfo | null;
     created_at: string;
     cancelled_at: string | null;
-    client: { business_name: string; contact_person: string; user: { email: string } | null } | null;
+    cancellation_reason: string | null;
+    client: { business_name: string; contact_person: string; business_address?: string | null; user: { email: string } | null } | null;
     customizations: Customization[];
-    quotation: null | { quotation_id: number };
+    quotation: null | {
+        quotation_id: number;
+        total_amount?: string | number;
+        initial_payment_amount?: string | number | null;
+        balance_payment_amount?: string | number | null;
+        item_details?: string | null;
+        status?: string;
+    };
     product_request_review: null | { status: 'pending' | 'available' | 'alternative' | 'unavailable'; response_notes: string | null };
     follow_ups: FollowUp[];
 }
@@ -85,14 +135,18 @@ function statusLabel(status: LeadStatus) {
         new: 'New',
         for_quotation: 'For Quotation',
         quotation_sent: 'Quotation Sent',
-        follow_up: 'Follow-up',
         converted: 'Converted',
-        closed: 'Closed',
+        cancelled: 'Cancelled',
     } as Record<LeadStatus, string>)[status];
 }
 
-function getStatusConfig(status: LeadStatus | 'closed') {
+function getStatusConfig(status: string) {
     switch (status) {
+        case 'cancelled':
+            return {
+                label: 'Cancelled',
+                pill: 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300',
+            };
         case 'new':
             return {
                 label: 'New',
@@ -108,27 +162,37 @@ function getStatusConfig(status: LeadStatus | 'closed') {
                 label: 'Quotation Sent',
                 pill: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
             };
-        case 'follow_up':
-            return {
-                label: 'Follow-up',
-                pill: 'bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300',
-            };
         case 'converted':
+        default:
             return {
                 label: 'Converted',
                 pill: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
-            };
-        case 'closed':
-        default:
-            return {
-                label: 'Closed',
-                pill: 'bg-slate-100 text-slate-700 dark:bg-slate-800/40 dark:text-slate-300',
             };
     }
 }
 
 function openFollowUp(inquiry: Inquiry) {
     return inquiry.follow_ups.find((followUp) => !followUp.completed_at);
+}
+
+function parseClientNotes(raw?: string | null): Array<{ label: string; value: string }> | null {
+    if (!raw || !raw.includes('|')) return null;
+    const entries = raw
+        .split('|')
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .map((part) => {
+            const colonIdx = part.indexOf(':');
+            if (colonIdx > 0 && colonIdx < 40) {
+                return {
+                    label: part.slice(0, colonIdx).trim(),
+                    value: part.slice(colonIdx + 1).trim(),
+                };
+            }
+            return { label: 'Note', value: part };
+        })
+        .filter((item) => item.value.length > 0);
+    return entries.length > 0 ? entries : null;
 }
 
 const HOURS = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
@@ -482,6 +546,7 @@ export default function InquiriesPage({ inquiries }: Props) {
     const [completingFollowUp, setCompletingFollowUp] = useState<FollowUp | null>(null);
     const [completionNote, setCompletionNote] = useState('');
     const [historyFor, setHistoryFor] = useState<Inquiry | null>(null);
+    const [viewingInquiry, setViewingInquiry] = useState<Inquiry | null>(null);
 
     const [datePopoverOpen, setDatePopoverOpen] = useState(false);
     const [timePopoverOpen, setTimePopoverOpen] = useState(false);
@@ -634,7 +699,12 @@ export default function InquiriesPage({ inquiries }: Props) {
     const filteredInquiries = useMemo(() => {
         const term = search.trim().toLowerCase();
         return inquiries.filter((inquiry) => {
-            if (statusFilter !== 'all' && inquiry.status !== statusFilter) return false;
+            const isCancelled = Boolean(inquiry.cancelled_at) || inquiry.status === 'cancelled';
+            if (statusFilter === 'cancelled') {
+                if (!isCancelled) return false;
+            } else if (statusFilter !== 'all') {
+                if (inquiry.status !== statusFilter || isCancelled) return false;
+            }
             if (!term) return true;
             return (
                 String(inquiry.inquiry_id).includes(term) ||
@@ -823,13 +893,15 @@ export default function InquiriesPage({ inquiries }: Props) {
                                         (inquiry.product_request_review.status === 'available' || inquiry.product_request_review.status === 'alternative')
                                     );
                                     const quoteAllowed = !inquiry.quotation && ['new', 'for_quotation', 'follow_up'].includes(inquiry.status) && isReviewedByProductController;
-                                    const inactive = inquiry.status === 'converted' || inquiry.status === 'closed' || Boolean(inquiry.cancelled_at);
+                                    const isCancelled = Boolean(inquiry.cancelled_at) || inquiry.status === 'cancelled';
+                                    const inactive = inquiry.status === 'converted' || isCancelled;
 
                                     return (
                                         <tr
                                             key={inquiry.inquiry_id}
                                             ref={inquiry.inquiry_id === notificationInquiryId ? notificationInquiryRow : undefined}
-                                            className="group bg-card shadow-sm transition-shadow hover:shadow-md"
+                                            onClick={() => setViewingInquiry(inquiry)}
+                                            className="group cursor-pointer bg-card shadow-sm transition-shadow hover:shadow-md"
                                         >
                                             {/* Lead */}
                                             <td className="rounded-l-xl border-y border-l border-border/70 p-5 align-middle">
@@ -846,11 +918,28 @@ export default function InquiriesPage({ inquiries }: Props) {
 
                                             {/* Request */}
                                             <td className="border-y border-border/70 p-5 align-middle">
-                                                <p className="text-base font-bold text-foreground">
-                                                    {inquiry.customizations.length
-                                                        ? inquiry.customizations.map((item) => item.selected_package ?? item.packaging_type).join(', ')
-                                                        : 'Starter'}
-                                                </p>
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <p className="text-base font-bold text-foreground">
+                                                        {inquiry.customizations.length
+                                                            ? inquiry.customizations.map((item) => item.selected_package ?? item.packaging_type).join(', ')
+                                                            : 'Starter'}
+                                                    </p>
+                                                    {inquiry.inquiry_type === 'reorder_batch' && (
+                                                        <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-bold text-blue-800 dark:bg-blue-500/20 dark:text-blue-300">
+                                                            Reorder Batch{inquiry.reorder_batch_quantity ? ` · ${inquiry.reorder_batch_quantity.toLocaleString()} pouches` : ''}
+                                                        </span>
+                                                    )}
+                                                    {inquiry.inquiry_type === 'packaging_replenishment' && (
+                                                        <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
+                                                            Packaging Refill (₱0 Cylinder){inquiry.reorder_batch_quantity ? ` · ${inquiry.reorder_batch_quantity.toLocaleString()} batch` : ''}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {inquiry.packaging_balance && (
+                                                    <p className="mt-1 text-xs font-medium text-primary">
+                                                        Stored MOQ: {inquiry.packaging_balance.remaining_pouches.toLocaleString()} / {inquiry.packaging_balance.total_pouches.toLocaleString()} pouches remaining
+                                                    </p>
+                                                )}
                                                 <p className="mt-1 text-sm text-muted-foreground">
                                                     received {formatDate(inquiry.created_at)}
                                                 </p>
@@ -859,7 +948,7 @@ export default function InquiriesPage({ inquiries }: Props) {
                                             {/* Status */}
                                             <td className="border-y border-border/70 p-5 align-middle">
                                                 {(() => {
-                                                    const effectiveStatus = (inquiry.cancelled_at ? 'closed' : inquiry.status) as LeadStatus | 'closed';
+                                                    const effectiveStatus = isCancelled ? 'cancelled' : inquiry.status;
                                                     const config = getStatusConfig(effectiveStatus);
                                                     return (
                                                         <span className={`inline-flex items-center rounded-full px-4 py-1.5 text-sm font-bold sm:text-base ${config.pill}`}>
@@ -870,7 +959,10 @@ export default function InquiriesPage({ inquiries }: Props) {
                                             </td>
 
                                             {/* Follow-Ups */}
-                                            <td className="border-y border-border/70 p-5 align-middle">
+                                            <td
+                                                className="border-y border-border/70 p-5 align-middle"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
                                                 {followUp ? (
                                                     <div>
                                                         <p className="text-base font-semibold text-foreground">{formatFollowUpDateTime(followUp.follow_up_date)}</p>
@@ -894,24 +986,46 @@ export default function InquiriesPage({ inquiries }: Props) {
                                             </td>
 
                                             {/* History */}
-                                            <td className="border-y border-border/70 p-5 align-middle">
-                                                <p className="text-base font-medium text-foreground">
-                                                    {inquiry.follow_ups.length} Follow-up{inquiry.follow_ups.length === 1 ? '' : 's'}
-                                                </p>
-                                                {inquiry.follow_ups.length > 0 && (
-                                                    <Button
-                                                        variant="link"
-                                                        size="sm"
-                                                        className="mt-1 h-auto p-0 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
-                                                        onClick={() => setHistoryFor(inquiry)}
-                                                    >
-                                                        View history
-                                                    </Button>
-                                                )}
+                                            <td
+                                                className="border-y border-border/70 p-5 align-middle"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                {(() => {
+                                                    const reorderCount = inquiry.packaging_balance?.inquiries?.length ?? 0;
+                                                    return (
+                                                        <div>
+                                                            <p className="text-base font-medium text-foreground">
+                                                                {inquiry.follow_ups.length} Follow-up{inquiry.follow_ups.length === 1 ? '' : 's'}
+                                                            </p>
+                                                            {inquiry.packaging_balance && (
+                                                                <p className="mt-0.5 text-xs font-semibold text-primary">
+                                                                    {reorderCount} Reorder{reorderCount === 1 ? '' : 's'}
+                                                                </p>
+                                                            )}
+                                                            {(inquiry.follow_ups.length > 0 || Boolean(inquiry.cancelled_at) || Boolean(inquiry.packaging_balance)) && (
+                                                                <Button
+                                                                    variant="link"
+                                                                    size="sm"
+                                                                    className="mt-1 h-auto p-0 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                                                                    onClick={() => setHistoryFor(inquiry)}
+                                                                >
+                                                                    {inquiry.cancelled_at
+                                                                        ? 'Cancellation history'
+                                                                        : inquiry.packaging_balance
+                                                                            ? 'Reorder history'
+                                                                            : 'View history'}
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })()}
                                             </td>
 
                                             {/* Actions */}
-                                            <td className="rounded-r-xl border-y border-r border-border/70 p-5 align-middle">
+                                            <td
+                                                className="rounded-r-xl border-y border-r border-border/70 p-5 align-middle"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
                                                 <div className="grid grid-cols-2 gap-2.5 min-w-[260px]">
                                                     <Button
                                                         variant="secondary"
@@ -1266,18 +1380,148 @@ export default function InquiriesPage({ inquiries }: Props) {
                     <div className="p-7 pb-4 flex-1 overflow-y-auto">
                         <DialogHeader className="space-y-1.5 text-left">
                             <DialogTitle className="text-xl font-bold tracking-tight text-foreground">
-                                Follow-up history
+                                Lead history
                             </DialogTitle>
                             <DialogDescription className="text-sm text-muted-foreground">
-                                {historyFor?.client?.business_name ?? 'This lead'}: every scheduled action and its outcome.
+                                {historyFor?.client?.business_name ?? 'This lead'}: cancellation record and follow-up outcomes.
                             </DialogDescription>
                         </DialogHeader>
 
                         <div className="mt-6 space-y-3">
+                            {historyFor?.packaging_balance && (() => {
+                                const bal = historyFor.packaging_balance;
+                                const reorders = bal.inquiries ?? [];
+                                const pct = bal.total_pouches > 0 ? Math.min(100, Math.round((bal.remaining_pouches / bal.total_pouches) * 100)) : 0;
+                                return (
+                                    <article className="rounded-xl border border-blue-200 bg-blue-50/60 p-4 text-sm shadow-xs space-y-3 dark:border-blue-900/60 dark:bg-blue-950/25">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div>
+                                                <span className="font-bold text-blue-800 dark:text-blue-200 capitalize">
+                                                    {bal.package_slug} Package — Stored MOQ &amp; Reorder History
+                                                </span>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {bal.brand_name}{bal.source_order_id ? ` · Initial Order #${bal.source_order_id}` : ''}
+                                                </p>
+                                            </div>
+                                            <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-bold text-blue-800 dark:bg-blue-900/60 dark:text-blue-200">
+                                                {reorders.length} Reorder{reorders.length === 1 ? '' : 's'}
+                                            </span>
+                                        </div>
+
+                                        {/* MOQ Remaining Progress Bar */}
+                                        <div className="space-y-1.5 rounded-lg border border-blue-200/70 bg-card/90 p-3 dark:border-blue-900/50">
+                                            <div className="flex items-center justify-between text-xs">
+                                                <span className="font-bold text-foreground">
+                                                    {bal.remaining_pouches.toLocaleString()} / {bal.total_pouches.toLocaleString()} pouches remaining
+                                                </span>
+                                                <span className="text-muted-foreground">
+                                                    {bal.used_pouches.toLocaleString()} used
+                                                </span>
+                                            </div>
+                                            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                                                <div
+                                                    className="h-full rounded-full bg-blue-600 transition-all"
+                                                    style={{ width: `${pct}%` }}
+                                                />
+                                            </div>
+                                            {bal.expires_at && (
+                                                <p className="text-[11px] text-muted-foreground">
+                                                    Storage valid until {formatDate(bal.expires_at)}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        {/* Individual Reorder Entries */}
+                                        {reorders.length > 0 && (
+                                            <div className="space-y-2 border-t border-blue-200/70 pt-2.5 dark:border-blue-900/50">
+                                                <p className="text-[11px] font-bold uppercase tracking-wider text-blue-800/80 dark:text-blue-300/80">
+                                                    Reorder Batches ({reorders.length})
+                                                </p>
+                                                {reorders.map((entry, idx) => (
+                                                    <div
+                                                        key={entry.inquiry_id}
+                                                        className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-card/90 px-3 py-2 text-xs"
+                                                    >
+                                                        <div>
+                                                            <p className="font-semibold text-foreground">
+                                                                #{reorders.length - idx} · {entry.inquiry_type === 'packaging_replenishment' ? 'Packaging Refill' : 'Repeat Batch'} ({(entry.reorder_batch_quantity ?? 0).toLocaleString()} pouches)
+                                                            </p>
+                                                            <p className="text-[11px] text-muted-foreground">
+                                                                Inquiry #{entry.inquiry_id}
+                                                                {entry.quotation?.order ? ` · Order #${entry.quotation.order.order_id}` : ''}
+                                                                {' · '}
+                                                                {formatDate(entry.created_at)}
+                                                            </p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            {entry.quotation?.total_amount != null && (
+                                                                <p className="font-mono font-bold text-foreground">
+                                                                    ₱{Number(entry.quotation.total_amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                                                </p>
+                                                            )}
+                                                            <p className="text-[11px] font-semibold capitalize text-muted-foreground">
+                                                                {entry.cancelled_at ? 'Cancelled' : entry.status.replace(/_/g, ' ')}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </article>
+                                );
+                            })()}
+
+                            {historyFor?.cancelled_at && (
+                                <article className="rounded-xl border border-rose-200 bg-rose-50/70 p-4 text-sm shadow-xs dark:border-rose-900/60 dark:bg-rose-950/30">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <span className="font-bold text-rose-700 dark:text-rose-300">
+                                            Cancellation Details
+                                        </span>
+                                        <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-700 dark:bg-rose-900/50 dark:text-rose-200">
+                                            Cancelled
+                                        </span>
+                                    </div>
+                                    <div className="mt-3 space-y-2.5 border-t border-rose-200/70 pt-2.5 dark:border-rose-900/50">
+                                        <div>
+                                            <p className="text-[11px] font-bold uppercase tracking-wider text-rose-700/80 dark:text-rose-300/80">
+                                                Who cancelled
+                                            </p>
+                                            <p className="mt-0.5 text-sm font-semibold text-foreground">
+                                                {historyFor.client?.contact_person || historyFor.client?.business_name || 'Client'}
+                                                {historyFor.client?.business_name && historyFor.client?.contact_person
+                                                    ? ` (${historyFor.client.business_name})`
+                                                    : ''}
+                                            </p>
+                                            {historyFor.client?.user?.email && (
+                                                <p className="text-xs text-muted-foreground">{historyFor.client.user.email}</p>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <p className="text-[11px] font-bold uppercase tracking-wider text-rose-700/80 dark:text-rose-300/80">
+                                                When
+                                            </p>
+                                            <p className="mt-0.5 text-sm font-medium text-foreground">
+                                                {formatFollowUpDateTime(historyFor.cancelled_at)}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[11px] font-bold uppercase tracking-wider text-rose-700/80 dark:text-rose-300/80">
+                                                Why (Reason)
+                                            </p>
+                                            <p className="mt-0.5 text-sm font-medium text-foreground whitespace-pre-wrap">
+                                                {historyFor.cancellation_reason || 'No reason recorded.'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </article>
+                            )}
+
                             {historyFor?.follow_ups.length === 0 ? (
-                                <div className="rounded-xl border border-dashed border-border/80 p-6 text-center text-sm text-muted-foreground">
-                                    No follow-up records found.
-                                </div>
+                                !historyFor?.cancelled_at && !historyFor?.packaging_balance && (
+                                    <div className="rounded-xl border border-dashed border-border/80 p-6 text-center text-sm text-muted-foreground">
+                                        No follow-up records found.
+                                    </div>
+                                )
                             ) : (
                                 historyFor?.follow_ups.map((followUp) => (
                                     <article
@@ -1341,6 +1585,213 @@ export default function InquiriesPage({ inquiries }: Props) {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Inquiry Details Slide-Over Sheet (matching Order Manager) */}
+            <Sheet open={Boolean(viewingInquiry)} onOpenChange={(open) => !open && setViewingInquiry(null)}>
+                <SheetContent className="w-full overflow-y-auto sm:max-w-2xl space-y-5 p-6">
+                    {viewingInquiry && (
+                        <>
+                            <SheetHeader className="space-y-1.5 text-left">
+                                <div className="flex items-center justify-between pr-8">
+                                    <span className="font-mono text-xs font-bold uppercase tracking-wider text-primary">
+                                        Inquiry #{viewingInquiry.inquiry_id}
+                                    </span>
+                                    {(() => {
+                                        const isCanc = Boolean(viewingInquiry.cancelled_at) || viewingInquiry.status === 'cancelled';
+                                        const cfg = getStatusConfig(isCanc ? 'cancelled' : viewingInquiry.status);
+                                        return (
+                                            <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${cfg.pill}`}>
+                                                {cfg.label}
+                                            </span>
+                                        );
+                                    })()}
+                                </div>
+                                <SheetTitle className="text-xl font-black uppercase tracking-tight text-foreground">
+                                    INQUIRY &amp; PACKAGE SPECIFICATIONS
+                                </SheetTitle>
+                                <SheetDescription className="text-xs text-muted-foreground">
+                                    Client details, quotation terms, and package specifications for this lead.
+                                </SheetDescription>
+                            </SheetHeader>
+
+                            {/* Client & Inquiry Reference Card */}
+                            <div className="rounded-xl border border-border/70 bg-muted/20 p-4 space-y-3">
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    <div>
+                                        <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Client Information</p>
+                                        <p className="mt-1 text-sm font-bold text-foreground">{viewingInquiry.client?.business_name ?? '—'}</p>
+                                        <p className="text-xs text-muted-foreground">{viewingInquiry.client?.contact_person ?? ''}</p>
+                                        {viewingInquiry.client?.user?.email && (
+                                            <p className="text-xs font-mono text-muted-foreground">{viewingInquiry.client.user.email}</p>
+                                        )}
+                                        {viewingInquiry.client?.business_address && (
+                                            <p className="mt-1 text-xs text-muted-foreground flex items-center gap-1">
+                                                <MapPin className="size-3 shrink-0" /> {viewingInquiry.client.business_address}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Lead &amp; Quotation Reference</p>
+                                        <p className="mt-1 text-xs text-foreground">
+                                            <span className="text-muted-foreground">Quotation: </span>
+                                            <span className="font-mono font-bold text-primary">
+                                                {viewingInquiry.quotation ? `#${viewingInquiry.quotation.quotation_id}` : 'Not yet quoted'}
+                                            </span>
+                                        </p>
+                                        {viewingInquiry.quotation?.total_amount != null && (
+                                            <p className="text-xs text-foreground">
+                                                <span className="text-muted-foreground">Total Quoted: </span>
+                                                <span className="font-bold text-foreground">
+                                                    ₱{Number(viewingInquiry.quotation.total_amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                                </span>
+                                            </p>
+                                        )}
+                                        {viewingInquiry.quotation?.initial_payment_amount != null && (
+                                            <p className="text-xs text-foreground">
+                                                <span className="text-muted-foreground">Before Production: </span>
+                                                <span className="font-semibold text-foreground">
+                                                    ₱{Number(viewingInquiry.quotation.initial_payment_amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                                </span>
+                                            </p>
+                                        )}
+                                        {viewingInquiry.quotation?.balance_payment_amount != null && (
+                                            <p className="text-xs text-foreground">
+                                                <span className="text-muted-foreground">Before Pickup: </span>
+                                                <span className="font-semibold text-foreground">
+                                                    ₱{Number(viewingInquiry.quotation.balance_payment_amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                                </span>
+                                            </p>
+                                        )}
+                                        {viewingInquiry.packaging_balance && (
+                                            <p className="text-xs text-primary font-medium">
+                                                Stored MOQ: {viewingInquiry.packaging_balance.remaining_pouches.toLocaleString()} / {viewingInquiry.packaging_balance.total_pouches.toLocaleString()} pouches left
+                                            </p>
+                                        )}
+                                        <p className="text-xs text-muted-foreground">
+                                            <span>Submitted: </span>
+                                            <span className="font-mono">{formatDate(viewingInquiry.created_at)}</span>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Cancellation Details (if cancelled) */}
+                            {viewingInquiry.cancelled_at && (
+                                <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-4 text-xs space-y-1.5 dark:border-rose-900/60 dark:bg-rose-950/30">
+                                    <p className="font-bold uppercase tracking-wider text-rose-700 dark:text-rose-300">
+                                        Cancelled on {formatFollowUpDateTime(viewingInquiry.cancelled_at)}
+                                    </p>
+                                    <p className="text-foreground whitespace-pre-wrap">
+                                        {viewingInquiry.cancellation_reason || 'No reason recorded.'}
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Quoted Item Details (if quoted) */}
+                            {viewingInquiry.quotation?.item_details && (
+                                <div className="rounded-xl border border-border/70 bg-card p-4 space-y-2 shadow-xs">
+                                    <div className="flex items-center gap-2 border-b border-border/60 pb-2.5">
+                                        <FileText className="size-4 text-primary" />
+                                        <h3 className="text-sm font-bold text-foreground">Quoted Item Details &amp; Commercial Terms</h3>
+                                    </div>
+                                    <pre className="mt-2 whitespace-pre-wrap rounded-lg bg-muted/40 p-3.5 font-mono text-xs leading-relaxed text-foreground border border-input/60">
+                                        {viewingInquiry.quotation.item_details}
+                                    </pre>
+                                </div>
+                            )}
+
+                            {/* Package & Formulation Specifications */}
+                            {viewingInquiry.customizations && viewingInquiry.customizations.length > 0 && (
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-2">
+                                        <Layers className="size-4 text-primary" />
+                                        <h3 className="text-sm font-bold text-foreground">Package &amp; Formulation Specifications</h3>
+                                    </div>
+                                    {viewingInquiry.customizations.map((c, idx) => {
+                                        const parsedNotes = parseClientNotes(c.client_notes);
+                                        return (
+                                            <div key={c.customization_id || idx} className="rounded-xl border border-border/70 bg-card p-4 shadow-xs space-y-3">
+                                                <p className="text-xs font-bold text-primary uppercase tracking-wide">
+                                                    Specification #{idx + 1}: {c.selected_package ?? c.packaging_type ?? 'Custom Package'}
+                                                </p>
+                                                <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
+                                                    <div className="rounded-lg bg-muted/30 p-2.5">
+                                                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Package</p>
+                                                        <p className="mt-0.5 font-semibold capitalize text-foreground">{c.selected_package ?? 'Standard'}</p>
+                                                    </div>
+                                                    <div className="rounded-lg bg-muted/30 p-2.5">
+                                                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Packaging Type</p>
+                                                        <p className="mt-0.5 font-semibold text-foreground">{c.packaging_type ?? '—'}</p>
+                                                    </div>
+                                                    <div className="rounded-lg bg-muted/30 p-2.5">
+                                                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Finish</p>
+                                                        <p className="mt-0.5 font-semibold text-foreground">{c.packaging_finish ?? '—'}</p>
+                                                    </div>
+                                                    <div className="rounded-lg bg-muted/30 p-2.5">
+                                                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Serving Size</p>
+                                                        <p className="mt-0.5 font-semibold text-foreground">{c.serving_size ?? '—'}</p>
+                                                    </div>
+                                                </div>
+                                                {c.requested_ingredient_note && (
+                                                    <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+                                                        <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Requested Ingredient / Effect</p>
+                                                        <p className="text-xs text-foreground whitespace-pre-wrap">{c.requested_ingredient_note}</p>
+                                                    </div>
+                                                )}
+                                                {c.client_notes && (
+                                                    <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2.5">
+                                                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Customer Details</p>
+                                                        {parsedNotes ? (
+                                                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                                                {parsedNotes.map((item, pIdx) => {
+                                                                    const isWide = item.value.length > 48 || item.label.toLowerCase().includes('terms') || item.label.toLowerCase().includes('instruction');
+                                                                    return (
+                                                                        <div
+                                                                            key={pIdx}
+                                                                            className={`rounded-md border border-border/50 bg-card/80 px-3 py-2 ${isWide ? 'sm:col-span-2' : ''}`}
+                                                                        >
+                                                                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                                                                {item.label}
+                                                                            </p>
+                                                                            <p className="mt-0.5 text-xs font-medium leading-relaxed text-foreground">
+                                                                                {item.value}
+                                                                            </p>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-xs leading-relaxed text-foreground whitespace-pre-wrap">{c.client_notes}</p>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                {c.design_file_path && (
+                                                    <div>
+                                                        <a
+                                                            href={`/storage/${c.design_file_path}`}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            className="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-card px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-muted dark:text-blue-400"
+                                                        >
+                                                            View Customer Artwork
+                                                        </a>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            <SheetFooter className="pt-2">
+                                <Button type="button" variant="outline" onClick={() => setViewingInquiry(null)}>
+                                    Close
+                                </Button>
+                            </SheetFooter>
+                        </>
+                    )}
+                </SheetContent>
+            </Sheet>
         </AppLayout>
     );
 }

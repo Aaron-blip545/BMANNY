@@ -19,7 +19,14 @@ import { useState } from 'react';
 
 interface Props {
     stats?: { users: number; inquiries: number; orders: number; products: number };
-    recentInquiries?: Array<{ inquiry_id: number; status: string; created_at: string; client: { business_name: string } | null }>;
+    recentInquiries?: Array<{
+        inquiry_id: number;
+        status: string;
+        created_at: string;
+        cancelled_at?: string | null;
+        cancellation_reason?: string | null;
+        client: { business_name: string } | null;
+    }>;
 }
 
 interface Metric {

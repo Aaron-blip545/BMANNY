@@ -73,7 +73,7 @@ class OrderManagerController extends Controller
         $previousStatus = $order->status;
         $targetStatus = $validated['status'];
 
-        if ($targetStatus === 'completed' && ! $order->balance_payment_verified_at) {
+        if ($targetStatus === 'completed' && (float) ($order->balance_payment_amount ?? 0) > 0 && ! $order->balance_payment_verified_at) {
             return redirect()->route('orders.index')->withErrors(['error' => 'Verify the balance payment before marking this order complete.']);
         }
 

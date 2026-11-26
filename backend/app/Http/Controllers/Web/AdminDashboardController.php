@@ -33,10 +33,12 @@ class AdminDashboardController extends Controller
                 ->limit(8)
                 ->get()
                 ->map(fn ($i) => [
-                    'inquiry_id' => $i->inquiry_id,
-                    'status'     => $i->cancelled_at ? 'cancelled' : $i->status,
-                    'created_at' => $i->created_at,
-                    'client'     => $i->client ? ['business_name' => $i->client->business_name] : null,
+                    'inquiry_id'          => $i->inquiry_id,
+                    'status'              => $i->cancelled_at ? 'cancelled' : $i->status,
+                    'created_at'          => $i->created_at,
+                    'cancelled_at'        => $i->cancelled_at,
+                    'cancellation_reason' => $i->cancellation_reason,
+                    'client'              => $i->client ? ['business_name' => $i->client->business_name] : null,
                 ]),
         ]);
     }
@@ -184,9 +186,17 @@ class AdminDashboardController extends Controller
 
     private function writeInquiryReport($output, Carbon $from, Carbon $to): void
     {
-        fputcsv($output, ['Inquiry ID', 'Business', 'Contact', 'Status', 'Created at']);
+        fputcsv($output, ['Inquiry ID', 'Business', 'Contact', 'Status', 'Cancelled at', 'Cancellation reason', 'Created at']);
         Inquiry::with('client.user')->whereBetween('created_at', [$from, $to])->orderBy('inquiry_id')->each(function (Inquiry $inquiry) use ($output) {
-            fputcsv($output, [$inquiry->inquiry_id, $this->csv($inquiry->client?->business_name), $this->csv($inquiry->client?->user?->full_name), $inquiry->cancelled_at ? 'cancelled' : $inquiry->status, optional($inquiry->created_at)->toDateTimeString()]);
+            fputcsv($output, [
+                $inquiry->inquiry_id,
+                $this->csv($inquiry->client?->business_name),
+                $this->csv($inquiry->client?->user?->full_name),
+                $inquiry->cancelled_at ? 'cancelled' : $inquiry->status,
+                optional($inquiry->cancelled_at)->toDateTimeString(),
+                $this->csv($inquiry->cancellation_reason),
+                optional($inquiry->created_at)->toDateTimeString(),
+            ]);
         });
     }
 
@@ -267,7 +277,7 @@ class AdminDashboardController extends Controller
         if (! $client || $business === '') {
             throw ValidationException::withMessages(['file' => "Inquiry for '{$business}' cannot be imported because the business does not exist."]);
         }
-        if (! in_array($status, ['new', 'for_quotation', 'quotation_sent', 'follow_up', 'converted', 'closed', 'cancelled'], true)) {
+        if (! in_array($status, ['new', 'for_quotation', 'quotation_sent', 'converted', 'cancelled'], true)) {
             throw ValidationException::withMessages(['file' => "Inquiry status '{$row['status']}' is invalid."]);
         }
         $subject = 'Imported inquiry #' . $row['inquiry_id'];
@@ -280,7 +290,7 @@ class AdminDashboardController extends Controller
             'client_id' => $client->client_id,
             'subject' => $subject,
             'message' => null,
-            'status' => $status === 'cancelled' ? 'closed' : $status,
+            'status' => $status,
             'cancelled_at' => $status === 'cancelled' ? $createdAt : null,
         ]);
         $inquiry->created_at = $createdAt;

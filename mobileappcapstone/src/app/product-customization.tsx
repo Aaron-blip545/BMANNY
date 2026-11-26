@@ -37,6 +37,10 @@ type Pack = {
   lead: string;
   cost: string;
   initialPrice: number;
+  beforeProductionAmount: number;
+  beforeProductionLabel: string;
+  beforePickupAmount: number;
+  beforePickupLabel: string;
   terms: string;
   publicIngredients: string;
   costBreakdown: { label: string; amount: number; quantity: string }[];
@@ -68,6 +72,10 @@ const DEFAULT_PACKAGES: Pack[] = [
     cost: "Starting at ₱7,900",
     terms: "50% before production · 50% before pickup",
     initialPrice: 7900,
+    beforeProductionAmount: 3950,
+    beforeProductionLabel: "Before production (50%)",
+    beforePickupAmount: 3950,
+    beforePickupLabel: "Before pickup (50%)",
     publicIngredients: "Corn coffee with malunggay and mangosteen.",
     costBreakdown: [
       { label: "Price per pouch", amount: 79, quantity: "100 pouches" },
@@ -85,18 +93,22 @@ const DEFAULT_PACKAGES: Pack[] = [
     label: "Full-color pouch print",
     weight: "120 g",
     lead: "40–60 days after layout approval",
-    cost: "Initial package cost from ₱99,900",
-    terms: "Package, cylinder, and production milestones apply",
-    initialPrice: 99900,
+    cost: "Initial package cost from ₱80,650",
+    terms: "Before production: Packaging + Cylinder · Before pickup: Production payment (150 pouches/batch)",
+    initialPrice: 80650,
+    beforeProductionAmount: 72400,
+    beforeProductionLabel: "Before production (Packaging + Cylinder)",
+    beforePickupAmount: 8250,
+    beforePickupLabel: "Before pickup (Production: 150 pouches)",
     publicIngredients:
       "Corn coffee with malunggay and mangosteen, plus up to 6 requested herbal ingredients subject to Product Control review.",
     costBreakdown: [
-      { label: "Packaging cost", amount: 50000, quantity: "₱10 × 5,000 pouches" },
-      { label: "Cylinder cost", amount: 22400, quantity: "One-time payment" },
-      { label: "Production payment", amount: 27500, quantity: "₱55 × 500 pouches" },
+      { label: "Packaging cost", amount: 50000, quantity: "₱10 × 5,000 pouches (paid upon ordering)" },
+      { label: "Cylinder cost", amount: 22400, quantity: "One-time payment (paid upon ordering)" },
+      { label: "Production payment", amount: 8250, quantity: "₱55 × 150 pouches per batch" },
     ],
     packageNotes:
-      "Packaging is purchased first. Remaining packaging may be kept for the next batch, subject to storage terms. FOB CDO · VAT exclusive.",
+      "Packaging is compulsory to be purchased first. Finished products can be produced with MOQ 150 pouches per batch. Remaining packaging will be kept on standby for the next batch order for a maximum storage period of two years; unused packaging after two years may be disposed of. FOB: CDO. VAT exclusive.",
     allowsRequest: true,
   },
   {
@@ -108,18 +120,22 @@ const DEFAULT_PACKAGES: Pack[] = [
     label: "Full-color pouch print",
     weight: "120 g",
     lead: "40–60 days after layout approval",
-    cost: "Initial package cost from ₱142,400",
-    terms: "Package, cylinder, and production milestones apply",
-    initialPrice: 142400,
+    cost: "Initial package cost from ₱139,900",
+    terms: "Before production: Packaging + Cylinder · Before pickup: Production payment (350 pouches/batch)",
+    initialPrice: 139900,
+    beforeProductionAmount: 122400,
+    beforeProductionLabel: "Before production (Packaging + Cylinder)",
+    beforePickupAmount: 17500,
+    beforePickupLabel: "Before pickup (Production: 350 pouches)",
     publicIngredients:
       "Corn coffee with malunggay and mangosteen, plus up to 8 requested herbal ingredients subject to Product Control review.",
     costBreakdown: [
-      { label: "Packaging cost", amount: 100000, quantity: "₱10 × 10,000 pouches" },
-      { label: "Cylinder cost", amount: 22400, quantity: "One-time payment" },
-      { label: "Production payment", amount: 20000, quantity: "₱50 × 400 pouches" },
+      { label: "Packaging cost", amount: 100000, quantity: "₱10 × 10,000 pouches (paid upon ordering)" },
+      { label: "Cylinder cost", amount: 22400, quantity: "One-time payment (paid upon ordering)" },
+      { label: "Production payment", amount: 17500, quantity: "₱50 × 350 pouches per batch" },
     ],
     packageNotes:
-      "Packaging is purchased first. Remaining packaging may be kept for the next batch, subject to storage terms. FOB CDO · VAT exclusive.",
+      "Packaging is compulsory to be purchased first. Finished products can be produced with MOQ 350 pouches per batch. Remaining packaging will be kept on standby for the next batch order for a maximum storage period of two years; unused packaging after two years may be disposed of. FOB: CDO. VAT exclusive.",
     allowsRequest: true,
   },
 ];
@@ -205,6 +221,24 @@ export default function ProductCustomizationScreen() {
                     minimumFractionDigits: 2,
                   }),
                 initialPrice: Number(x.initial_price),
+                beforeProductionAmount:
+                  x.before_production_amount != null
+                    ? Number(x.before_production_amount)
+                    : fallback?.beforeProductionAmount ??
+                      Number(x.initial_price) / 2,
+                beforeProductionLabel:
+                  x.before_production_label ||
+                  fallback?.beforeProductionLabel ||
+                  "Before production (50%)",
+                beforePickupAmount:
+                  x.before_pickup_amount != null
+                    ? Number(x.before_pickup_amount)
+                    : fallback?.beforePickupAmount ??
+                      Number(x.initial_price) / 2,
+                beforePickupLabel:
+                  x.before_pickup_label ||
+                  fallback?.beforePickupLabel ||
+                  "Before pickup (50%)",
                 terms: x.payment_terms,
                 publicIngredients:
                   x.public_ingredients || fallback?.publicIngredients || "",
@@ -804,12 +838,16 @@ export default function ProductCustomizationScreen() {
                     <View style={[s.balanceCard, { borderColor: "#2196F3" }]}>
                       <Text style={[s.balanceLabel, { color: colors.text }]}>Payment terms</Text>
                       <View style={s.paymentMilestone}>
-                        <Text style={[s.costLineLabel, { color: colors.text }]}>Before production (50%)</Text>
-                        <Text style={s.balanceAmount}>{peso(breakdownPackage.initialPrice / 2)}</Text>
+                        <Text style={[s.costLineLabel, s.grow, { color: colors.text, paddingRight: 10 }]}>
+                          {breakdownPackage.beforeProductionLabel}
+                        </Text>
+                        <Text style={s.balanceAmount}>{peso(breakdownPackage.beforeProductionAmount)}</Text>
                       </View>
                       <View style={[s.paymentMilestone, { borderTopColor: border }]}>
-                        <Text style={[s.costLineLabel, { color: colors.text }]}>Before pickup (50%)</Text>
-                        <Text style={s.balanceAmount}>{peso(breakdownPackage.initialPrice / 2)}</Text>
+                        <Text style={[s.costLineLabel, s.grow, { color: colors.text, paddingRight: 10 }]}>
+                          {breakdownPackage.beforePickupLabel}
+                        </Text>
+                        <Text style={s.balanceAmount}>{peso(breakdownPackage.beforePickupAmount)}</Text>
                       </View>
                     </View>
                     <Text style={[s.packageNote, { color: colors.textSecondary }]}>{breakdownPackage.packageNotes}</Text>

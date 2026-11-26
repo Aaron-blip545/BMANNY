@@ -50,10 +50,13 @@ async function request(path: string, options: RequestInit = {}) {
     const token = await getToken();
 
     const response = await fetch(`${API_BASE_URL}${path}`, {
+        cache: 'no-store',
         ...options,
         headers: {
             'Content-Type': 'application/json',
             Accept: 'application/json',
+            'Cache-Control': 'no-cache, no-store',
+            Pragma: 'no-cache',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
             ...options.headers,
         },
@@ -367,6 +370,27 @@ export async function getMyInquiries() {
  */
 export async function reorderFromOrder(orderId: number) {
     return request(`/orders/${orderId}/reorder`, { method: 'POST' });
+}
+
+/**
+ * Fetch the authenticated customer's Gold/Elite stored packaging (MOQ) balances.
+ */
+export async function getPackagingBalances() {
+    return request('/packaging-balances');
+}
+
+/**
+ * Submit a repeat-batch reorder (production cost only) or packaging replenishment
+ * (unlocked strictly when remaining pouches reach 0 or expire).
+ */
+export async function submitBatchReorder(balanceId: number, batchQuantity: number, requestReplenishment = false) {
+    return request(`/packaging-balances/${balanceId}/reorder`, {
+        method: 'POST',
+        body: JSON.stringify({
+            batch_quantity: batchQuantity,
+            request_replenishment: requestReplenishment,
+        }),
+    });
 }
 
 /**

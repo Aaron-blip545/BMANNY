@@ -51,9 +51,28 @@ interface Customization {
     client_notes: string | null;
 }
 
+interface PackagingBalanceSummary {
+    balance_id: number;
+    brand_name: string;
+    package_slug: string;
+    total_pouches: number;
+    used_pouches: number;
+    remaining_pouches: number;
+    production_unit_cost: string | number;
+    packaging_unit_cost: string | number;
+    batch_min_quantity: number;
+    cylinder_paid: boolean;
+    expires_at: string | null;
+    status: string;
+}
+
 interface PendingInquiry {
     inquiry_id: number;
     status: string;
+    inquiry_type?: 'new' | 'reorder_batch' | 'packaging_replenishment' | string;
+    reorder_batch_quantity?: number | null;
+    source_order_id?: number | null;
+    packaging_balance?: PackagingBalanceSummary | null;
     created_at: string;
     client: {
         business_name: string;
@@ -98,7 +117,13 @@ interface PackageCatalogItem {
     net_weight: string;
     lead_time_text: string;
     initial_price: string | number;
+    before_production_amount?: string | number | null;
+    before_production_label?: string | null;
+    before_pickup_amount?: string | number | null;
+    before_pickup_label?: string | null;
     payment_terms: string;
+    cost_breakdown?: Array<{ label: string; amount: number; quantity: string }> | null;
+    package_notes?: string | null;
 }
 
 function formatDate(iso: string) {
@@ -208,6 +233,17 @@ function selectedPackage(inq?: PendingInquiry | null, catalog: PackageCatalogIte
 }
 
 export function calculateInquiryTotal(inq?: PendingInquiry | null, catalog: PackageCatalogItem[] = []): string {
+    if (inq?.inquiry_type === 'reorder_batch' && inq.packaging_balance) {
+        const qty = Number(inq.reorder_batch_quantity) || Number(inq.packaging_balance.batch_min_quantity) || 150;
+        const unitCost = Number(inq.packaging_balance.production_unit_cost) || 55;
+        return (qty * unitCost).toFixed(2);
+    }
+    if (inq?.inquiry_type === 'packaging_replenishment' && inq.packaging_balance) {
+        const qty = Number(inq.reorder_batch_quantity) || Number(inq.packaging_balance.batch_min_quantity) || 150;
+        const prodCost = qty * (Number(inq.packaging_balance.production_unit_cost) || 55);
+        const packCost = Number(inq.packaging_balance.total_pouches) * (Number(inq.packaging_balance.packaging_unit_cost) || 10);
+        return (packCost + prodCost).toFixed(2);
+    }
     const packageItem = selectedPackage(inq, catalog);
     if (packageItem) return Number(packageItem.initial_price).toFixed(2);
     if (!inq?.customizations?.length) return '';
@@ -227,11 +263,123 @@ export function calculateInquiryTotal(inq?: PendingInquiry | null, catalog: Pack
     return total > 0 ? total.toFixed(2) : '';
 }
 
+function calculateInquiryMilestones(inq?: PendingInquiry | null, catalog: PackageCatalogItem[] = [], totalOverride?: string) {
+    const totalNum = Number(totalOverride ?? calculateInquiryTotal(inq, catalog)) || 0;
+
+    if (inq?.inquiry_type === 'reorder_batch') {
+        const qty = Number(inq.reorder_batch_quantity) || Number(inq.packaging_balance?.batch_min_quantity) || 0;
+        return {
+            initial: totalNum > 0 ? totalNum.toFixed(2) : '',
+            balance: totalNum > 0 ? '0.00' : '',
+            initialLabel: qty ? `Before production (Batch: ${qty.toLocaleString()} pouches)` : 'Before production (100% batch cost)',
+            balanceLabel: 'Before pickup (₱0 — Paid upfront)',
+        };
+    }
+
+    if (inq?.inquiry_type === 'packaging_replenishment' && inq.packaging_balance) {
+        const packCost = Number(inq.packaging_balance.total_pouches) * (Number(inq.packaging_balance.packaging_unit_cost) || 10);
+        const initial = Math.min(packCost, totalNum);
+        const balance = Math.max(0, totalNum - initial);
+        const qty = Number(inq.reorder_batch_quantity) || Number(inq.packaging_balance.batch_min_quantity) || 0;
+        return {
+            initial: totalNum > 0 ? initial.toFixed(2) : '',
+            balance: totalNum > 0 ? balance.toFixed(2) : '',
+            initialLabel: 'Before production (Packaging Refill · ₱0 Cylinder)',
+            balanceLabel: qty ? `Before pickup (Production: ${qty.toLocaleString()} pouches)` : 'Before pickup (Production)',
+        };
+    }
+
+    const packageItem = selectedPackage(inq, catalog);
+
+    if (packageItem && packageItem.before_production_amount != null) {
+        const defaultBeforeProd = Number(packageItem.before_production_amount);
+        const initial = Math.min(defaultBeforeProd, totalNum);
+        const balance = Math.max(0, totalNum - initial);
+        return {
+            initial: totalNum > 0 ? initial.toFixed(2) : '',
+            balance: totalNum > 0 ? balance.toFixed(2) : '',
+            initialLabel: packageItem.before_production_label || 'Before production',
+            balanceLabel: packageItem.before_pickup_label || 'Before pickup',
+        };
+    }
+
+    const half = totalNum / 2;
+    return {
+        initial: totalNum > 0 ? half.toFixed(2) : '',
+        balance: totalNum > 0 ? (totalNum - Number(half.toFixed(2))).toFixed(2) : '',
+        initialLabel: 'Before production (50%)',
+        balanceLabel: 'Before pickup (50%)',
+    };
+}
+
 export function buildAutoItemDetails(inq?: PendingInquiry | null, catalog: PackageCatalogItem[] = []): string {
     if (!inq) return '';
+    if (inq.inquiry_type === 'reorder_batch' && inq.packaging_balance) {
+        const bal = inq.packaging_balance;
+        const qty = Number(inq.reorder_batch_quantity) || Number(bal.batch_min_quantity);
+        const unitCost = Number(bal.production_unit_cost);
+        const total = qty * unitCost;
+        const pkgTitle = `${bal.package_slug.charAt(0).toUpperCase()}${bal.package_slug.slice(1)} Package`;
+        return [
+            `Item: ${pkgTitle} — Repeat Batch Reorder (${bal.brand_name})`,
+            `• Batch Quantity: ${qty.toLocaleString()} pouches`,
+            `• Production Rate: ₱${unitCost.toLocaleString('en-PH', { minimumFractionDigits: 2 })} / pouch`,
+            `• Packaging Cost: ₱0.00 (Deducted from stored MOQ: ${bal.remaining_pouches.toLocaleString()} / ${bal.total_pouches.toLocaleString()} remaining)`,
+            '• Cylinder Cost: ₱0.00 (One-time payment already settled)',
+            `• Total Batch Production Cost: ₱${total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
+            '',
+            'Payment Milestones:',
+            `• Before production (100% batch production): ₱${total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
+            '• Before pickup: ₱0.00',
+            '',
+            'Commercial Terms & Conditions:',
+            '• Deducted from client stored packaging balance (valid for 2 years from initial order).',
+            '• Payment by bank transfer; payment instructions will be provided by Sales.',
+            '• Freight: FOB CDO | VAT: Exclusive',
+        ].join('\n');
+    }
+
+    if (inq.inquiry_type === 'packaging_replenishment' && inq.packaging_balance) {
+        const bal = inq.packaging_balance;
+        const qty = Number(inq.reorder_batch_quantity) || Number(bal.batch_min_quantity);
+        const unitCost = Number(bal.production_unit_cost);
+        const packUnit = Number(bal.packaging_unit_cost) || 10;
+        const packCost = Number(bal.total_pouches) * packUnit;
+        const prodCost = qty * unitCost;
+        const total = packCost + prodCost;
+        const pkgTitle = `${bal.package_slug.charAt(0).toUpperCase()}${bal.package_slug.slice(1)} Package`;
+        return [
+            `Item: ${pkgTitle} — Packaging Replenishment + Batch (${bal.brand_name})`,
+            `• Packaging Refill: ₱${packUnit.toLocaleString('en-PH', { minimumFractionDigits: 2 })} × ${Number(bal.total_pouches).toLocaleString()} pouches = ₱${packCost.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
+            '• Cylinder Cost: ₱0.00 (One-time payment already settled)',
+            `• Production Payment: ₱${unitCost.toLocaleString('en-PH', { minimumFractionDigits: 2 })} × ${qty.toLocaleString()} pouches = ₱${prodCost.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
+            `• Total Amount: ₱${total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
+            '',
+            'Payment Milestones:',
+            `• Before production (Packaging Refill · ₱0 Cylinder): ₱${packCost.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
+            `• Before pickup (Production: ${qty.toLocaleString()} pouches): ₱${prodCost.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
+            '',
+            'Commercial Terms & Conditions:',
+            '• Remaining replenished pouches will be stored for up to 2 years.',
+            '• Payment by bank transfer; payment instructions will be provided by Sales.',
+            '• Freight: FOB CDO | VAT: Exclusive',
+        ].join('\n');
+    }
+
     const packageItem = selectedPackage(inq, catalog);
     if (packageItem) {
         const customerRequest = inq.customizations[0]?.requested_ingredient_note;
+        const milestones = calculateInquiryMilestones(inq, catalog);
+        const breakdownLines = Array.isArray(packageItem.cost_breakdown) && packageItem.cost_breakdown.length > 0
+            ? [
+                '',
+                'Package Cost Breakdown:',
+                ...packageItem.cost_breakdown.map(
+                    (line) => `• ${line.label}: ₱${Number(line.amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}${line.quantity ? ` (${line.quantity})` : ''}`,
+                ),
+            ]
+            : [];
+
         return [
             `Item: ${packageItem.name}`,
             `• MOQ: ${Number(packageItem.minimum_quantity).toLocaleString()} pouches`,
@@ -240,12 +388,18 @@ export function buildAutoItemDetails(inq?: PendingInquiry | null, catalog: Packa
             `• Package Amount: ₱${Number(packageItem.initial_price).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
             `• Lead Time: ${packageItem.lead_time_text}`,
             customerRequest ? `• Customer request: ${customerRequest}` : null,
+            ...breakdownLines,
+            '',
+            'Payment Milestones:',
+            `• ${milestones.initialLabel}: ₱${Number(milestones.initial || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
+            `• ${milestones.balanceLabel}: ₱${Number(milestones.balance || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
             '',
             'Commercial Terms & Conditions:',
             `• ${packageItem.payment_terms}`,
+            packageItem.package_notes ? `• ${packageItem.package_notes}` : null,
             '• Payment by bank transfer; payment instructions will be provided by Sales.',
             '• Freight: FOB CDO | VAT: Exclusive',
-        ].filter(Boolean).join('\n');
+        ].filter((line) => line !== null).join('\n');
     }
     const customizations = inq.customizations || [];
     if (customizations.length === 0) {
@@ -296,11 +450,16 @@ export function buildAutoItemDetails(inq?: PendingInquiry | null, catalog: Packa
 export default function QuotationCreate({ pendingInquiries, selectedInquiryId, packageCatalog }: Props) {
     const initialInq = pendingInquiries.find((i) => String(i.inquiry_id) === String(selectedInquiryId));
     const initialTotal = initialInq ? calculateInquiryTotal(initialInq, packageCatalog) : '';
+    const initialMilestones = initialInq
+        ? calculateInquiryMilestones(initialInq, packageCatalog, initialTotal)
+        : { initial: '', balance: '', initialLabel: 'Before production', balanceLabel: 'Before pickup' };
     const initialDetails = initialInq ? buildAutoItemDetails(initialInq, packageCatalog) : '';
 
     const { data, setData, post, processing, errors } = useForm({
         inquiry_id: selectedInquiryId ? String(selectedInquiryId) : '',
         total_amount: initialTotal,
+        initial_payment_amount: initialMilestones.initial,
+        balance_payment_amount: initialMilestones.balance,
         valid_until: '',
         item_details: initialDetails,
     });
@@ -308,16 +467,19 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId, p
     const [validUntilOpen, setValidUntilOpen] = useState(false);
     const [viewCustomizationsOpen, setViewCustomizationsOpen] = useState(false);
 
-    // Auto-populate item details and total when inquiry_id is selected/changed
+    // Auto-populate item details, total, and milestones when inquiry_id is selected/changed
     useEffect(() => {
         if (data.inquiry_id && !data.item_details) {
             const inq = pendingInquiries.find((i) => String(i.inquiry_id) === String(data.inquiry_id));
             if (inq) {
                 const autoDetails = buildAutoItemDetails(inq, packageCatalog);
                 const autoTotal = calculateInquiryTotal(inq, packageCatalog);
+                const autoMilestones = calculateInquiryMilestones(inq, packageCatalog, autoTotal);
                 setData((prev) => ({
                     ...prev,
                     total_amount: prev.total_amount || autoTotal,
+                    initial_payment_amount: prev.initial_payment_amount || autoMilestones.initial,
+                    balance_payment_amount: prev.balance_payment_amount || autoMilestones.balance,
                     item_details: prev.item_details || autoDetails,
                 }));
             }
@@ -331,10 +493,16 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId, p
     }
 
     const numericTotal = Number(data.total_amount);
-    const isTotalAccepted = data.total_amount !== '' && !Number.isNaN(numericTotal) && numericTotal > 0;
+    const numericInitial = Number(data.initial_payment_amount || 0);
+    const numericBalance = Number(data.balance_payment_amount || 0);
+    const milestonesMatchTotal = Math.abs((numericInitial + numericBalance) - numericTotal) <= 0.01;
+    const isTotalAccepted = data.total_amount !== '' && !Number.isNaN(numericTotal) && numericTotal > 0 && milestonesMatchTotal;
 
     // Find the currently selected inquiry so we can display its details
     const selected = pendingInquiries.find((i) => String(i.inquiry_id) === data.inquiry_id);
+    const activeMilestones = calculateInquiryMilestones(selected, packageCatalog, data.total_amount);
+    const initialMilestoneLabel = activeMilestones.initialLabel;
+    const balanceMilestoneLabel = activeMilestones.balanceLabel;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -388,11 +556,14 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId, p
                                                     const inq = pendingInquiries.find((i) => String(i.inquiry_id) === inqId);
                                                     if (inq) {
                                                         const autoTotal = calculateInquiryTotal(inq, packageCatalog);
+                                                        const autoMilestones = calculateInquiryMilestones(inq, packageCatalog, autoTotal);
                                                         const autoDetails = buildAutoItemDetails(inq, packageCatalog);
                                                         setData((prev) => ({
                                                             ...prev,
                                                             inquiry_id: inqId,
                                                             total_amount: autoTotal || prev.total_amount,
+                                                            initial_payment_amount: autoMilestones.initial,
+                                                            balance_payment_amount: autoMilestones.balance,
                                                             item_details: autoDetails,
                                                         }));
                                                     } else {
@@ -400,6 +571,8 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId, p
                                                             ...prev,
                                                             inquiry_id: '',
                                                             total_amount: '',
+                                                            initial_payment_amount: '',
+                                                            balance_payment_amount: '',
                                                             item_details: '',
                                                         }));
                                                     }
@@ -457,7 +630,16 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId, p
                                                 required
                                                 placeholder="0.00"
                                                 value={data.total_amount}
-                                                onChange={(e) => setData('total_amount', e.target.value)}
+                                                onChange={(e) => {
+                                                    const nextTotal = e.target.value;
+                                                    const milestones = calculateInquiryMilestones(selected, packageCatalog, nextTotal);
+                                                    setData((prev) => ({
+                                                        ...prev,
+                                                        total_amount: nextTotal,
+                                                        initial_payment_amount: milestones.initial,
+                                                        balance_payment_amount: milestones.balance,
+                                                    }));
+                                                }}
                                                 className="h-10 w-full rounded-lg border border-input/80 bg-muted/20 pl-8 pr-3.5 text-sm font-semibold text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                                             />
                                         </div>
@@ -465,6 +647,81 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId, p
                                             <p className="mt-1 text-xs text-destructive">{errors.total_amount}</p>
                                         )}
                                     </div>
+
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                        <div>
+                                            <label htmlFor="initial_payment_amount" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                                                {initialMilestoneLabel} (₱)
+                                            </label>
+                                            <div className="relative">
+                                                <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">
+                                                    ₱
+                                                </span>
+                                                <input
+                                                    id="initial_payment_amount"
+                                                    type="number"
+                                                    min="0"
+                                                    step="0.01"
+                                                    required
+                                                    placeholder="0.00"
+                                                    value={data.initial_payment_amount}
+                                                    onChange={(e) => {
+                                                        const nextInitial = e.target.value;
+                                                        const initNum = Number(nextInitial) || 0;
+                                                        const balNum = Number(data.balance_payment_amount) || 0;
+                                                        setData((prev) => ({
+                                                            ...prev,
+                                                            initial_payment_amount: nextInitial,
+                                                            total_amount: (initNum + balNum).toFixed(2),
+                                                        }));
+                                                    }}
+                                                    className="h-10 w-full rounded-lg border border-input/80 bg-muted/20 pl-8 pr-3.5 text-sm font-semibold text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                                />
+                                            </div>
+                                            {errors.initial_payment_amount && (
+                                                <p className="mt-1 text-xs text-destructive">{errors.initial_payment_amount}</p>
+                                            )}
+                                        </div>
+
+                                        <div>
+                                            <label htmlFor="balance_payment_amount" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                                                {balanceMilestoneLabel} (₱)
+                                            </label>
+                                            <div className="relative">
+                                                <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">
+                                                    ₱
+                                                </span>
+                                                <input
+                                                    id="balance_payment_amount"
+                                                    type="number"
+                                                    min="0"
+                                                    step="0.01"
+                                                    required
+                                                    placeholder="0.00"
+                                                    value={data.balance_payment_amount}
+                                                    onChange={(e) => {
+                                                        const nextBalance = e.target.value;
+                                                        const initNum = Number(data.initial_payment_amount) || 0;
+                                                        const balNum = Number(nextBalance) || 0;
+                                                        setData((prev) => ({
+                                                            ...prev,
+                                                            balance_payment_amount: nextBalance,
+                                                            total_amount: (initNum + balNum).toFixed(2),
+                                                        }));
+                                                    }}
+                                                    className="h-10 w-full rounded-lg border border-input/80 bg-muted/20 pl-8 pr-3.5 text-sm font-semibold text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                                />
+                                            </div>
+                                            {errors.balance_payment_amount && (
+                                                <p className="mt-1 text-xs text-destructive">{errors.balance_payment_amount}</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {!milestonesMatchTotal && data.total_amount !== '' && (
+                                        <p className="text-xs text-destructive">
+                                            Before production and before pickup amounts must add up to the total amount.
+                                        </p>
+                                    )}
 
                                     <div>
                                         <label htmlFor="valid_until" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -517,9 +774,12 @@ export default function QuotationCreate({ pendingInquiries, selectedInquiryId, p
                                                     onClick={() => {
                                                         const autoDetails = buildAutoItemDetails(selected, packageCatalog);
                                                         const autoTotal = calculateInquiryTotal(selected, packageCatalog);
+                                                        const autoMilestones = calculateInquiryMilestones(selected, packageCatalog, autoTotal);
                                                         setData((prev) => ({
                                                             ...prev,
                                                             total_amount: autoTotal || prev.total_amount,
+                                                            initial_payment_amount: autoMilestones.initial,
+                                                            balance_payment_amount: autoMilestones.balance,
                                                             item_details: autoDetails,
                                                         }));
                                                     }}

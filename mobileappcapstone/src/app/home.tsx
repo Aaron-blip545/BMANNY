@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, TextInput, Dimensions, Modal, RefreshControl, KeyboardAvoidingView, Platform, ActivityIndicator, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, TextInput, Dimensions, Modal, RefreshControl, KeyboardAvoidingView, Platform, ActivityIndicator, Linking, AppState } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { useTheme } from '../contexts/ThemeContext';
@@ -118,6 +118,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [products, setProducts] = useState<CatalogProductItem[]>([]);
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
   const [favorites, setFavorites] = useState<number[]>([]);
   const [clientId, setClientId] = useState<string | number | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -207,6 +208,24 @@ export default function HomeScreen() {
     }
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      loadNotifications();
+      const interval = setInterval(() => {
+        loadNotifications();
+      }, 6000);
+      const appStateSub = AppState.addEventListener('change', (state) => {
+        if (state === 'active') {
+          loadNotifications();
+        }
+      });
+      return () => {
+        clearInterval(interval);
+        appStateSub.remove();
+      };
+    }, [loadNotifications])
+  );
+
   useEffect(() => {
     loadCatalog();
     loadNotifications();
@@ -279,23 +298,35 @@ export default function HomeScreen() {
     });
   };
 
-  const getProductImage = (product: CatalogProductItem, index: number) => {
-    if (product.image_url) {
-      const uri = product.image_url.startsWith('http')
-        ? product.image_url
-        : `${getApiBaseUrl().replace('/api', '')}${product.image_url}`;
-      return { uri };
+  const getFallbackProductImage = (product: CatalogProductItem, index: number) => {
+    const lowerName = (product.name || '').toLowerCase();
+    if (lowerName.includes('ashigo')) {
+      return require('@/assets/images/ashigo-plus.jpg');
     }
-    if (typeof product.image === 'string' && product.image.length > 0) {
-      const uri = product.image.startsWith('http')
-        ? product.image
-        : `${getApiBaseUrl().replace('/api', '')}${product.image}`;
-      return { uri };
+    return fallbackImages[index % fallbackImages.length];
+  };
+
+  const getProductImage = (product: CatalogProductItem, index: number) => {
+    const imageKey = String(product.id || product.product_type_id || index);
+    if (failedImages[imageKey]) {
+      return getFallbackProductImage(product, index);
+    }
+
+    const baseHost = getApiBaseUrl().replace(/\/api\/?$/, '');
+    const rawUrl =
+      product.image_url ||
+      (typeof product.image === 'string' && product.image.length > 0 ? product.image : null);
+
+    if (rawUrl) {
+      const normalized = rawUrl.startsWith('http')
+        ? rawUrl
+        : `${baseHost}${rawUrl.startsWith('/') ? '' : '/'}${rawUrl}`;
+      return { uri: normalized };
     }
     if (product.image && typeof product.image === 'number') {
       return product.image;
     }
-    return fallbackImages[index % fallbackImages.length];
+    return getFallbackProductImage(product, index);
   };
 
   const categories = useMemo(() => {
@@ -589,7 +620,14 @@ export default function HomeScreen() {
                   activeOpacity={0.7}
                 >
                   <View style={styles.productImageContainer}>
-                    <Image source={getProductImage(product, idx)} style={styles.productImage} />
+                    <Image
+                      source={getProductImage(product, idx)}
+                      style={styles.productImage}
+                      onError={() => {
+                        const imageKey = String(product.id || product.product_type_id || idx);
+                        setFailedImages((prev) => (prev[imageKey] ? prev : { ...prev, [imageKey]: true }));
+                      }}
+                    />
                     <TouchableOpacity
                       style={[
                         styles.cardFavoriteBtn,
@@ -610,11 +648,8 @@ export default function HomeScreen() {
                     </TouchableOpacity>
                   </View>
                   <View style={styles.productInfo}>
-                    <Text style={[styles.productName, { color: colors.text }]} numberOfLines={1}>
+                    <Text style={[styles.productName, { color: colors.text }]} numberOfLines={2}>
                       {product.name}
-                    </Text>
-                    <Text style={[styles.productPrice, { color: colors.text }]}>
-                      {product.price}
                     </Text>
                   </View>
                 </TouchableOpacity>

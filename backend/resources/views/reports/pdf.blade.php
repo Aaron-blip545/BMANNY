@@ -202,6 +202,7 @@
                         <th>Business Name</th>
                         <th>Contact Person</th>
                         <th>Status</th>
+                        <th>Cancellation Reason</th>
                         <th>Date Created</th>
                     </tr>
                 </thead>
@@ -216,10 +217,11 @@
                                     {{ $inquiry->cancelled_at ? 'Cancelled' : str_replace('_', ' ', $inquiry->status) }}
                                 </span>
                             </td>
+                            <td>{{ $inquiry->cancelled_at ? ($inquiry->cancellation_reason ?: 'No reason recorded') : '—' }}</td>
                             <td>{{ optional($inquiry->created_at)->timezone('Asia/Manila')->format('M d, Y h:i A') }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="5" style="text-align:center; padding: 24px; color: #94a3b8;">No inquiries recorded within this timeframe.</td></tr>
+                        <tr><td colspan="6" style="text-align:center; padding: 24px; color: #94a3b8;">No inquiries recorded within this timeframe.</td></tr>
                     @endforelse
                 </tbody>
             </table>

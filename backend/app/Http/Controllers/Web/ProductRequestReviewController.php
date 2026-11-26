@@ -73,11 +73,15 @@ class ProductRequestReviewController extends Controller
         ]);
 
         // A completed Product Control decision advances the lead automatically.
-        // A request BMANNY cannot accommodate is closed; an available request
+        // A request BMANNY cannot accommodate is cancelled; an available request
         // or alternative is ready for Sales to quote.
         if ($review->inquiry) {
             $review->inquiry->update([
-                'status' => $data['status'] === 'unavailable' ? 'closed' : 'for_quotation',
+                'status' => $data['status'] === 'unavailable' ? 'cancelled' : 'for_quotation',
+                'cancelled_at' => $data['status'] === 'unavailable' ? now() : $review->inquiry->cancelled_at,
+                'cancellation_reason' => $data['status'] === 'unavailable'
+                    ? ($data['response_notes'] ?: 'Marked unavailable by Product Control.')
+                    : $review->inquiry->cancellation_reason,
             ]);
         }
 

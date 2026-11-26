@@ -588,7 +588,9 @@ export default function ProductRequests({ requests, productTypes }: { requests: 
                                                                             </div>
                                                                             {parsedCustomerNotes ? (
                                                                                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 pt-1">
-                                                                                    {parsedCustomerNotes.map((item, idx) => (
+                                                                                    {parsedCustomerNotes
+                                                                                        .filter((item) => item.label?.toLowerCase() !== 'package terms')
+                                                                                        .map((item, idx) => (
                                                                                         <div
                                                                                             key={idx}
                                                                                             className="flex flex-col rounded-md border border-border/50 bg-muted/20 px-3 py-2"
@@ -674,7 +676,7 @@ export default function ProductRequests({ requests, productTypes }: { requests: 
 
                                             {sectionsOpen.decision && (
                                                 <div className="p-4 border-t border-border/60 space-y-4 animate-in fade-in-50 duration-150">
-                                                    <div className="grid gap-4 sm:grid-cols-2">
+                                                    <div className="space-y-4">
                                                         <div className="space-y-1.5">
                                                             <Label className="text-xs font-semibold text-foreground">
                                                                 Availability decision <span className="text-destructive">*</span>
@@ -693,50 +695,6 @@ export default function ProductRequests({ requests, productTypes }: { requests: 
                                                         </div>
 
                                                         <div className="space-y-1.5">
-                                                            <Label className="text-xs font-semibold text-foreground">
-                                                                Suggested variant (optional)
-                                                            </Label>
-                                                            <Select
-                                                                value={form.data.suggested_variant_id || 'none'}
-                                                                onValueChange={(value) => form.setData('suggested_variant_id', value === 'none' ? '' : value)}
-                                                            >
-                                                                <SelectTrigger className="h-10 rounded-lg border-input/80 text-xs shadow-xs">
-                                                                    <SelectValue placeholder="No variant suggestion" />
-                                                                </SelectTrigger>
-                                                                <SelectContent className="z-[90]">
-                                                                    <SelectItem value="none">No variant suggestion</SelectItem>
-                                                                    {availableVariants.map((variant) => (
-                                                                        <SelectItem key={variant.variant_id} value={String(variant.variant_id)}>
-                                                                            {variant.product_name} — {variant.name}
-                                                                        </SelectItem>
-                                                                    ))}
-                                                                </SelectContent>
-                                                            </Select>
-                                                        </div>
-
-                                                        <div className="space-y-1.5 sm:col-span-2">
-                                                            <Label className="text-xs font-semibold text-foreground">
-                                                                Suggested packaging / label (optional)
-                                                            </Label>
-                                                            <Select
-                                                                value={form.data.suggested_packaging_id || 'none'}
-                                                                onValueChange={(value) => form.setData('suggested_packaging_id', value === 'none' ? '' : value)}
-                                                            >
-                                                                <SelectTrigger className="h-10 rounded-lg border-input/80 text-xs shadow-xs">
-                                                                    <SelectValue placeholder="No packaging suggestion" />
-                                                                </SelectTrigger>
-                                                                <SelectContent className="z-[90]">
-                                                                    <SelectItem value="none">No packaging suggestion</SelectItem>
-                                                                    {packaging.map((option) => (
-                                                                        <SelectItem key={option.packaging_id} value={String(option.packaging_id)}>
-                                                                            {option.category} — {option.name}
-                                                                        </SelectItem>
-                                                                    ))}
-                                                                </SelectContent>
-                                                            </Select>
-                                                        </div>
-
-                                                        <div className="space-y-1.5 sm:col-span-2">
                                                             <Label className="text-xs font-semibold text-foreground">
                                                                 Response to Sales
                                                             </Label>
