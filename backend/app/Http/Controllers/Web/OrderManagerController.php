@@ -230,7 +230,8 @@ class OrderManagerController extends Controller
      */
     public function updateSchedule(Request $request, $scheduleId)
     {
-        $schedule = ProductionSchedule::with('order')->findOrFail($scheduleId);
+        $schedule = ProductionSchedule::with('order.client.user')->findOrFail($scheduleId);
+        $prevStatus = $schedule->production_status;
 
         $validated = $request->validate([
             'production_start_date' => 'sometimes|date',
@@ -244,16 +245,21 @@ class OrderManagerController extends Controller
             'production_notes'      => 'nullable|string|max:1000',
         ]);
 
-        if (($validated['production_status'] ?? null) === 'in_progress' && ! $schedule->actual_start_date && empty($validated['actual_start_date'])) {
+        $newStatus = $validated['production_status'] ?? $prevStatus;
+
+        if ($newStatus === 'in_progress' && ! $schedule->actual_start_date && empty($validated['actual_start_date'])) {
             $validated['actual_start_date'] = now()->toDateString();
         }
-        if (($validated['production_status'] ?? null) === 'completed' && ! $schedule->actual_end_date && empty($validated['actual_end_date'])) {
+        if ($newStatus === 'completed' && ! $schedule->actual_end_date && empty($validated['actual_end_date'])) {
             $validated['actual_end_date'] = now()->toDateString();
         }
 
         $schedule->update($validated);
 
-        if ($schedule->order) {
+        $syncNote = '';
+        $order = $schedule->order;
+
+        if ($order) {
             $orderUpdates = [];
             if (isset($validated['priority'])) {
                 $orderUpdates['priority'] = $validated['priority'];
@@ -262,12 +268,73 @@ class OrderManagerController extends Controller
                 $orderUpdates['estimated_completion_date'] = $validated['target_end_date'];
                 $orderUpdates['estimated_delivery_date'] = Carbon::parse($validated['target_end_date'])->addDays(2)->format('Y-m-d');
             }
+
+            // Safe One-Click Auto-Sync: keep parent Order status & client notifications aligned
+            if ($newStatus !== $prevStatus && ! in_array($order->status, ['completed', 'cancelled'], true)) {
+                if ($newStatus === 'in_progress' && $order->status === 'approved') {
+                    $orderUpdates['status'] = 'in_production';
+                    $orderUpdates['production_started_at'] = $order->production_started_at ?? now();
+                    $syncNote = " Order #{$order->order_id} automatically moved to In Production.";
+
+                    if ($order->client?->user) {
+                        NotificationService::send(
+                            $order->client->user->user_id,
+                            'order',
+                            "Order #{$order->order_id} is Now in Production",
+                            "Production batch {$schedule->batch_code} has started manufacturing.",
+                            ['order_id' => $order->order_id, 'schedule_id' => $schedule->schedule_id]
+                        );
+                    }
+                } elseif ($newStatus === 'completed' && in_array($order->status, ['approved', 'in_production'], true)) {
+                    // Only advance the Order to Ready for Pickup once ALL non-cancelled batches are completed
+                    $hasIncompleteBatches = ProductionSchedule::where('order_id', $order->order_id)
+                        ->whereNotIn('production_status', ['completed', 'cancelled'])
+                        ->exists();
+
+                    if (! $hasIncompleteBatches) {
+                        $orderUpdates['status'] = 'ready_for_pickup';
+                        $orderUpdates['packed_at'] = $order->packed_at ?? now();
+                        $orderUpdates['ready_for_pickup_at'] = $order->ready_for_pickup_at ?? now();
+                        $syncNote = " All batches done — Order #{$order->order_id} automatically moved to Ready for Pickup.";
+
+                        if ($order->client?->user) {
+                            $balanceMsg = ((float) ($order->balance_payment_amount ?? 0) > 0 && ! $order->balance_payment_verified_at)
+                                ? ' Please settle your remaining balance to clear pickup or dispatch.'
+                                : ' Your order is packed and ready for release.';
+                            NotificationService::send(
+                                $order->client->user->user_id,
+                                'order',
+                                "Order #{$order->order_id} is Ready for Pickup",
+                                "Production batch {$schedule->batch_code} is completed.{$balanceMsg}",
+                                ['order_id' => $order->order_id, 'schedule_id' => $schedule->schedule_id]
+                            );
+                        }
+                    } elseif ($order->client?->user) {
+                        NotificationService::send(
+                            $order->client->user->user_id,
+                            'order',
+                            "Production Batch Completed — Order #{$order->order_id}",
+                            "Batch {$schedule->batch_code} has finished production; remaining batch(es) are still underway.",
+                            ['order_id' => $order->order_id, 'schedule_id' => $schedule->schedule_id]
+                        );
+                    }
+                } elseif ($newStatus === 'delayed' && $order->client?->user) {
+                    NotificationService::send(
+                        $order->client->user->user_id,
+                        'order',
+                        "Production Delay Notice — Order #{$order->order_id}",
+                        "Batch {$schedule->batch_code} has been marked delayed. Our team will update you with the revised completion schedule.",
+                        ['order_id' => $order->order_id, 'schedule_id' => $schedule->schedule_id]
+                    );
+                }
+            }
+
             if (! empty($orderUpdates)) {
-                $schedule->order->update($orderUpdates);
+                $order->update($orderUpdates);
             }
         }
 
-        return back()->with('success', "Production schedule {$schedule->batch_code} updated.");
+        return back()->with('success', "Production schedule {$schedule->batch_code} updated.{$syncNote}");
     }
 
     /**
