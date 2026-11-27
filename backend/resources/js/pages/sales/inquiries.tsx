@@ -1,3 +1,4 @@
+import { NuisanceFlagModal } from '@/components/nuisance-flag-modal';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -31,7 +32,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Inquiries', href: '/inquiries' }];
-const LEAD_STATUSES = ['new', 'for_quotation', 'follow_up', 'quotation_sent', 'converted', 'lost', 'cancelled'] as const;
+const LEAD_STATUSES = ['new', 'in_review', 'for_quotation', 'follow_up', 'quotation_sent', 'converted', 'lost', 'cancelled'] as const;
 const LOST_LEAD_REASONS = [
     'Pricing too high',
     'Turnaround / Lead time',
@@ -166,6 +167,7 @@ function localDateTimeValue(date = new Date()) {
 function statusLabel(status: LeadStatus) {
     return ({
         new: 'New',
+        in_review: 'In Review',
         for_quotation: 'For Quotation',
         follow_up: 'Follow-up',
         quotation_sent: 'Quotation Sent',
@@ -191,6 +193,11 @@ function getStatusConfig(status: string) {
             return {
                 label: 'New',
                 pill: 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
+            };
+        case 'in_review':
+            return {
+                label: 'In Review',
+                pill: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300',
             };
         case 'for_quotation':
             return {
@@ -592,6 +599,7 @@ export default function InquiriesPage({ inquiries }: Props) {
     const [completionNote, setCompletionNote] = useState('');
     const [historyFor, setHistoryFor] = useState<Inquiry | null>(null);
     const [viewingInquiry, setViewingInquiry] = useState<Inquiry | null>(null);
+    const [flagDetailClientId, setFlagDetailClientId] = useState<number | null>(null);
 
     const [datePopoverOpen, setDatePopoverOpen] = useState(false);
     const [timePopoverOpen, setTimePopoverOpen] = useState(false);
@@ -742,7 +750,7 @@ export default function InquiriesPage({ inquiries }: Props) {
     }, [notificationInquiryId, inquiries]);
 
     const [statusModalFor, setStatusModalFor] = useState<Inquiry | null>(null);
-    const [nextLeadStatus, setNextLeadStatus] = useState<'lost' | 'cancelled' | 'follow_up' | 'for_quotation' | 'new'>('lost');
+    const [nextLeadStatus, setNextLeadStatus] = useState<'lost' | 'cancelled' | 'in_review' | 'follow_up' | 'for_quotation' | 'new'>('lost');
     const [leadReason, setLeadReason] = useState<string>(LOST_LEAD_REASONS[0]);
     const [leadRemarks, setLeadRemarks] = useState('');
     const [submittingLeadStatus, setSubmittingLeadStatus] = useState(false);
@@ -972,7 +980,7 @@ export default function InquiriesPage({ inquiries }: Props) {
                                         inquiry.product_request_review &&
                                         (inquiry.product_request_review.status === 'available' || inquiry.product_request_review.status === 'alternative')
                                     );
-                                    const quoteAllowed = !inquiry.quotation && ['new', 'for_quotation', 'follow_up'].includes(inquiry.status) && isReviewedByProductController;
+                                    const quoteAllowed = !inquiry.quotation && ['new', 'in_review', 'for_quotation', 'follow_up'].includes(inquiry.status) && isReviewedByProductController;
                                     const isCancelled = Boolean(inquiry.cancelled_at) || inquiry.status === 'cancelled';
                                     const inactive = inquiry.status === 'converted' || isCancelled;
 
@@ -996,12 +1004,19 @@ export default function InquiriesPage({ inquiries }: Props) {
                                                         {inquiry.client?.business_name ?? '—'}
                                                     </p>
                                                     {inquiry.client?.is_flagged_nuisance && (
-                                                        <span
-                                                            title={inquiry.client.nuisance_reason ?? 'Flagged as nuisance client'}
-                                                            className="inline-flex items-center rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-bold uppercase text-white"
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (inquiry.client?.client_id) {
+                                                                    setFlagDetailClientId(inquiry.client.client_id);
+                                                                }
+                                                            }}
+                                                            title="Click to inspect nuisance flag reason & incidents"
+                                                            className="inline-flex items-center gap-1 rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-bold uppercase text-white transition-colors hover:bg-rose-700 cursor-pointer"
                                                         >
                                                             Nuisance{inquiry.client.nuisance_strikes ? ` · ${inquiry.client.nuisance_strikes} strikes` : ''}
-                                                        </span>
+                                                        </button>
                                                     )}
                                                 </div>
                                                 <p className="mt-0.5 text-sm text-muted-foreground">
@@ -1953,31 +1968,46 @@ export default function InquiriesPage({ inquiries }: Props) {
                                                 : 'Clients are automatically flagged at 3 strikes (lost/cancelled inquiries, expired quotes, or cancelled orders).'}
                                         </p>
                                     </div>
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        variant={viewingInquiry.client.is_flagged_nuisance ? 'outline' : 'destructive'}
-                                        className="h-8 shrink-0 text-xs font-semibold"
-                                        onClick={() => {
-                                            const clientId = viewingInquiry.client?.client_id;
-                                            if (!clientId) return;
-                                            const currentlyFlagged = Boolean(viewingInquiry.client?.is_flagged_nuisance);
-                                            const reason = currentlyFlagged
-                                                ? null
-                                                : window.prompt('Reason for flagging this client as a nuisance user:', 'Repeated cancellations / unresponsive inquiries');
-                                            if (!currentlyFlagged && reason === null) return;
-                                            router.post(
-                                                route('clients.toggle-nuisance', clientId),
-                                                { is_flagged: !currentlyFlagged, reason },
-                                                {
-                                                    preserveScroll: true,
-                                                    onSuccess: () => setViewingInquiry(null),
-                                                },
-                                            );
-                                        }}
-                                    >
-                                        {viewingInquiry.client.is_flagged_nuisance ? 'Remove Flag' : 'Flag as Nuisance'}
-                                    </Button>
+                                    <div className="flex shrink-0 items-center gap-1.5">
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="secondary"
+                                            className="h-8 text-xs font-semibold"
+                                            onClick={() => {
+                                                if (viewingInquiry.client?.client_id) {
+                                                    setFlagDetailClientId(viewingInquiry.client.client_id);
+                                                }
+                                            }}
+                                        >
+                                            View Details
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant={viewingInquiry.client.is_flagged_nuisance ? 'outline' : 'destructive'}
+                                            className="h-8 shrink-0 text-xs font-semibold"
+                                            onClick={() => {
+                                                const clientId = viewingInquiry.client?.client_id;
+                                                if (!clientId) return;
+                                                const currentlyFlagged = Boolean(viewingInquiry.client?.is_flagged_nuisance);
+                                                const reason = currentlyFlagged
+                                                    ? null
+                                                    : window.prompt('Reason for flagging this client as a nuisance user:', 'Repeated cancellations / unresponsive inquiries');
+                                                if (!currentlyFlagged && reason === null) return;
+                                                router.post(
+                                                    route('clients.toggle-nuisance', clientId),
+                                                    { is_flagged: !currentlyFlagged, reason },
+                                                    {
+                                                        preserveScroll: true,
+                                                        onSuccess: () => setViewingInquiry(null),
+                                                    },
+                                                );
+                                            }}
+                                        >
+                                            {viewingInquiry.client.is_flagged_nuisance ? 'Remove Flag' : 'Flag as Nuisance'}
+                                        </Button>
+                                    </div>
                                 </div>
                             )}
 
@@ -2045,6 +2075,7 @@ export default function InquiriesPage({ inquiries }: Props) {
                             >
                                 <option value="lost">Lost Lead (Did not convert)</option>
                                 <option value="cancelled">Cancelled by Sales</option>
+                                <option value="in_review">In Review (Evaluating Specs)</option>
                                 <option value="follow_up">Follow-up</option>
                                 <option value="for_quotation">For Quotation</option>
                                 <option value="new">Reopen as New</option>
@@ -2103,6 +2134,13 @@ export default function InquiriesPage({ inquiries }: Props) {
                     </form>
                 </DialogContent>
             </Dialog>
+
+            <NuisanceFlagModal
+                clientId={flagDetailClientId}
+                onClose={() => setFlagDetailClientId(null)}
+                canToggle
+                onFlagChanged={() => setViewingInquiry(null)}
+            />
         </AppLayout>
     );
 }

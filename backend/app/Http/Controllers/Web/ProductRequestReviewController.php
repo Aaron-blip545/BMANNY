@@ -39,7 +39,12 @@ class ProductRequestReviewController extends Controller
             ])
             ->values();
 
-        $ashigo = ProductType::where('is_active', true)->orderBy('product_type_id')->first();
+        $ashigo = ProductType::where('is_active', true)
+            ->whereHas('recipes', fn ($q) => $q->whereNull('package_slug'))
+            ->orderByRaw("CASE WHEN LOWER(name) LIKE '%ashigo%' THEN 0 ELSE 1 END")
+            ->orderBy('product_type_id')
+            ->first()
+            ?? ProductType::where('is_active', true)->orderBy('product_type_id')->first();
         $baseBomRecipes = $ashigo
             ? ProductRecipe::with('rawMaterial')
                 ->where('product_type_id', $ashigo->product_type_id)
@@ -73,7 +78,7 @@ class ProductRequestReviewController extends Controller
 
     public function submit(Request $request, int $inquiryId): RedirectResponse
     {
-        $inquiry = Inquiry::findOrFail($inquiryId);
+        $inquiry = Inquiry::with('client.user')->findOrFail($inquiryId);
         $data = $request->validate([
             'product_type_id' => 'nullable|exists:product_types,product_type_id',
             'requested_variant_id' => 'nullable|exists:product_variants,variant_id',
@@ -94,7 +99,30 @@ class ProductRequestReviewController extends Controller
             ]
         );
 
+        // Automatically move inquiry to 'in_review' so the client sees it is actively being reviewed.
+        if (in_array($inquiry->status, ['new', 'follow_up', 'pending'], true)) {
+            $prevStatus = $inquiry->status;
+            $inquiry->update(['status' => 'in_review']);
+            $inquiry->recordStatusChange(
+                $prevStatus,
+                'in_review',
+                'Sent to Product Control',
+                $data['request_notes'] ?: 'Forwarded to Product Control for formulation & availability review.',
+                $request->user('web')->user_id
+            );
+        }
+
         NotificationService::sendToRoles(['product_controller'], 'product_request', 'Product request awaiting review', "Inquiry #{$inquiry->inquiry_id} needs an availability review.", ['inquiry_id' => $inquiry->inquiry_id]);
+
+        if ($inquiry->client?->user) {
+            NotificationService::send(
+                $inquiry->client->user->user_id,
+                'inquiry',
+                "Inquiry #{$inquiry->inquiry_id} is In Review",
+                'Our Sales & Product Control team is now reviewing your inquiry specifications.',
+                ['inquiry_id' => $inquiry->inquiry_id]
+            );
+        }
 
         return back()->with('success', 'Product request sent to the Product Controller.');
     }

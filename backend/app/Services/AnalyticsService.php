@@ -215,18 +215,31 @@ class AnalyticsService
     }
 
     /**
-     * Lost & cancelled leads analytics with reason breakdown.
+     * Lost & cancelled inquiries and cancelled orders analytics with most-common reason breakdown.
      */
-    public function lostLeadsAnalytics(): array
+    public function lostLeadsAnalytics(?Carbon $from = null, ?Carbon $to = null): array
     {
-        $totalInquiries = Inquiry::count();
-        $lostInquiries = Inquiry::with('client')
+        $totalInquiriesQuery = Inquiry::query();
+        $lostInquiriesQuery = Inquiry::with('client')
             ->where(function ($q) {
                 $q->whereNotNull('cancelled_at')
                     ->orWhereIn('status', ['cancelled', 'lost']);
-            })
-            ->orderByDesc('updated_at')
-            ->get();
+            });
+
+        $totalOrdersQuery = Order::query();
+        $cancelledOrdersQuery = Order::with(['client', 'quotation.inquiry'])
+            ->where('status', 'cancelled');
+
+        if ($from && $to) {
+            $totalInquiriesQuery->whereBetween('created_at', [$from, $to]);
+            $lostInquiriesQuery->whereBetween('created_at', [$from, $to]);
+            $totalOrdersQuery->whereBetween('created_at', [$from, $to]);
+            $cancelledOrdersQuery->whereBetween('created_at', [$from, $to]);
+        }
+
+        $totalInquiries = $totalInquiriesQuery->count();
+        $lostInquiries = $lostInquiriesQuery->orderByDesc('updated_at')->get();
+        $lostCount = $lostInquiries->count();
 
         $reasons = $lostInquiries
             ->groupBy(function ($inq) {
@@ -234,12 +247,82 @@ class AnalyticsService
                 return $r !== '' ? $r : 'No reason specified';
             })
             ->map(fn ($group, $reason) => [
-                'reason' => $reason,
-                'count'  => $group->count(),
+                'reason'     => $reason,
+                'count'      => $group->count(),
+                'percentage' => $lostCount > 0 ? round(($group->count() / $lostCount) * 100, 1) : 0.0,
             ])
             ->sortByDesc('count')
             ->values()
             ->all();
+
+        $totalOrders = $totalOrdersQuery->count();
+        $cancelledOrders = $cancelledOrdersQuery->orderByDesc('updated_at')->get();
+        $cancelledOrdersCount = $cancelledOrders->count();
+
+        $orderReasons = $cancelledOrders
+            ->groupBy(function ($order) {
+                $r = trim((string) ($order->quotation?->inquiry?->cancellation_reason ?? ''));
+                return $r !== '' ? $r : 'Cancelled during order processing';
+            })
+            ->map(fn ($group, $reason) => [
+                'reason'     => $reason,
+                'count'      => $group->count(),
+                'percentage' => $cancelledOrdersCount > 0 ? round(($group->count() / $cancelledOrdersCount) * 100, 1) : 0.0,
+            ])
+            ->sortByDesc('count')
+            ->values()
+            ->all();
+
+        // Combined frequency across both inquiries and orders
+        $combinedMap = [];
+        foreach ($reasons as $row) {
+            $key = strtolower($row['reason']);
+            $combinedMap[$key] = [
+                'reason'        => $row['reason'],
+                'inquiry_count' => $row['count'],
+                'order_count'   => 0,
+                'total'         => $row['count'],
+            ];
+        }
+        foreach ($orderReasons as $row) {
+            $key = strtolower($row['reason']);
+            if (! isset($combinedMap[$key])) {
+                $combinedMap[$key] = [
+                    'reason'        => $row['reason'],
+                    'inquiry_count' => 0,
+                    'order_count'   => $row['count'],
+                    'total'         => $row['count'],
+                ];
+            } else {
+                $combinedMap[$key]['order_count'] += $row['count'];
+                $combinedMap[$key]['total'] += $row['count'];
+            }
+        }
+
+        $totalCancelledCombined = $lostCount + $cancelledOrdersCount;
+        $combinedReasons = collect($combinedMap)
+            ->map(fn ($row) => [
+                ...$row,
+                'percentage' => $totalCancelledCombined > 0
+                    ? round(($row['total'] / $totalCancelledCombined) * 100, 1)
+                    : 0.0,
+            ])
+            ->sortByDesc('total')
+            ->values()
+            ->all();
+
+        $pickTopReason = static function (array $list, string $countKey = 'count'): ?array {
+            if (empty($list)) {
+                return null;
+            }
+            foreach ($list as $item) {
+                $lower = strtolower((string) ($item['reason'] ?? ''));
+                if ($lower !== 'no reason specified' && $lower !== 'cancelled during order processing') {
+                    return $item;
+                }
+            }
+            return $list[0];
+        };
 
         $unavailableReviews = ProductRequestReview::where('status', 'unavailable')->count();
 
@@ -258,13 +341,21 @@ class AnalyticsService
             ->all();
 
         return [
-            'total_inquiries'     => $totalInquiries,
-            'lost_count'          => $lostInquiries->count(),
-            'lost_rate'           => $totalInquiries > 0 ? round(($lostInquiries->count() / $totalInquiries) * 100, 1) : 0.0,
-            'unavailable_reviews' => $unavailableReviews,
-            'reasons'             => $reasons,
-            'flagged_clients'     => $flaggedClients,
-            'recent_lost'         => $lostInquiries->take(6)->map(fn ($i) => [
+            'total_inquiries'            => $totalInquiries,
+            'lost_count'                 => $lostCount,
+            'lost_rate'                  => $totalInquiries > 0 ? round(($lostCount / $totalInquiries) * 100, 1) : 0.0,
+            'total_orders'               => $totalOrders,
+            'cancelled_orders_count'     => $cancelledOrdersCount,
+            'cancelled_orders_rate'      => $totalOrders > 0 ? round(($cancelledOrdersCount / $totalOrders) * 100, 1) : 0.0,
+            'most_common_inquiry_reason' => $pickTopReason($reasons),
+            'most_common_order_reason'   => $pickTopReason($orderReasons),
+            'most_common_overall'        => $pickTopReason($combinedReasons, 'total'),
+            'unavailable_reviews'        => $unavailableReviews,
+            'reasons'                    => $reasons,
+            'order_cancellation_reasons' => $orderReasons,
+            'combined_reasons'           => $combinedReasons,
+            'flagged_clients'            => $flaggedClients,
+            'recent_lost'                => $lostInquiries->take(6)->map(fn ($i) => [
                 'inquiry_id'    => $i->inquiry_id,
                 'business_name' => $i->client?->business_name ?? 'Client',
                 'reason'        => $i->cancellation_reason ?: 'No reason specified',

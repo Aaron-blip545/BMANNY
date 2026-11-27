@@ -67,6 +67,8 @@ Route::middleware(['backend.auth'])->group(function () {
         Route::get('reports/{report}/pdf', [AdminDashboardController::class, 'exportPdf'])
             ->whereIn('report', ['inquiries', 'quotations', 'orders', 'lost_leads', 'product_requests', 'inventory', 'production', 'reorders', 'summary'])
             ->name('reports.pdf');
+        Route::get('clients/{client_id}/risk-details', [SalesAgentController::class, 'clientRiskDetails'])
+            ->name('clients.risk-details');
     });
 
     Route::middleware(['backend.role:admin'])->get('admin/dashboard', [AdminDashboardController::class, 'index'])

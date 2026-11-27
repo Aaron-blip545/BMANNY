@@ -286,6 +286,43 @@
                 </tbody>
             </table>
         @elseif($report === 'lost_leads' && $items)
+            @if(!empty($cancellationInsights['combined_reasons']))
+                <div style="border: 1px solid #fecdd3; background: #fff1f2; border-radius: 8px; padding: 14px 16px; margin-bottom: 18px;">
+                    <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px; color: #be123c;">
+                        Top Cancellation Reasons (Inquiries &amp; Orders)
+                    </div>
+                    @if(!empty($cancellationInsights['most_common_overall']))
+                        <div style="font-size: 14px; font-weight: 800; color: #0f172a; margin-top: 4px;">
+                            #1 Most Common: &ldquo;{{ $cancellationInsights['most_common_overall']['reason'] }}&rdquo;
+                            <span style="font-size: 12px; color: #be123c; font-weight: 700;">
+                                ({{ $cancellationInsights['most_common_overall']['total'] }} cases · {{ $cancellationInsights['most_common_overall']['percentage'] }}%)
+                            </span>
+                        </div>
+                    @endif
+                    <table style="margin-top: 10px; background: #ffffff;">
+                        <thead>
+                            <tr>
+                                <th>Reason</th>
+                                <th>Cancelled Inquiries</th>
+                                <th>Cancelled Orders</th>
+                                <th>Total</th>
+                                <th>Share</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach(array_slice($cancellationInsights['combined_reasons'], 0, 8) as $row)
+                                <tr>
+                                    <td><strong>{{ $row['reason'] }}</strong></td>
+                                    <td>{{ $row['inquiry_count'] }}</td>
+                                    <td>{{ $row['order_count'] }}</td>
+                                    <td><strong>{{ $row['total'] }}</strong></td>
+                                    <td>{{ $row['percentage'] }}%</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
             <table>
                 <thead>
                     <tr>

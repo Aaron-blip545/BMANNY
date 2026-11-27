@@ -481,4 +481,83 @@ class InventoryService
 
         return $query->first();
     }
+
+    /**
+     * Read-only pre-check for Sales Agents to indicate whether a quotation can be
+     * accepted & converted into an Order right now (payment submitted, not expired,
+     * and sufficient BOM raw-material stock in inventory).
+     */
+    public static function checkQuotationAcceptability(\App\Models\Quotation $quotation): array
+    {
+        if ($quotation->is_expired || $quotation->status === 'expired') {
+            return [
+                'can_accept' => false,
+                'status'     => 'expired',
+                'reason'     => 'Quotation has expired',
+                'shortages'  => [],
+            ];
+        }
+
+        if ($quotation->status !== 'sent') {
+            return [
+                'can_accept' => false,
+                'status'     => $quotation->status,
+                'reason'     => 'Quotation is already ' . $quotation->status,
+                'shortages'  => [],
+            ];
+        }
+
+        if (! $quotation->payment_submitted_at) {
+            return [
+                'can_accept' => false,
+                'status'     => 'awaiting_payment',
+                'reason'     => 'Awaiting client payment proof',
+                'shortages'  => [],
+            ];
+        }
+
+        $virtualOrder = new Order([
+            'quotation_id' => $quotation->quotation_id,
+            'total_amount' => $quotation->total_amount,
+            'status'       => 'approved',
+        ]);
+        $virtualOrder->setRelation('quotation', $quotation);
+        $virtualOrder->setRelation('items', collect());
+
+        $requiredMaterials = self::calculateRequiredMaterials($virtualOrder);
+        $shortages = [];
+
+        foreach ($requiredMaterials as $item) {
+            /** @var Product $product */
+            $product = $item['product'];
+            $needed = round((float) $item['quantity'], 4);
+            $available = round((float) $product->stock_quantity, 4);
+            if ($available < $needed) {
+                $shortages[] = [
+                    'sku'       => $product->sku ?? $product->name,
+                    'name'      => $product->name,
+                    'required'  => $needed,
+                    'available' => $available,
+                    'unit'      => $product->unit_of_measure ?? 'units',
+                ];
+            }
+        }
+
+        if (! empty($shortages)) {
+            $count = count($shortages);
+            return [
+                'can_accept' => false,
+                'status'     => 'insufficient_stock',
+                'reason'     => "Insufficient raw material stock ({$count} " . ($count === 1 ? 'item' : 'items') . ' short)',
+                'shortages'  => $shortages,
+            ];
+        }
+
+        return [
+            'can_accept' => true,
+            'status'     => 'ready',
+            'reason'     => 'Stock verified & ready to create order',
+            'shortages'  => [],
+        ];
+    }
 }

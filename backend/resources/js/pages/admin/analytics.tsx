@@ -1,8 +1,10 @@
 import { DashboardAnalytics, type ActivityPeriods } from '@/components/dashboard-analytics';
+import { NuisanceFlagModal } from '@/components/nuisance-flag-modal';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
+import { useState } from 'react';
 import {
     AlertTriangle,
     Award,
@@ -40,12 +42,34 @@ interface SalesPerformance {
     }>;
 }
 
+interface CancellationReasonItem {
+    reason: string;
+    count: number;
+    percentage?: number;
+}
+
+interface CombinedCancellationReasonItem {
+    reason: string;
+    inquiry_count: number;
+    order_count: number;
+    total: number;
+    percentage: number;
+}
+
 interface LostLeadsData {
     total_inquiries: number;
     lost_count: number;
     lost_rate: number;
+    total_orders?: number;
+    cancelled_orders_count?: number;
+    cancelled_orders_rate?: number;
+    most_common_inquiry_reason?: CancellationReasonItem | null;
+    most_common_order_reason?: CancellationReasonItem | null;
+    most_common_overall?: CombinedCancellationReasonItem | null;
     unavailable_reviews: number;
-    reasons: Array<{ reason: string; count: number }>;
+    reasons: CancellationReasonItem[];
+    order_cancellation_reasons?: CancellationReasonItem[];
+    combined_reasons?: CombinedCancellationReasonItem[];
     flagged_clients?: Array<{ client_id: number; business_name: string; strikes: number; reason: string; flagged_at: string | null }>;
     recent_lost: Array<{ inquiry_id: number; business_name: string; reason: string; date: string | null }>;
 }
@@ -150,6 +174,7 @@ const ROLE_META: Record<string, { label: string; desc: string }> = {
 export default function AdminAnalytics({ role = 'admin', analytics }: Props) {
     const meta = ROLE_META[role] ?? ROLE_META.admin;
     const breadcrumbs: BreadcrumbItem[] = [{ title: 'Analytics', href: '/analytics' }];
+    const [flagDetailClientId, setFlagDetailClientId] = useState<number | null>(null);
 
     const { salesPerformance, lostLeads, topBuyers = [], productDemand, production, inventoryRisks } = analytics;
 
@@ -317,33 +342,89 @@ export default function AdminAnalytics({ role = 'admin', analytics }: Props) {
                                         <div className="flex items-center gap-2">
                                             <TrendingDown className="size-5 text-rose-600" />
                                             <div>
-                                                <h2 className="text-base font-bold text-foreground">Lost &amp; Cancelled Leads Analysis</h2>
-                                                <p className="text-xs text-muted-foreground">Drop-off rate and top reasons inquiries did not convert</p>
+                                                <h2 className="text-base font-bold text-foreground">Lost &amp; Cancelled Inquiries / Orders</h2>
+                                                <p className="text-xs text-muted-foreground">Most common cancellation reasons across inquiries and orders</p>
                                             </div>
                                         </div>
-                                        <span className="rounded-full bg-rose-500/10 px-2.5 py-0.5 text-xs font-bold text-rose-700 dark:text-rose-300">
-                                            {lostLeads.lost_count} Lost ({lostLeads.lost_rate}%)
-                                        </span>
+                                        <div className="flex flex-wrap items-center justify-end gap-1.5">
+                                            <span className="rounded-full bg-rose-500/10 px-2.5 py-0.5 text-xs font-bold text-rose-700 dark:text-rose-300">
+                                                {lostLeads.lost_count} Inquiries ({lostLeads.lost_rate}%)
+                                            </span>
+                                            {(lostLeads.cancelled_orders_count ?? 0) > 0 && (
+                                                <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-bold text-amber-700 dark:text-amber-300">
+                                                    {lostLeads.cancelled_orders_count} Orders ({lostLeads.cancelled_orders_rate ?? 0}%)
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
 
-                                    {lostLeads.reasons.length === 0 ? (
-                                        <p className="py-6 text-center text-xs text-muted-foreground">No lost or cancelled leads recorded.</p>
+                                    {lostLeads.most_common_overall && (
+                                        <div className="rounded-lg border border-rose-500/30 bg-rose-500/5 p-3">
+                                            <p className="text-[10px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400">
+                                                #1 Most Common Cancellation Reason
+                                            </p>
+                                            <div className="mt-1 flex items-baseline justify-between gap-3">
+                                                <p className="text-sm font-bold text-foreground">
+                                                    &ldquo;{lostLeads.most_common_overall.reason}&rdquo;
+                                                </p>
+                                                <span className="shrink-0 font-mono text-xs font-bold text-rose-700 dark:text-rose-300">
+                                                    {lostLeads.most_common_overall.total} cases ({lostLeads.most_common_overall.percentage}%)
+                                                </span>
+                                            </div>
+                                            <p className="mt-0.5 text-[11px] text-muted-foreground">
+                                                {lostLeads.most_common_overall.inquiry_count} cancelled inquiries · {lostLeads.most_common_overall.order_count} cancelled orders
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {lostLeads.reasons.length === 0 && (lostLeads.order_cancellation_reasons?.length ?? 0) === 0 ? (
+                                        <p className="py-6 text-center text-xs text-muted-foreground">No lost or cancelled inquiries or orders recorded.</p>
                                     ) : (
-                                        <div className="space-y-2.5">
-                                            {lostLeads.reasons.map((item) => {
-                                                const pct = lostLeads.lost_count > 0 ? Math.round((item.count / lostLeads.lost_count) * 100) : 0;
-                                                return (
-                                                    <div key={item.reason} className="space-y-1 text-xs">
-                                                        <div className="flex justify-between">
-                                                            <span className="font-semibold text-foreground">{item.reason}</span>
-                                                            <span className="font-mono text-muted-foreground">{item.count} ({pct}%)</span>
-                                                        </div>
-                                                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                                                            <div className="h-full rounded-full bg-rose-500" style={{ width: `${pct}%` }} />
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
+                                        <div className="space-y-3">
+                                            {lostLeads.reasons.length > 0 && (
+                                                <div className="space-y-2">
+                                                    <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                                                        Cancelled / Lost Inquiry Reasons
+                                                    </p>
+                                                    {lostLeads.reasons.map((item) => {
+                                                        const pct = item.percentage ?? (lostLeads.lost_count > 0 ? Math.round((item.count / lostLeads.lost_count) * 100) : 0);
+                                                        return (
+                                                            <div key={item.reason} className="space-y-1 text-xs">
+                                                                <div className="flex justify-between gap-2">
+                                                                    <span className="font-semibold text-foreground">{item.reason}</span>
+                                                                    <span className="shrink-0 font-mono text-muted-foreground">{item.count} ({pct}%)</span>
+                                                                </div>
+                                                                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                                                                    <div className="h-full rounded-full bg-rose-500" style={{ width: `${pct}%` }} />
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+
+                                            {lostLeads.order_cancellation_reasons && lostLeads.order_cancellation_reasons.length > 0 && (
+                                                <div className="space-y-2 border-t border-border/60 pt-2.5">
+                                                    <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                                                        Cancelled Order Reasons ({lostLeads.cancelled_orders_count ?? 0})
+                                                    </p>
+                                                    {lostLeads.order_cancellation_reasons.map((item) => {
+                                                        const totalOrd = lostLeads.cancelled_orders_count ?? 0;
+                                                        const pct = item.percentage ?? (totalOrd > 0 ? Math.round((item.count / totalOrd) * 100) : 0);
+                                                        return (
+                                                            <div key={`ord-${item.reason}`} className="space-y-1 text-xs">
+                                                                <div className="flex justify-between gap-2">
+                                                                    <span className="font-semibold text-foreground">{item.reason}</span>
+                                                                    <span className="shrink-0 font-mono text-muted-foreground">{item.count} ({pct}%)</span>
+                                                                </div>
+                                                                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                                                                    <div className="h-full rounded-full bg-amber-500" style={{ width: `${pct}%` }} />
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
 
@@ -354,15 +435,23 @@ export default function AdminAnalytics({ role = 'admin', analytics }: Props) {
                                             </p>
                                             <div className="space-y-1.5">
                                                 {lostLeads.flagged_clients.map((fc) => (
-                                                    <div key={fc.client_id} className="rounded-lg border border-rose-500/30 bg-rose-500/5 px-3 py-2 text-xs flex items-center justify-between gap-2">
-                                                        <div>
+                                                    <button
+                                                        type="button"
+                                                        key={fc.client_id}
+                                                        onClick={() => setFlagDetailClientId(fc.client_id)}
+                                                        className="w-full text-left rounded-lg border border-rose-500/30 bg-rose-500/5 px-3 py-2 text-xs flex items-center justify-between gap-2 transition-colors hover:border-rose-500/60 hover:bg-rose-500/10 cursor-pointer"
+                                                    >
+                                                        <div className="min-w-0">
                                                             <p className="font-bold text-foreground">{fc.business_name}</p>
-                                                            <p className="text-[11px] text-muted-foreground">{fc.reason}</p>
+                                                            <p className="text-[11px] text-muted-foreground truncate">{fc.reason}</p>
+                                                            <p className="mt-0.5 text-[10px] font-semibold text-rose-600 dark:text-rose-400">
+                                                                Click to inspect flag details &amp; incidents →
+                                                            </p>
                                                         </div>
                                                         <span className="rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white shrink-0">
                                                             {fc.strikes} strikes
                                                         </span>
-                                                    </div>
+                                                    </button>
                                                 ))}
                                             </div>
                                         </div>
@@ -555,6 +644,12 @@ export default function AdminAnalytics({ role = 'admin', analytics }: Props) {
                     )}
                 </div>
             </div>
+
+            <NuisanceFlagModal
+                clientId={flagDetailClientId}
+                onClose={() => setFlagDetailClientId(null)}
+                canToggle={role === 'admin' || role === 'sales_agent'}
+            />
         </AppLayout>
     );
 }

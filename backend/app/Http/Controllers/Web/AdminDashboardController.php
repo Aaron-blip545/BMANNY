@@ -59,7 +59,7 @@ class AdminDashboardController extends Controller
                 'salesPerformance' => in_array($role, ['admin', 'sales_agent'], true)
                     ? $analytics->salesPerformance()
                     : null,
-                'lostLeads'        => in_array($role, ['admin', 'sales_agent'], true)
+                'lostLeads'        => in_array($role, ['admin', 'sales_agent', 'order_manager'], true)
                     ? $analytics->lostLeadsAnalytics()
                     : null,
                 'topBuyers'        => in_array($role, ['admin', 'sales_agent'], true)
@@ -81,7 +81,7 @@ class AdminDashboardController extends Controller
     /**
      * Role-appropriate Reports workspace (CSV & Printable PDF exports).
      */
-    public function reports(Request $request): Response
+    public function reports(Request $request, AnalyticsService $analytics): Response
     {
         $role = $request->user('web')?->role ?? 'admin';
         [$from, $to] = $this->reportRange($request);
@@ -98,15 +98,20 @@ class AdminDashboardController extends Controller
                 ->orWhereNotNull('source_order_id')
                 ->orWhereNotNull('packaging_balance_id'));
 
+        $cancellationInsights = in_array($role, ['admin', 'sales_agent', 'order_manager'], true)
+            ? $analytics->lostLeadsAnalytics($from, $to)
+            : null;
+
         return Inertia::render('admin/reports', [
-            'role'           => $role,
-            'canImport'      => $role === 'admin',
-            'allowedReports' => $this->allowedReportsForRole($role),
-            'filters'        => [
+            'role'                 => $role,
+            'canImport'            => $role === 'admin',
+            'allowedReports'       => $this->allowedReportsForRole($role),
+            'cancellationInsights' => $cancellationInsights,
+            'filters'              => [
                 'from' => $from->format('Y-m-d H:i'),
                 'to'   => $to->format('Y-m-d H:i'),
             ],
-            'summary'        => [
+            'summary'              => [
                 'inquiries'       => $inquiries->count(),
                 'quotations'      => $quotations->count(),
                 'orders'          => $orders->count(),
@@ -205,12 +210,15 @@ class AdminDashboardController extends Controller
             default            => abort(404),
         };
 
+        $cancellationInsights = app(AnalyticsService::class)->lostLeadsAnalytics($from, $to);
+
         return view('reports.pdf', [
-            'report'  => $report,
-            'from'    => $from,
-            'to'      => $to,
-            'summary' => $summary,
-            'items'   => $items,
+            'report'               => $report,
+            'from'                 => $from,
+            'to'                   => $to,
+            'summary'              => $summary,
+            'items'                => $items,
+            'cancellationInsights' => $cancellationInsights,
         ]);
     }
 

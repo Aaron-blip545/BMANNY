@@ -15,10 +15,32 @@ import {
 } from 'lucide-react';
 import { useRef, useState } from 'react';
 
+interface CancellationInsights {
+    lost_count: number;
+    lost_rate: number;
+    cancelled_orders_count: number;
+    cancelled_orders_rate: number;
+    most_common_overall?: {
+        reason: string;
+        inquiry_count: number;
+        order_count: number;
+        total: number;
+        percentage: number;
+    } | null;
+    combined_reasons?: Array<{
+        reason: string;
+        inquiry_count: number;
+        order_count: number;
+        total: number;
+        percentage: number;
+    }>;
+}
+
 interface Props {
     role?: string;
     canImport?: boolean;
     allowedReports?: string[];
+    cancellationInsights?: CancellationInsights | null;
     filters: { from: string; to: string };
     summary: {
         inquiries: number;
@@ -54,6 +76,7 @@ export default function AdminReports({
     role = 'admin',
     canImport = false,
     allowedReports = ['inquiries', 'quotations', 'orders'],
+    cancellationInsights = null,
     filters,
     summary,
 }: Props) {
@@ -238,6 +261,73 @@ export default function AdminReports({
                             </div>
                         ))}
                     </section>
+
+                    {/* Top Cancellation Reasons Insight (for Selected Date Range) */}
+                    {cancellationInsights && (cancellationInsights.lost_count > 0 || cancellationInsights.cancelled_orders_count > 0) && (
+                        <section className="rounded-xl border border-rose-500/25 bg-card p-5 shadow-sm space-y-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 pb-3">
+                                <div className="flex items-center gap-2">
+                                    <TrendingDown className="size-5 text-rose-600" />
+                                    <div>
+                                        <h2 className="text-sm font-bold text-foreground">
+                                            Top Cancellation Reasons (Inquiries &amp; Orders)
+                                        </h2>
+                                        <p className="text-xs text-muted-foreground">
+                                            Based on the selected report timeframe
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
+                                    <span className="rounded-full bg-rose-500/10 px-2.5 py-0.5 text-rose-700 dark:text-rose-300">
+                                        {cancellationInsights.lost_count} Cancelled Inquiries ({cancellationInsights.lost_rate}%)
+                                    </span>
+                                    <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-amber-700 dark:text-amber-300">
+                                        {cancellationInsights.cancelled_orders_count} Cancelled Orders ({cancellationInsights.cancelled_orders_rate}%)
+                                    </span>
+                                </div>
+                            </div>
+
+                            {cancellationInsights.most_common_overall && (
+                                <div className="rounded-lg border border-rose-500/30 bg-rose-500/5 px-4 py-3">
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400">
+                                        Most Common Reason
+                                    </p>
+                                    <div className="mt-1 flex flex-wrap items-baseline justify-between gap-2">
+                                        <p className="text-sm font-bold text-foreground">
+                                            &ldquo;{cancellationInsights.most_common_overall.reason}&rdquo;
+                                        </p>
+                                        <span className="font-mono text-xs font-bold text-rose-700 dark:text-rose-300">
+                                            {cancellationInsights.most_common_overall.total} cases ({cancellationInsights.most_common_overall.percentage}%)
+                                        </span>
+                                    </div>
+                                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                                        {cancellationInsights.most_common_overall.inquiry_count} inquiries · {cancellationInsights.most_common_overall.order_count} orders
+                                    </p>
+                                </div>
+                            )}
+
+                            {cancellationInsights.combined_reasons && cancellationInsights.combined_reasons.length > 0 && (
+                                <div className="grid gap-3 md:grid-cols-2">
+                                    {cancellationInsights.combined_reasons.slice(0, 6).map((item) => (
+                                        <div key={item.reason} className="space-y-1 text-xs">
+                                            <div className="flex justify-between gap-2">
+                                                <span className="font-semibold text-foreground truncate">{item.reason}</span>
+                                                <span className="shrink-0 font-mono text-muted-foreground">
+                                                    {item.total} ({item.percentage}%)
+                                                </span>
+                                            </div>
+                                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                                                <div className="h-full rounded-full bg-rose-500" style={{ width: `${item.percentage}%` }} />
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground">
+                                                {item.inquiry_count} inquiry · {item.order_count} order
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </section>
+                    )}
 
                     {/* Report Downloads */}
                     <section className="grid gap-4 lg:grid-cols-2" aria-label="Report downloads">

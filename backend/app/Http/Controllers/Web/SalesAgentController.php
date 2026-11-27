@@ -104,7 +104,7 @@ class SalesAgentController extends Controller
     public function updateLeadStatus(Request $request, int $inquiryId)
     {
         $validated = $request->validate([
-            'status'  => ['required', 'in:new,for_quotation,follow_up,quotation_sent,lost,cancelled'],
+            'status'  => ['required', 'in:new,in_review,for_quotation,follow_up,quotation_sent,lost,cancelled'],
             'reason'  => ['nullable', 'string', 'max:120'],
             'remarks' => ['required', 'string', 'max:2000'],
         ]);
@@ -163,6 +163,14 @@ class SalesAgentController extends Controller
                 "Your inquiry was cancelled by Sales. Reason: {$validated['reason']}.",
                 ['inquiry_id' => $inquiry->inquiry_id]
             );
+        } elseif ($targetStatus === 'in_review' && $inquiry->client?->user) {
+            NotificationService::send(
+                $inquiry->client->user->user_id,
+                'inquiry',
+                "Inquiry #{$inquiry->inquiry_id} is In Review",
+                'Our Sales team is currently reviewing your inquiry details.',
+                ['inquiry_id' => $inquiry->inquiry_id]
+            );
         }
 
         return back()->with('success', "Lead #{$inquiry->inquiry_id} updated to " . ucwords(str_replace('_', ' ', $targetStatus)) . '.');
@@ -200,6 +208,17 @@ class SalesAgentController extends Controller
         ]);
 
         return back()->with('success', "Nuisance flag removed for {$client->business_name}.");
+    }
+
+    /** Return JSON breakdown of a client's nuisance flag reason and strike incidents. */
+    public function clientRiskDetails(int $clientId)
+    {
+        $details = \App\Services\ClientRiskService::detailedBreakdown($clientId);
+        if (! $details) {
+            abort(404);
+        }
+
+        return response()->json($details);
     }
 
     /** Keep a completed follow-up in the lead history. */
@@ -382,9 +401,20 @@ class SalesAgentController extends Controller
     {
         Quotation::expireOverdue();
 
-        $quotations = Quotation::with(['inquiry.client.user', 'inquiry.customizations', 'order'])
+        $quotations = Quotation::with([
+            'inquiry.client.user',
+            'inquiry.customizations',
+            'inquiry.packagingBalance',
+            'inquiry.productRequestReview.suggestedVariant.productType',
+            'order',
+        ])
             ->orderByDesc('created_at')
-            ->get();
+            ->get()
+            ->each(function (Quotation $q) {
+                if ($q->status === 'sent') {
+                    $q->setAttribute('accept_readiness', \App\Services\InventoryService::checkQuotationAcceptability($q));
+                }
+            });
 
         return Inertia::render('sales/quotations/index', [
             'quotations' => $quotations,

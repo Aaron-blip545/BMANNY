@@ -158,7 +158,7 @@ class InquiryController extends Controller
         try {
             $inquiry = Inquiry::create([
                 'client_id' => $client->client_id,
-                'status'    => 'new',
+                'status'    => 'in_review',
             ]);
 
             InquiryCustomization::create([
@@ -359,7 +359,7 @@ class InquiryController extends Controller
         }
 
         // Allow: no quotation yet (active pre-quotation stage) OR quotation sent but unpaid
-        if ($quotation === null && ! in_array($inquiry->status, ['new', 'contacted', 'for_quotation', 'follow_up', 'pending', 'reviewed'], true)) {
+        if ($quotation === null && ! in_array($inquiry->status, ['new', 'in_review', 'contacted', 'for_quotation', 'follow_up', 'pending', 'reviewed'], true)) {
             return response()->json(['message' => 'This inquiry cannot be cancelled in its current state.'], 422);
         }
 

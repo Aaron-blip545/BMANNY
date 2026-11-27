@@ -322,19 +322,22 @@ export default function OrdersScreen() {
   };
 
   const inquiryStatusColor = (inq: Inquiry) => {
-    if (inq.cancelled_at) return '#E53935';
+    if (inq.cancelled_at || inq.status === 'cancelled' || inq.status === 'lost') return '#E53935';
     if (inq.status === 'quotation_sent' || inq.status === 'converted') return '#4CAF50';
+    if (inq.status === 'in_review' || (!inq.has_quotation && inq.manufacturing_review?.status === 'pending')) return '#6366F1';
     if (inq.status === 'for_quotation' || inq.status === 'follow_up') return '#2196F3';
-    return '#78909C'; // pending → gray
+    return '#78909C'; // new / pending → gray
   };
 
   const inquiryStatusLabel = (inq: Inquiry) => {
-    if (inq.cancelled_at) return 'Cancelled';
+    if (inq.cancelled_at || inq.status === 'cancelled') return 'Cancelled';
+    if (inq.status === 'in_review' || (!inq.has_quotation && inq.manufacturing_review?.status === 'pending')) return 'In Review';
     return inq.status.split('_').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
   const manufacturingReviewMeta = (inq: Inquiry) => {
     switch (inq.manufacturing_review?.status) {
+      case 'pending': return { title: 'Under Review by Product Control', color: '#6366F1' };
       case 'available': return { title: 'Can be manufactured', color: '#4CAF50' };
       case 'alternative': return { title: 'Alternative suggested', color: '#F59E0B' };
       case 'unavailable': return { title: 'Cannot be manufactured', color: '#E53935' };

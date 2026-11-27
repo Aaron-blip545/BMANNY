@@ -50,6 +50,18 @@ interface Quotation {
     payment_method: string | null;
     payment_proof_url: string | null;
     payment_submitted_at: string | null;
+    accept_readiness?: {
+        can_accept: boolean;
+        status: string;
+        reason: string;
+        shortages: Array<{
+            sku: string;
+            name: string;
+            required: number;
+            available: number;
+            unit: string;
+        }>;
+    } | null;
     order: { order_id: number; status: string; balance_payment_amount: string | number | null; balance_payment_submitted_at: string | null; balance_payment_verified_at: string | null; balance_payment_proof_url: string | null } | null;
 }
 
@@ -140,7 +152,20 @@ export default function QuotationsPage({ quotations }: Props) {
         router.post(
             route('quotations.accept', { id: quotation.quotation_id }),
             {},
-            { preserveScroll: true },
+            {
+                preserveScroll: true,
+                onError: (errs) => {
+                    const msg = errs?.inventory || errs?.status || Object.values(errs ?? {})[0] || 'Unable to accept quotation.';
+                    confirmModal({
+                        title: 'Cannot Create Order',
+                        text: String(msg),
+                        confirmButtonText: 'OK',
+                        cancelButtonText: '',
+                        isDestructive: true,
+                        icon: 'error',
+                    });
+                },
+            },
         );
     }
 
@@ -233,9 +258,14 @@ export default function QuotationsPage({ quotations }: Props) {
                 </header>
 
                 {/* Flash / error messages */}
-                {(flash?.success || flash?.error || errors?.status) && (
-                    <div className="mb-4 rounded-lg border border-border bg-muted px-4 py-3 text-sm text-foreground">
-                        {flash?.success ?? flash?.error ?? errors?.status}
+                {flash?.success && (
+                    <div className="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-800 dark:text-emerald-200">
+                        {flash.success}
+                    </div>
+                )}
+                {(flash?.error || errors?.inventory || errors?.status || (errors && Object.keys(errors).length > 0)) && (
+                    <div className="mb-4 rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-700 dark:text-rose-300">
+                        {flash?.error ?? errors?.inventory ?? errors?.status ?? Object.values(errors)[0]}
                     </div>
                 )}
 
@@ -452,23 +482,68 @@ export default function QuotationsPage({ quotations }: Props) {
                                                 onClick={(e) => e.stopPropagation()}
                                             >
                                                 {paymentSubmitted ? (
-                                                    <div className="flex items-center gap-2">
-                                                        <Button
-                                                            variant="default"
-                                                            size="sm"
-                                                            className="h-8 rounded-md bg-blue-600 px-3 text-xs font-semibold text-white shadow-xs hover:bg-blue-700"
-                                                            onClick={() => handleAccept(quotation)}
-                                                        >
-                                                            Accept &amp; Create Order
-                                                        </Button>
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            className="h-8 rounded-md border-border/80 px-3 text-xs font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                            onClick={() => handleRejectPayment(quotation)}
-                                                        >
-                                                            Reject
-                                                        </Button>
+                                                    <div className="flex flex-col items-start gap-2">
+                                                        {quotation.accept_readiness && (
+                                                            <div className="space-y-1">
+                                                                <span
+                                                                    title={quotation.accept_readiness.reason}
+                                                                    className={
+                                                                        quotation.accept_readiness.can_accept
+                                                                            ? 'inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-300'
+                                                                            : 'inline-flex items-center gap-1 rounded-full bg-rose-500/15 px-2.5 py-0.5 text-[11px] font-bold text-rose-700 dark:text-rose-300'
+                                                                    }
+                                                                >
+                                                                    <span
+                                                                        className={
+                                                                            quotation.accept_readiness.can_accept
+                                                                                ? 'size-1.5 rounded-full bg-emerald-500'
+                                                                                : 'size-1.5 rounded-full bg-rose-500'
+                                                                        }
+                                                                    />
+                                                                    {quotation.accept_readiness.can_accept
+                                                                        ? 'Ready to Accept · Stock OK'
+                                                                        : quotation.accept_readiness.reason}
+                                                                </span>
+                                                                {!quotation.accept_readiness.can_accept &&
+                                                                    quotation.accept_readiness.shortages.length > 0 && (
+                                                                        <p className="max-w-[260px] text-[11px] leading-snug text-rose-600 dark:text-rose-400">
+                                                                            Short:{' '}
+                                                                            {quotation.accept_readiness.shortages
+                                                                                .slice(0, 2)
+                                                                                .map(
+                                                                                    (s) =>
+                                                                                        `${s.sku} (need ${s.required} ${s.unit}, avail ${s.available})`,
+                                                                                )
+                                                                                .join('; ')}
+                                                                            {quotation.accept_readiness.shortages.length > 2
+                                                                                ? ` +${quotation.accept_readiness.shortages.length - 2} more`
+                                                                                : ''}
+                                                                        </p>
+                                                                    )}
+                                                            </div>
+                                                        )}
+                                                        <div className="flex items-center gap-2">
+                                                            <Button
+                                                                variant="default"
+                                                                size="sm"
+                                                                disabled={quotation.accept_readiness ? !quotation.accept_readiness.can_accept : false}
+                                                                title={quotation.accept_readiness?.reason}
+                                                                className="h-8 rounded-md bg-blue-600 px-3 text-xs font-semibold text-white shadow-xs hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:opacity-60"
+                                                                onClick={() => handleAccept(quotation)}
+                                                            >
+                                                                {quotation.accept_readiness && !quotation.accept_readiness.can_accept
+                                                                    ? 'Cannot Accept Yet'
+                                                                    : 'Accept & Create Order'}
+                                                            </Button>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="h-8 rounded-md border-border/80 px-3 text-xs font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                                onClick={() => handleRejectPayment(quotation)}
+                                                            >
+                                                                Reject
+                                                            </Button>
+                                                        </div>
                                                     </div>
                                                 ) : quotation.status === 'sent' ? (
                                                     <span className="text-sm text-muted-foreground font-medium">
