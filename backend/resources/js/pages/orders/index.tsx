@@ -913,9 +913,22 @@ export default function OrdersIndex({ orders }: Props) {
                                             const instructions = parseCustomerInstructions(c.formulation_notes ?? '');
                                             return (
                                                 <div key={c.customization_id || idx} className="rounded-xl border border-border/70 bg-card p-4 shadow-xs space-y-3">
-                                                    <p className="text-xs font-bold text-primary uppercase tracking-wide">
-                                                        Specification #{idx + 1}: {c.selected_package ?? c.packaging_type ?? 'Custom Package'}
-                                                    </p>
+                                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                                        <p className="text-xs font-bold text-primary uppercase tracking-wide">
+                                                            Specification #{idx + 1}: {c.selected_package ?? c.packaging_type ?? 'Custom Package'}
+                                                        </p>
+                                                        {(() => {
+                                                            const match = c.serving_size?.match(/[×x]\s*([\d,]+)/i);
+                                                            if (!match) return null;
+                                                            const qty = parseInt(match[1].replace(/,/g, ''), 10);
+                                                            if (Number.isNaN(qty) || qty <= 0) return null;
+                                                            return (
+                                                                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300">
+                                                                    Order Qty: {qty.toLocaleString()} pouches
+                                                                </span>
+                                                            );
+                                                        })()}
+                                                    </div>
 
                                                     <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
                                                         <div className="rounded-lg bg-muted/30 p-2.5">

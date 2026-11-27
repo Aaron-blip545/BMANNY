@@ -722,15 +722,174 @@ class RawMaterialsAndBomSeeder extends Seeder
                 'sku'             => 'R-ZINC-SULFATE',
                 'category_id'     => $vitCat->category_id,
                 'price'           => 340.00,
-                'stock_quantity'  => 3.0000,
+                'stock_quantity'  => 3,
                 'reorder_level'   => 0,
                 'unit_of_measure' => 'pcs',
                 'description'     => 'Zinc sulfate monohydrate dietary mineral',
             ],
+            // ── 14 Herbal Add-on Raw Materials (measured in whole grams for Gold +6 / Elite +8) ──
+            [
+                'name'            => 'Malunggay (Moringa)',
+                'sku'             => 'HRB-MORINGA-001',
+                'category_id'     => $extractCat->category_id,
+                'price'           => 0.65,
+                'stock_quantity'  => 25000,
+                'reorder_level'   => 5000,
+                'unit_of_measure' => 'g',
+                'description'     => 'Moringa oleifera herbal leaf extract for add-on formulations',
+            ],
+            [
+                'name'            => 'Roasted Chicory Root',
+                'sku'             => 'HRB-CHICORY-002',
+                'category_id'     => $extractCat->category_id,
+                'price'           => 0.72,
+                'stock_quantity'  => 25000,
+                'reorder_level'   => 5000,
+                'unit_of_measure' => 'g',
+                'description'     => 'Roasted chicory root herbal coffee botanical',
+            ],
+            [
+                'name'            => 'Roasted Dandelion Root',
+                'sku'             => 'HRB-DANDELION-003',
+                'category_id'     => $extractCat->category_id,
+                'price'           => 0.78,
+                'stock_quantity'  => 25000,
+                'reorder_level'   => 5000,
+                'unit_of_measure' => 'g',
+                'description'     => 'Roasted dandelion root herbal extract',
+            ],
+            [
+                'name'            => 'Burdock Root',
+                'sku'             => 'HRB-BURDOCK-004',
+                'category_id'     => $extractCat->category_id,
+                'price'           => 0.81,
+                'stock_quantity'  => 25000,
+                'reorder_level'   => 5000,
+                'unit_of_measure' => 'g',
+                'description'     => 'Arctium lappa burdock root herbal extract',
+            ],
+            [
+                'name'            => 'Cinnamon',
+                'sku'             => 'HRB-CINNAMON-005',
+                'category_id'     => $extractCat->category_id,
+                'price'           => 0.54,
+                'stock_quantity'  => 25000,
+                'reorder_level'   => 5000,
+                'unit_of_measure' => 'g',
+                'description'     => 'Cinnamomum verum aromatic spice extract',
+            ],
+            [
+                'name'            => 'Ginger',
+                'sku'             => 'HRB-GINGER-006',
+                'category_id'     => $extractCat->category_id,
+                'price'           => 0.52,
+                'stock_quantity'  => 25000,
+                'reorder_level'   => 5000,
+                'unit_of_measure' => 'g',
+                'description'     => 'Zingiber officinale ginger root extract',
+            ],
+            [
+                'name'            => 'Turmeric',
+                'sku'             => 'HRB-TURMERIC-007',
+                'category_id'     => $extractCat->category_id,
+                'price'           => 0.58,
+                'stock_quantity'  => 25000,
+                'reorder_level'   => 5000,
+                'unit_of_measure' => 'g',
+                'description'     => 'Curcuma longa turmeric rhizome extract',
+            ],
+            [
+                'name'            => 'Cardamom',
+                'sku'             => 'HRB-CARDAMOM-008',
+                'category_id'     => $extractCat->category_id,
+                'price'           => 0.95,
+                'stock_quantity'  => 25000,
+                'reorder_level'   => 5000,
+                'unit_of_measure' => 'g',
+                'description'     => 'Elettaria cardamomum aromatic herbal spice extract',
+            ],
+            [
+                'name'            => 'Cacao Nibs',
+                'sku'             => 'HRB-CACAO-009',
+                'category_id'     => $extractCat->category_id,
+                'price'           => 0.68,
+                'stock_quantity'  => 25000,
+                'reorder_level'   => 5000,
+                'unit_of_measure' => 'g',
+                'description'     => 'Theobroma cacao roasted cacao nibs botanical',
+            ],
+            [
+                'name'            => 'Tanglad (Lemongrass)',
+                'sku'             => 'HRB-TANGLAD-010',
+                'category_id'     => $extractCat->category_id,
+                'price'           => 0.49,
+                'stock_quantity'  => 25000,
+                'reorder_level'   => 5000,
+                'unit_of_measure' => 'g',
+                'description'     => 'Cymbopogon citratus lemongrass herbal extract',
+            ],
+            [
+                'name'            => 'Mangosteen',
+                'sku'             => 'HRB-MANGOSTEEN-011',
+                'category_id'     => $extractCat->category_id,
+                'price'           => 0.89,
+                'stock_quantity'  => 25000,
+                'reorder_level'   => 5000,
+                'unit_of_measure' => 'g',
+                'description'     => 'Garcinia mangostana pericarp herbal extract',
+            ],
+            [
+                'name'            => 'Guyabano (Soursop)',
+                'sku'             => 'HRB-GUYABANO-012',
+                'category_id'     => $extractCat->category_id,
+                'price'           => 0.76,
+                'stock_quantity'  => 25000,
+                'reorder_level'   => 5000,
+                'unit_of_measure' => 'g',
+                'description'     => 'Annona muricata soursop leaf and fruit extract',
+            ],
+            [
+                'name'            => 'Ashwagandha',
+                'sku'             => 'HRB-ASHWAGANDHA-013',
+                'category_id'     => $extractCat->category_id,
+                'price'           => 1.15,
+                'stock_quantity'  => 25000,
+                'reorder_level'   => 5000,
+                'unit_of_measure' => 'g',
+                'description'     => 'Withania somnifera adaptogenic root extract',
+            ],
+            [
+                'name'            => 'Reishi Mushroom',
+                'sku'             => 'HRB-REISHI-014',
+                'category_id'     => $extractCat->category_id,
+                'price'           => 1.25,
+                'stock_quantity'  => 25000,
+                'reorder_level'   => 5000,
+                'unit_of_measure' => 'g',
+                'description'     => 'Ganoderma lucidum functional mushroom extract',
+            ],
+        ];
+
+        // Whole-gram stock & per-gram rates for the 6 AshigoPlus base BOM ingredients
+        $ashigoBaseGramOverrides = [
+            'R-BM-DEXAN' => ['unit_of_measure' => 'g', 'stock_quantity' => 50000,  'reorder_level' => 5000,  'price' => 0.07],
+            'R-FCM'      => ['unit_of_measure' => 'g', 'stock_quantity' => 50000,  'reorder_level' => 5000,  'price' => 0.37],
+            'R-FMR'      => ['unit_of_measure' => 'g', 'stock_quantity' => 10000,  'reorder_level' => 2000,  'price' => 0.27],
+            'R-ML2'      => ['unit_of_measure' => 'g', 'stock_quantity' => 25000,  'reorder_level' => 3000,  'price' => 0.07],
+            'R-NDC'      => ['unit_of_measure' => 'g', 'stock_quantity' => 100000, 'reorder_level' => 10000, 'price' => 0.15],
+            'R-VM225'    => ['unit_of_measure' => 'g', 'stock_quantity' => 25000,  'reorder_level' => 3000,  'price' => 0.95],
         ];
 
         $savedMaterials = [];
         foreach ($rawMaterials as $mat) {
+            if (isset($ashigoBaseGramOverrides[$mat['sku']])) {
+                $mat = array_merge($mat, $ashigoBaseGramOverrides[$mat['sku']]);
+            }
+            // Normalize seeded stock & reorder levels to clean non-negative whole numbers
+            $stock = (float) ($mat['stock_quantity'] ?? 0);
+            $mat['stock_quantity'] = $stock < 0 ? 250 : (int) round($stock);
+            $mat['reorder_level'] = max(0, (int) round((float) ($mat['reorder_level'] ?? 0)));
+
             $savedMaterials[$mat['sku']] = Product::updateOrCreate(
                 ['sku' => $mat['sku']],
                 $mat
@@ -753,17 +912,19 @@ class RawMaterialsAndBomSeeder extends Seeder
         ]);
         $ashigo->save();
 
-        // 4. Seed the Bill of Materials (BOM) strictly with Raw Materials (no P-)
+        // 4. Seed the Bill of Materials (BOM) in clean whole grams (total 21g/unit, zero decimals)
         $bomItems = [
-            ['sku' => 'R-FMR',      'qty' => 0.000300, 'rate' => 266.67, 'amount' => 0.08, 'notes' => 'Aroma enhancer'],
-            ['sku' => 'R-BM-DEXAN', 'qty' => 0.004340, 'rate' => 69.12,  'amount' => 0.30, 'notes' => 'Bulking carrier'],
-            ['sku' => 'R-ML2',      'qty' => 0.000750, 'rate' => 66.67,  'amount' => 0.05, 'notes' => 'Flavor base'],
-            ['sku' => 'R-NDC',      'qty' => 0.008080, 'rate' => 149.75, 'amount' => 1.21, 'notes' => 'Creamer base'],
-            ['sku' => 'R-VM225',    'qty' => 0.001810, 'rate' => 950.28, 'amount' => 1.72, 'notes' => 'Vitamins premix'],
-            ['sku' => 'R-FCM',      'qty' => 0.005050, 'rate' => 370.30, 'amount' => 1.87, 'notes' => 'Active coffee blend'],
+            ['sku' => 'R-FMR',      'qty' => 1, 'rate' => 0.27, 'amount' => 0.27, 'notes' => 'Aroma enhancer'],
+            ['sku' => 'R-BM-DEXAN', 'qty' => 4, 'rate' => 0.07, 'amount' => 0.28, 'notes' => 'Bulking carrier'],
+            ['sku' => 'R-ML2',      'qty' => 1, 'rate' => 0.07, 'amount' => 0.07, 'notes' => 'Flavor base'],
+            ['sku' => 'R-NDC',      'qty' => 8, 'rate' => 0.15, 'amount' => 1.20, 'notes' => 'Creamer base'],
+            ['sku' => 'R-VM225',    'qty' => 2, 'rate' => 0.95, 'amount' => 1.90, 'notes' => 'Vitamins premix'],
+            ['sku' => 'R-FCM',      'qty' => 5, 'rate' => 0.37, 'amount' => 1.85, 'notes' => 'Active coffee blend'],
         ];
 
-        ProductRecipe::where('product_type_id', $ashigo->product_type_id)->delete();
+        ProductRecipe::where('product_type_id', $ashigo->product_type_id)
+            ->whereNull('package_slug')
+            ->delete();
 
         foreach ($bomItems as $item) {
             if (isset($savedMaterials[$item['sku']])) {

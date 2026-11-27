@@ -29,6 +29,7 @@ class ProductManagementController extends Controller
             'packagingOptions',
             'customizationOptions',
             'variants.currentMoq',
+            'packages',
         ])
             ->orderBy('name')
             ->get()
@@ -36,6 +37,7 @@ class ProductManagementController extends Controller
                 $recipes = $product->recipes->map(function ($recipe) {
                     return [
                         'recipe_id'         => $recipe->recipe_id,
+                        'package_slug'      => $recipe->package_slug,
                         'product_id'        => $recipe->product_id,
                         'raw_material_name' => $recipe->rawMaterial?->name ?? 'Unknown Material',
                         'raw_material_sku'  => $recipe->rawMaterial?->sku ?? '',
@@ -48,7 +50,10 @@ class ProductManagementController extends Controller
                     ];
                 });
 
-                $totalCost = $recipes->sum('amount');
+                $baseRecipes = $recipes->filter(fn ($r) => empty($r['package_slug']))->values();
+                $goldRecipes = $recipes->filter(fn ($r) => $r['package_slug'] === 'gold')->values();
+                $eliteRecipes = $recipes->filter(fn ($r) => $r['package_slug'] === 'elite')->values();
+                $totalCost = $baseRecipes->sum('amount');
                 $firstVariant = $product->variants->first();
                 $currentMoq = $firstVariant?->currentMoq;
 
@@ -75,10 +80,24 @@ class ProductManagementController extends Controller
                     'image_url'               => $product->image_url,
                     'is_active'               => (bool) $product->is_active,
                     'created_at'              => $product->created_at?->toISOString(),
-                    'recipes'                 => $recipes,
+                    'recipes'                 => $baseRecipes,
+                    'gold_recipes'            => $goldRecipes,
+                    'elite_recipes'           => $eliteRecipes,
                     'total_recipe_cost'       => $totalCost,
                     'formatted_recipe_cost'   => '₱' . number_format($totalCost, 2),
-                    'materials_count'         => $recipes->count(),
+                    'materials_count'         => $baseRecipes->count(),
+                    'package_tiers'           => $product->packages->map(function ($pkg) {
+                        $isStarter = strtolower((string) $pkg->slug) === 'starter';
+                        return [
+                            'slug'              => $pkg->slug,
+                            'name'              => $pkg->name,
+                            'minimum_quantity'  => (int) $pkg->minimum_quantity,
+                            'max_quantity'      => $isStarter ? 500 : null,
+                            'packaging_details' => $pkg->packaging_details,
+                            'label_details'     => $pkg->label_details,
+                            'lead_time_text'    => $pkg->lead_time_text,
+                        ];
+                    })->values()->all(),
                 ];
             });
 
@@ -314,43 +333,67 @@ class ProductManagementController extends Controller
         $product = ProductType::findOrFail($id);
 
         $request->validate([
-            'items'                       => 'present|array',
+            'package_slug'                => 'nullable|in:starter,gold,elite',
+            'minimum_quantity'            => 'nullable|integer|min:1|max:1000000',
+            'items'                       => 'nullable|array',
             'items.*.product_id'          => 'required|exists:products,product_id',
             'items.*.quantity_per_unit'   => 'required|numeric|min:0.000001',
             'items.*.rate'                => 'nullable|numeric|min:0',
             'items.*.notes'               => 'nullable|string|max:255',
         ]);
 
+        $packageSlug = $request->filled('package_slug')
+            ? strtolower((string) $request->input('package_slug'))
+            : null;
+
         DB::beginTransaction();
         try {
-            // Delete existing recipe rows
-            ProductRecipe::where('product_type_id', $product->product_type_id)->delete();
+            // Update package MOQ if provided for Starter / Gold / Elite
+            if ($packageSlug !== null && $request->filled('minimum_quantity')) {
+                \App\Models\ProductPackage::where('product_type_id', $product->product_type_id)
+                    ->where('slug', $packageSlug)
+                    ->update(['minimum_quantity' => (int) $request->input('minimum_quantity')]);
+            }
 
-            // Insert new recipe items
-            foreach ($request->input('items', []) as $item) {
-                $rawMaterial = Product::find($item['product_id']);
-                $rate = isset($item['rate']) && $item['rate'] !== null && $item['rate'] !== ''
-                    ? (float) $item['rate']
-                    : (float) ($rawMaterial?->price ?? 0);
+            // Update BOM items for Main (null), Gold, or Elite (Starter has no custom BOM; no +6/+8 limit here)
+            if ($packageSlug !== 'starter' && $request->has('items')) {
+                $items = $request->input('items', []);
 
-                $qty = (float) $item['quantity_per_unit'];
-                $amount = round($qty * $rate, 2);
+                $deleteQuery = ProductRecipe::where('product_type_id', $product->product_type_id);
+                if ($packageSlug === null) {
+                    $deleteQuery->whereNull('package_slug');
+                } else {
+                    $deleteQuery->where('package_slug', $packageSlug);
+                }
+                $deleteQuery->delete();
 
-                ProductRecipe::create([
-                    'product_type_id'   => $product->product_type_id,
-                    'product_id'        => $item['product_id'],
-                    'quantity_per_unit' => $qty,
-                    'rate'              => $rate,
-                    'amount'            => $amount,
-                    'notes'             => $item['notes'] ?? null,
-                ]);
+                foreach ($items as $item) {
+                    $rawMaterial = Product::find($item['product_id']);
+                    $rate = isset($item['rate']) && $item['rate'] !== null && $item['rate'] !== ''
+                        ? (float) $item['rate']
+                        : (float) ($rawMaterial?->price ?? 0);
+
+                    $qty = (float) $item['quantity_per_unit'];
+                    $amount = round($qty * $rate, 2);
+
+                    ProductRecipe::create([
+                        'product_type_id'   => $product->product_type_id,
+                        'package_slug'      => $packageSlug,
+                        'product_id'        => $item['product_id'],
+                        'quantity_per_unit' => $qty,
+                        'rate'              => $rate,
+                        'amount'            => $amount,
+                        'notes'             => $item['notes'] ?? null,
+                    ]);
+                }
             }
 
             DB::commit();
-            return back()->with('success', "Bill of Materials (BOM) for {$product->name} saved successfully.");
+            $label = $packageSlug ? ucfirst($packageSlug) . ' Package' : 'Global Main BOM';
+            return back()->with('success', "{$label} settings for {$product->name} saved successfully.");
         } catch (\Throwable $e) {
             DB::rollBack();
-            return back()->withErrors(['error' => 'Failed to save Bill of Materials: ' . $e->getMessage()]);
+            return back()->withErrors(['error' => 'Failed to save package settings: ' . $e->getMessage()]);
         }
     }
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -31,6 +31,7 @@ export default function PaymentScreen() {
     paymentMethod: string;
   }>();
   const [proofImage, setProofImage] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [accounts, setAccounts] = useState<Array<{ bank: string; account_name: string; account_number: string }>>([]);
 
@@ -170,13 +171,32 @@ export default function PaymentScreen() {
 
             {proofImage ? (
               <View style={styles.previewContainer}>
-                <Image source={{ uri: proofImage }} style={styles.previewImage} />
-                <TouchableOpacity
-                  style={styles.removeButton}
-                  onPress={() => setProofImage(null)}
-                >
-                  <Text style={styles.removeButtonText}>Remove</Text>
+                <TouchableOpacity activeOpacity={0.9} onPress={() => setPreviewOpen(true)}>
+                  <Image source={{ uri: proofImage }} style={styles.previewImage} resizeMode="contain" />
+                  <View style={styles.previewHintBadge}>
+                    <Text style={styles.previewHintText}>Tap to preview full photo</Text>
+                  </View>
                 </TouchableOpacity>
+                <View style={styles.previewActions}>
+                  <TouchableOpacity
+                    style={[styles.previewActionBtn, { backgroundColor: '#2196F3' }]}
+                    onPress={() => setPreviewOpen(true)}
+                  >
+                    <Text style={styles.previewActionText}>Preview</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.previewActionBtn, { backgroundColor: colors.border }]}
+                    onPress={handlePickImage}
+                  >
+                    <Text style={[styles.previewActionText, { color: colors.text }]}>Change</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.previewActionBtn, { backgroundColor: '#ef4444' }]}
+                    onPress={() => setProofImage(null)}
+                  >
+                    <Text style={styles.previewActionText}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             ) : (
               <TouchableOpacity
@@ -218,6 +238,16 @@ export default function PaymentScreen() {
           <Text style={[styles.navText, { color: colors.textSecondary }]}>Profile</Text>
         </TouchableOpacity>
       </View>
+      <Modal visible={previewOpen && Boolean(proofImage)} transparent animationType="fade" onRequestClose={() => setPreviewOpen(false)}>
+        <View style={styles.fullPreviewOverlay}>
+          <TouchableOpacity style={styles.fullPreviewClose} onPress={() => setPreviewOpen(false)}>
+            <Text style={styles.fullPreviewCloseText}>Close Preview</Text>
+          </TouchableOpacity>
+          {proofImage ? (
+            <Image source={{ uri: proofImage }} style={styles.fullPreviewImg} resizeMode="contain" />
+          ) : null}
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -329,12 +359,68 @@ const styles = StyleSheet.create({
   },
   previewContainer: {
     position: 'relative',
+    gap: 10,
   },
   previewImage: {
     width: '100%',
-    height: 200,
+    height: 240,
     borderRadius: 12,
-    resizeMode: 'cover',
+    backgroundColor: 'rgba(15, 23, 42, 0.25)',
+  },
+  previewHintBadge: {
+    position: 'absolute',
+    bottom: 10,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.68)',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  previewHintText: {
+    color: '#ffffff',
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  previewActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  previewActionBtn: {
+    flex: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  previewActionText: {
+    color: '#ffffff',
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  fullPreviewOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.94)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  fullPreviewImg: {
+    width: '100%',
+    height: '80%',
+  },
+  fullPreviewClose: {
+    position: 'absolute',
+    top: 48,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: '#2196F3',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+  },
+  fullPreviewCloseText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '800',
   },
   removeButton: {
     position: 'absolute',

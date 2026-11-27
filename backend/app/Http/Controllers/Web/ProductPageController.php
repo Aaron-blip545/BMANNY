@@ -36,7 +36,9 @@ class ProductPageController extends Controller
 
         return Inertia::render('products/index', [
             'products' => $products,
-            'categories' => Category::orderBy('name')->get(['category_id', 'name']),
+            'categories' => Category::whereRaw('LOWER(name) != ?', ['packaging types'])
+                ->orderBy('name')
+                ->get(['category_id', 'name']),
             'nextSku' => $nextSku,
         ]);
     }

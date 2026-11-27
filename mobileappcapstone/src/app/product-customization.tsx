@@ -51,6 +51,9 @@ const peso = (amount: number) =>
   `₱${Number(amount || 0).toLocaleString("en-PH", {
     minimumFractionDigits: 2,
   })}`;
+const STARTER_MIN_MOQ = 100;
+const STARTER_MAX_MOQ = 500;
+const STARTER_MOQ_PRESETS = [100, 200, 300, 400, 500];
 const PACKAGE_PREVIEWS: Record<Tier, number> = {
   starter: require("../../assets/images/packages/ashigo-starter.jpg"),
   gold: require("../../assets/images/packages/ashigo-gold.jpg"),
@@ -162,17 +165,59 @@ export default function ProductCustomizationScreen() {
     [contact, setContact] = useState(""),
     [brand, setBrand] = useState(""),
     [artwork, setArtwork] = useState<string | null>(null),
+    [artworkPreviewOpen, setArtworkPreviewOpen] = useState(false),
     [request, setRequest] = useState(""),
     [notes, setNotes] = useState(""),
     [inquiryId, setInquiryId] = useState<number | null>(null),
     [showIngredients, setShowIngredients] = useState(false),
-    [breakdownPackage, setBreakdownPackage] = useState<Pack | null>(null);
+    [breakdownPackageId, setBreakdownPackageId] = useState<Tier | null>(null),
+    [starterQtyInput, setStarterQtyInput] = useState("100");
   const [packageOptions, setPackageOptions] =
     useState<Pack[]>(DEFAULT_PACKAGES);
-  const PACKAGES = packageOptions;
+  const parsedStarterQty = parseInt(
+    starterQtyInput.replace(/[^0-9]/g, ""),
+    10,
+  );
+  const isStarterQtyValid =
+    !Number.isNaN(parsedStarterQty) &&
+    parsedStarterQty >= STARTER_MIN_MOQ &&
+    parsedStarterQty <= STARTER_MAX_MOQ;
+  const effectiveStarterQty = isStarterQtyValid
+    ? parsedStarterQty
+    : STARTER_MIN_MOQ;
+  const PACKAGES = useMemo(
+    () =>
+      packageOptions.map((p) => {
+        if (p.id !== "starter") return p;
+        const unitPrice = p.initialPrice > 0 ? p.initialPrice / 100 : 79;
+        const total = effectiveStarterQty * unitPrice;
+        const half = Math.round((total / 2) * 100) / 100;
+        const balance = Math.round((total - half) * 100) / 100;
+        return {
+          ...p,
+          moq: `${effectiveStarterQty.toLocaleString()} pouches`,
+          cost: `${peso(total)} (${effectiveStarterQty.toLocaleString()} pouches)`,
+          initialPrice: total,
+          beforeProductionAmount: half,
+          beforePickupAmount: balance,
+          costBreakdown: [
+            {
+              label: "Package price per pouch",
+              amount: unitPrice,
+              quantity: `${effectiveStarterQty.toLocaleString()} pouches (Min 100 · Max 500)`,
+            },
+          ],
+        };
+      }),
+    [packageOptions, effectiveStarterQty],
+  );
   const selected = useMemo(
-    () => packageOptions.find((x) => x.id === tier) || null,
-    [tier, packageOptions],
+    () => PACKAGES.find((x) => x.id === tier) || null,
+    [tier, PACKAGES],
+  );
+  const breakdownPackage = useMemo(
+    () => PACKAGES.find((x) => x.id === breakdownPackageId) || null,
+    [breakdownPackageId, PACKAGES],
   );
   const isAshigo = productName.toLowerCase().includes("ashigo");
   const surface = isDarkMode ? "#131d31" : colors.card,
@@ -268,6 +313,11 @@ export default function ProductCustomizationScreen() {
         "Choose a package",
         "Select Starter, Gold, or Elite before continuing.",
       );
+    if (selected.id === "starter" && !isStarterQtyValid)
+      return Alert.alert(
+        "Invalid Starter MOQ",
+        `Please enter a quantity between ${STARTER_MIN_MOQ} and ${STARTER_MAX_MOQ} pouches for the Starter Package.`,
+      );
     setStep(2);
   };
   const review = () => {
@@ -287,9 +337,8 @@ export default function ProductCustomizationScreen() {
       );
     const r = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.85,
+      allowsEditing: false,
+      quality: 0.9,
     });
     if (!r.canceled && r.assets[0]?.uri) setArtwork(r.assets[0].uri);
   };
@@ -329,6 +378,8 @@ export default function ProductCustomizationScreen() {
         {
           customization_type: "Package inquiry — " + selected.title,
           selected_package: selected.id,
+          requested_quantity:
+            selected.id === "starter" ? effectiveStarterQty : undefined,
           packaging_type: selected.packaging,
           packaging_finish: selected.label,
           serving_size: selected.weight + " × " + selected.moq,
@@ -579,9 +630,99 @@ export default function ProductCustomizationScreen() {
                         </View>
                       </View>
                       </TouchableOpacity>
+                      {active && p.id === "starter" ? (
+                        <View
+                          style={[
+                            s.moqBox,
+                            { borderTopColor: border, backgroundColor: muted },
+                          ]}
+                        >
+                          <View style={s.moqHeader}>
+                            <Text style={[s.moqTitle, { color: colors.text }]}>
+                              Select MOQ (100–500 pouches)
+                            </Text>
+                            <Text style={s.moqBadge}>
+                              {effectiveStarterQty.toLocaleString()} pouches
+                            </Text>
+                          </View>
+                          <View style={s.moqPresets}>
+                            {STARTER_MOQ_PRESETS.map((preset) => {
+                              const picked =
+                                isStarterQtyValid && effectiveStarterQty === preset;
+                              return (
+                                <TouchableOpacity
+                                  key={preset}
+                                  style={[
+                                    s.moqChip,
+                                    {
+                                      backgroundColor: picked
+                                        ? "#2196F3"
+                                        : surface,
+                                      borderColor: picked ? "#2196F3" : border,
+                                    },
+                                  ]}
+                                  onPress={() => setStarterQtyInput(String(preset))}
+                                >
+                                  <Text
+                                    style={[
+                                      s.moqChipText,
+                                      { color: picked ? "#fff" : colors.text },
+                                    ]}
+                                  >
+                                    {preset}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                          <View style={s.moqCustomRow}>
+                            <Text
+                              style={[
+                                s.moqCustomLabel,
+                                { color: colors.textSecondary },
+                              ]}
+                            >
+                              Or custom qty:
+                            </Text>
+                            <TextInput
+                              value={starterQtyInput}
+                              onChangeText={(txt) =>
+                                setStarterQtyInput(txt.replace(/[^0-9]/g, ""))
+                              }
+                              keyboardType="number-pad"
+                              maxLength={3}
+                              placeholder="100–500"
+                              placeholderTextColor={colors.textSecondary}
+                              style={[
+                                s.moqInput,
+                                {
+                                  backgroundColor: surface,
+                                  borderColor: isStarterQtyValid
+                                    ? border
+                                    : "#ef4444",
+                                  color: colors.text,
+                                },
+                              ]}
+                            />
+                            <Text
+                              style={[
+                                s.moqCustomLabel,
+                                { color: colors.textSecondary },
+                              ]}
+                            >
+                              pouches
+                            </Text>
+                          </View>
+                          {!isStarterQtyValid ? (
+                            <Text style={s.moqError}>
+                              Enter a value between 100 and 500 pouches.
+                            </Text>
+                          ) : null}
+                        </View>
+                      ) : null}
                       <TouchableOpacity
                         style={[s.breakdownLink, { borderTopColor: border }]}
-                        onPress={() => setBreakdownPackage(p)}
+                        onPress={() => setBreakdownPackageId(p.id)}
                       >
                         <Text style={s.breakdownLinkText}>View package breakdown</Text>
                         <Ionicons name="document-text-outline" size={16} color="#2196F3" />
@@ -632,33 +773,77 @@ export default function ProductCustomizationScreen() {
                 <Text style={[s.label, { color: colors.text }]}>
                   Brand logo / artwork (optional)
                 </Text>
-                <TouchableOpacity
-                  style={[
-                    s.art,
-                    { backgroundColor: muted, borderColor: border },
-                  ]}
-                  onPress={pick}
-                >
-                  {artwork ? (
-                    <Image source={{ uri: artwork }} style={s.artImg} />
-                  ) : (
-                    <>
-                      <Ionicons
-                        name="image-outline"
-                        size={29}
-                        color="#2196F3"
+                {artwork ? (
+                  <View
+                    style={[
+                      s.artPreviewCard,
+                      { backgroundColor: muted, borderColor: border },
+                    ]}
+                  >
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      onPress={() => setArtworkPreviewOpen(true)}
+                      style={s.artPreviewTap}
+                    >
+                      <Image
+                        source={{ uri: artwork }}
+                        style={s.artPreviewImg}
+                        resizeMode="contain"
                       />
-                      <Text style={s.artTitle}>
-                        Attach brand logo or label artwork
-                      </Text>
-                      <Text
-                        style={{ color: colors.textSecondary, fontSize: 12 }}
+                      <View style={s.artHintBadge}>
+                        <Ionicons name="expand-outline" size={13} color="#fff" />
+                        <Text style={s.artHintText}>Tap to preview full photo</Text>
+                      </View>
+                    </TouchableOpacity>
+                    <View style={s.artActions}>
+                      <TouchableOpacity
+                        style={[s.artActionBtn, { backgroundColor: "#2196F3" }]}
+                        onPress={() => setArtworkPreviewOpen(true)}
                       >
-                        Optional — Sales will review your file.
-                      </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
+                        <Text style={s.artActionText}>Preview</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          s.artActionBtn,
+                          { backgroundColor: surface, borderWidth: 1, borderColor: border },
+                        ]}
+                        onPress={pick}
+                      >
+                        <Text style={[s.artActionText, { color: colors.text }]}>
+                          Change
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[s.artActionBtn, { backgroundColor: "#ef4444" }]}
+                        onPress={() => setArtwork(null)}
+                      >
+                        <Text style={s.artActionText}>Remove</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={[
+                      s.art,
+                      { backgroundColor: muted, borderColor: border },
+                    ]}
+                    onPress={pick}
+                  >
+                    <Ionicons
+                      name="image-outline"
+                      size={29}
+                      color="#2196F3"
+                    />
+                    <Text style={s.artTitle}>
+                      Attach brand logo or label artwork
+                    </Text>
+                    <Text
+                      style={{ color: colors.textSecondary, fontSize: 12 }}
+                    >
+                      Optional — Sales will review your file.
+                    </Text>
+                  </TouchableOpacity>
+                )}
                 {selected.allowsRequest ? (
                   <Field
                     label="Requested ingredient or desired effect (optional)"
@@ -741,6 +926,36 @@ export default function ProductCustomizationScreen() {
                     border={border}
                   />
                 ) : null}
+                {artwork ? (
+                  <View
+                    style={[
+                      s.artPreviewCard,
+                      { backgroundColor: surface, borderColor: border, marginBottom: 12 },
+                    ]}
+                  >
+                    <Text
+                      style={{
+                        color: colors.textSecondary,
+                        fontSize: 11.5,
+                        fontWeight: "700",
+                        marginBottom: 8,
+                      }}
+                    >
+                      Attached Brand Logo / Artwork (tap to preview)
+                    </Text>
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      onPress={() => setArtworkPreviewOpen(true)}
+                      style={s.artPreviewTap}
+                    >
+                      <Image
+                        source={{ uri: artwork }}
+                        style={s.artPreviewImg}
+                        resizeMode="contain"
+                      />
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
                 <View
                   style={[
                     s.conf,
@@ -786,7 +1001,7 @@ export default function ProductCustomizationScreen() {
           visible={Boolean(breakdownPackage)}
           transparent
           animationType="slide"
-          onRequestClose={() => setBreakdownPackage(null)}
+          onRequestClose={() => setBreakdownPackageId(null)}
         >
           <View style={s.sheetOverlay}>
             <View style={[s.breakdownSheet, { backgroundColor: surface }]}>
@@ -802,13 +1017,87 @@ export default function ProductCustomizationScreen() {
                     <TouchableOpacity
                       accessibilityLabel="Close package breakdown"
                       style={[s.sheetClose, { borderColor: border }]}
-                      onPress={() => setBreakdownPackage(null)}
+                      onPress={() => setBreakdownPackageId(null)}
                     >
                       <Ionicons name="close" size={21} color={colors.text} />
                     </TouchableOpacity>
                   </View>
                   <ScrollView contentContainerStyle={s.sheetContent} showsVerticalScrollIndicator={false}>
                     <Image source={PACKAGE_PREVIEWS[breakdownPackage.id]} style={s.breakdownImage} />
+                    {breakdownPackage.id === "starter" ? (
+                      <View style={[s.breakdownCard, { backgroundColor: muted, borderColor: "#2196F3" }]}>
+                        <View style={s.moqHeader}>
+                          <Text style={[s.breakdownSectionTitle, { color: colors.text, marginBottom: 0 }]}>
+                            Choose Starter MOQ
+                          </Text>
+                          <Text style={s.moqBadge}>
+                            {effectiveStarterQty.toLocaleString()} pouches
+                          </Text>
+                        </View>
+                        <Text style={[s.breakdownText, { color: colors.textSecondary, marginTop: 4, marginBottom: 8 }]}>
+                          Min 100 · Max 500 pouches (₱79.00 / pouch)
+                        </Text>
+                        <View style={s.moqPresets}>
+                          {STARTER_MOQ_PRESETS.map((preset) => {
+                            const picked =
+                              isStarterQtyValid && effectiveStarterQty === preset;
+                            return (
+                              <TouchableOpacity
+                                key={preset}
+                                style={[
+                                  s.moqChip,
+                                  {
+                                    backgroundColor: picked ? "#2196F3" : surface,
+                                    borderColor: picked ? "#2196F3" : border,
+                                  },
+                                ]}
+                                onPress={() => setStarterQtyInput(String(preset))}
+                              >
+                                <Text
+                                  style={[
+                                    s.moqChipText,
+                                    { color: picked ? "#fff" : colors.text },
+                                  ]}
+                                >
+                                  {preset}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                        <View style={s.moqCustomRow}>
+                          <Text style={[s.moqCustomLabel, { color: colors.textSecondary }]}>
+                            Custom qty:
+                          </Text>
+                          <TextInput
+                            value={starterQtyInput}
+                            onChangeText={(txt) =>
+                              setStarterQtyInput(txt.replace(/[^0-9]/g, ""))
+                            }
+                            keyboardType="number-pad"
+                            maxLength={3}
+                            placeholder="100–500"
+                            placeholderTextColor={colors.textSecondary}
+                            style={[
+                              s.moqInput,
+                              {
+                                backgroundColor: surface,
+                                borderColor: isStarterQtyValid ? border : "#ef4444",
+                                color: colors.text,
+                              },
+                            ]}
+                          />
+                          <Text style={[s.moqCustomLabel, { color: colors.textSecondary }]}>
+                            pouches
+                          </Text>
+                        </View>
+                        {!isStarterQtyValid ? (
+                          <Text style={s.moqError}>
+                            Enter a value between 100 and 500 pouches.
+                          </Text>
+                        ) : null}
+                      </View>
+                    ) : null}
                     <View style={[s.breakdownCard, { backgroundColor: muted, borderColor: border }]}>
                       <Text style={[s.breakdownSectionTitle, { color: colors.text }]}>Package specification</Text>
                       <Text style={[s.breakdownText, { color: colors.textSecondary }]}>{breakdownPackage.moq} · {breakdownPackage.packaging}</Text>
@@ -852,12 +1141,34 @@ export default function ProductCustomizationScreen() {
                     </View>
                     <Text style={[s.packageNote, { color: colors.textSecondary }]}>{breakdownPackage.packageNotes}</Text>
                   </ScrollView>
-                  <TouchableOpacity style={s.primary} onPress={() => setBreakdownPackage(null)}>
+                  <TouchableOpacity style={s.primary} onPress={() => setBreakdownPackageId(null)}>
                     <Text style={s.primaryText}>Close breakdown</Text>
                   </TouchableOpacity>
                 </>
               ) : null}
             </View>
+          </View>
+        </Modal>
+        <Modal
+          visible={artworkPreviewOpen && Boolean(artwork)}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setArtworkPreviewOpen(false)}
+        >
+          <View style={s.fullPreviewOverlay}>
+            <TouchableOpacity
+              style={s.fullPreviewClose}
+              onPress={() => setArtworkPreviewOpen(false)}
+            >
+              <Text style={s.fullPreviewCloseText}>Close Preview</Text>
+            </TouchableOpacity>
+            {artwork ? (
+              <Image
+                source={{ uri: artwork }}
+                style={s.fullPreviewImg}
+                resizeMode="contain"
+              />
+            ) : null}
           </View>
         </Modal>
         <Modal visible={success} transparent animationType="fade">
@@ -1333,4 +1644,140 @@ const s = StyleSheet.create({
   ref: { fontSize: 13.5, fontWeight: "800", marginTop: 14 },
   link: { paddingVertical: 15 },
   linkText: { color: "#2196F3", fontSize: 14, fontWeight: "700" },
+  moqBox: {
+    borderTopWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  moqHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  moqTitle: { fontSize: 13, fontWeight: "800" },
+  moqBadge: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#2196F3",
+  },
+  moqPresets: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 7,
+    marginTop: 9,
+  },
+  moqChip: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  moqChipText: {
+    fontSize: 12.5,
+    fontWeight: "800",
+  },
+  moqCustomRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 10,
+  },
+  moqCustomLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  moqInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    minWidth: 82,
+    textAlign: "center",
+    fontSize: 13.5,
+    fontWeight: "800",
+  },
+  moqError: {
+    color: "#ef4444",
+    fontSize: 11.5,
+    fontWeight: "700",
+    marginTop: 6,
+  },
+  artPreviewCard: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 14,
+  },
+  artPreviewTap: {
+    position: "relative",
+    width: "100%",
+    height: 210,
+    borderRadius: 11,
+    overflow: "hidden",
+    backgroundColor: "rgba(15, 23, 42, 0.25)",
+  },
+  artPreviewImg: {
+    width: "100%",
+    height: "100%",
+  },
+  artHintBadge: {
+    position: "absolute",
+    bottom: 9,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    borderRadius: 14,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+  },
+  artHintText: {
+    color: "#ffffff",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  artActions: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 10,
+  },
+  artActionBtn: {
+    flex: 1,
+    borderRadius: 10,
+    paddingVertical: 9,
+    alignItems: "center",
+  },
+  artActionText: {
+    color: "#ffffff",
+    fontSize: 12.5,
+    fontWeight: "700",
+  },
+  fullPreviewOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.94)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16,
+  },
+  fullPreviewImg: {
+    width: "100%",
+    height: "80%",
+  },
+  fullPreviewClose: {
+    position: "absolute",
+    top: 48,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: "#2196F3",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+  },
+  fullPreviewCloseText: {
+    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: "800",
+  },
 });

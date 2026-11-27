@@ -65,15 +65,33 @@ interface Order {
   status: string;
   total_amount: string;
   initial_payment_amount?: string | number | null;
+  initial_payment_verified_at?: string | null;
   balance_payment_amount?: string | number | null;
   balance_payment_submitted_at?: string | null;
   balance_payment_verified_at?: string | null;
+  payment_method?: string | null;
+  payment_submitted_at?: string | null;
+  payment_proof_url?: string | null;
   timeline?: { label: string; at: string }[];
   internal_tracking_number: string | null;
   created_at: string;
   item_details: string | null;
+  product_specification?: {
+    product_name?: string | null;
+    net_weight?: string | null;
+    packaging_details?: string | null;
+    label_details?: string | null;
+  } | null;
   inquiry_id: number | null;
-  customizations: { packaging_type: string; serving_size: string | null; client_notes?: string | null }[];
+  customizations: {
+    selected_package?: string | null;
+    packaging_type: string;
+    packaging_finish?: string | null;
+    serving_size: string | null;
+    requested_ingredient_note?: string | null;
+    design_file_path?: string | null;
+    client_notes?: string | null;
+  }[];
 }
 
 interface Inquiry {
@@ -882,24 +900,57 @@ export default function OrdersScreen() {
                     <TouchableOpacity
                       style={styles.viewBtn}
                       onPress={() => {
-                        const notes = order.customizations?.[0]?.client_notes || '';
-                        const productMatch = notes.match(/Finished Product:\s*([^|]+)/i);
-                        const flavorMatch = notes.match(/Flavor:\s*([^|]+)/i);
-                        const labelMatch = notes.match(/Label(?:\s*Style)?:\s*([^|]+)/i);
-                        const moqMatch = notes.match(/MOQ:\s*([^|]+)/i);
-                        const serving = order.customizations?.[0]?.serving_size || '';
-                        const sizeMatch = serving.match(/^([^\s×x]+(?:\s*[a-zA-Z]+)?)/);
-                        const qtyMatch = serving.match(/[×x]\s*([^\s]+(?:\s+(?:units|pouches))?)/i);
+                        const firstCust = order.customizations?.[0];
+                        const notes = firstCust?.client_notes || '';
+                        const getNote = (key: string) => {
+                          const m = notes.match(new RegExp(`(?:^|\\|\\s*)${key}\\s*:\\s*([^|]+)`, 'i'));
+                          return m ? m[1].trim() : undefined;
+                        };
+                        const serving = firstCust?.serving_size || '';
+                        const servingParts = serving.split(/[×x]/i).map((s) => s.trim());
+                        const netWeight = getNote('Net Weight') || servingParts[0] || order.product_specification?.net_weight || undefined;
+                        const qtyFromNotes = getNote('MOQ') || getNote('Batch Quantity');
+                        const rawQty = qtyFromNotes || servingParts[1] || undefined;
+                        const quantity = rawQty
+                          ? /^\d[\d,]*$/.test(rawQty)
+                            ? `${rawQty} pouches`
+                            : rawQty
+                          : undefined;
+                        const rawProduct = getNote('Finished Product') || order.product_specification?.product_name || 'AshigoPlus Coffee Drink Mix';
+                        const productName = rawProduct.replace(/\s*\([^)]*\)$/, '').trim();
+                        const packageName =
+                          getNote('Selected Package') ||
+                          (firstCust?.selected_package
+                            ? `${firstCust.selected_package.charAt(0).toUpperCase()}${firstCust.selected_package.slice(1)} Package`
+                            : undefined);
+                        const labelDesign =
+                          getNote('Label Style') ||
+                          getNote('Label') ||
+                          firstCust?.packaging_finish ||
+                          order.product_specification?.label_details ||
+                          undefined;
 
                         const detailPayload = {
                           ...order,
                           brandName: orderTitle,
-                          productType: productMatch ? productMatch[1].trim() : ((order.customizations?.[0] as any)?.selected_package || order.customizations?.[0]?.packaging_type || 'Custom Order'),
-                          packaging: order.customizations?.[0]?.packaging_type || 'N/A',
-                          flavor: flavorMatch ? flavorMatch[1].trim() : 'Standard Formulation',
-                          size: sizeMatch ? sizeMatch[1].trim() : undefined,
-                          quantity: qtyMatch ? qtyMatch[1].trim() : (moqMatch ? moqMatch[1].trim() : undefined),
-                          labelDesign: (order.customizations?.[0] as any)?.packaging_finish || (labelMatch ? labelMatch[1].trim() : undefined),
+                          productName,
+                          productType: productName,
+                          packageName,
+                          companyName: getNote('Company Name'),
+                          contactPerson: getNote('Contact Person'),
+                          packaging: getNote('Packaging') || firstCust?.packaging_type || order.product_specification?.packaging_details || 'Stand-up pouch, 12 × 20 cm',
+                          flavor: getNote('Flavor'),
+                          size: netWeight,
+                          quantity,
+                          labelDesign,
+                          leadTime: getNote('Lead Time'),
+                          packageTerms: getNote('Package Terms'),
+                          requestedIngredient: getNote('Requested Ingredient / Desired Effect') || firstCust?.requested_ingredient_note || undefined,
+                          specialInstructions: getNote('Special Instructions'),
+                          paymentMethod: order.payment_method || undefined,
+                          paymentDate: order.initial_payment_verified_at || order.payment_submitted_at || undefined,
+                          proofImage: order.payment_proof_url || undefined,
+                          imageData: firstCust?.design_file_path || undefined,
                           orderDate: order.created_at,
                         };
 

@@ -14,6 +14,7 @@ class ProductRecipe extends Model
 
     protected $fillable = [
         'product_type_id',
+        'package_slug',
         'product_id',
         'quantity_per_unit',
         'rate',

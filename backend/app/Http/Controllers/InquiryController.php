@@ -22,12 +22,36 @@ class InquiryController extends Controller
             'customizations' => 'required|array',
             'customizations.*.packaging_type' => 'required|string', // Sachet, Pouch, Bottle, Box
             'customizations.*.selected_package' => 'nullable|string|max:40',
+            'customizations.*.requested_quantity' => 'nullable|integer|min:1',
             'customizations.*.packaging_finish' => 'nullable|string', // Matte, Glossy, Foil
             'customizations.*.serving_size' => 'nullable|string',
             'customizations.*.formulation_notes' => 'nullable|string',
             'customizations.*.requested_ingredient_note' => 'nullable|string|max:2000',
             'customizations.*.client_notes' => 'nullable|string',
         ]);
+
+        // Enforce Starter Package selectable MOQ bounds (min 100, max 500 pouches)
+        foreach ($request->customizations as $idx => $cust) {
+            if (strtolower((string) ($cust['selected_package'] ?? '')) === 'starter') {
+                $qty = null;
+                if (isset($cust['requested_quantity']) && $cust['requested_quantity'] !== null && $cust['requested_quantity'] !== '') {
+                    $qty = (int) $cust['requested_quantity'];
+                } elseif (!empty($cust['serving_size']) && preg_match('/[×x]\s*([\d,]+)/iu', (string) $cust['serving_size'], $m)) {
+                    $qty = (int) str_replace(',', '', $m[1]);
+                }
+
+                if ($qty !== null && ($qty < 100 || $qty > 500)) {
+                    return response()->json([
+                        'message' => 'Starter Package MOQ must be between 100 and 500 pouches.',
+                        'errors' => [
+                            "customizations.{$idx}.requested_quantity" => [
+                                'Starter Package MOQ must be between 100 and 500 pouches.',
+                            ],
+                        ],
+                    ], 422);
+                }
+            }
+        }
 
         DB::beginTransaction();
 

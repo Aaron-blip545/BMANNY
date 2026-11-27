@@ -32,8 +32,7 @@ class AshigoPackageSeeder extends Seeder
                 'payment_terms' => '50% before production; 50% balance before pickup',
                 'public_ingredients' => $baseIngredients,
                 'cost_breakdown' => [
-                    ['label' => 'Package price per pouch', 'amount' => 79, 'quantity' => '100 pouches'],
-                    ['label' => 'Initial payment before production', 'amount' => 7900, 'quantity' => '50% of total order'],
+                    ['label' => 'Package price per pouch', 'amount' => 79, 'quantity' => '100–500 pouches (selectable MOQ)'],
                 ],
                 'package_notes' => 'FOB: CDO. VAT exclusive.',
                 'allows_ingredient_request' => false,

@@ -147,6 +147,47 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [activeProduct, setActiveProduct] = useState<Product | null>(null);
 
+    const selectableCategories = useMemo(
+        () => categories.filter((c) => c.name.trim().toLowerCase() !== 'packaging types'),
+        [categories]
+    );
+
+    const defaultUnitForCategory = (categoryName?: string): string => {
+        const name = (categoryName || '').toLowerCase();
+        if (name.includes('vitamin') || name.includes('mineral') || name.includes('amino') || name.includes('capsule')) {
+            return 'pcs';
+        }
+        if (name.includes('oil') || name.includes('liquid') || name.includes('syrup')) {
+            return 'L';
+        }
+        if (
+            name.includes('powder') ||
+            name.includes('carrier') ||
+            name.includes('botanical') ||
+            name.includes('extract') ||
+            name.includes('active') ||
+            name.includes('flavor') ||
+            name.includes('sweetener') ||
+            name.includes('herb')
+        ) {
+            return 'g';
+        }
+        return 'g';
+    };
+
+    const handleCategoryChange = (v: string) => {
+        if (v === 'none') {
+            form.setData('category_id', '');
+            return;
+        }
+        const matched = selectableCategories.find((c) => String(c.category_id) === v);
+        form.setData((prev) => ({
+            ...prev,
+            category_id: v,
+            unit_of_measure: matched ? defaultUnitForCategory(matched.name) : prev.unit_of_measure,
+        }));
+    };
+
     const form = useForm({
         name: '',
         batch_lot_number: '',
@@ -854,14 +895,14 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
                                         </Label>
                                         <Select
                                             value={form.data.category_id ? String(form.data.category_id) : 'none'}
-                                            onValueChange={(v) => form.setData('category_id', v === 'none' ? '' : v)}
+                                            onValueChange={handleCategoryChange}
                                         >
                                             <SelectTrigger id="create-category" className="rounded-lg">
                                                 <SelectValue placeholder="Select Category" />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="none">None</SelectItem>
-                                                {categories.map((c) => (
+                                                {selectableCategories.map((c) => (
                                                     <SelectItem key={c.category_id} value={String(c.category_id)}>
                                                         {c.name}
                                                     </SelectItem>
@@ -1092,14 +1133,14 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
                                         </Label>
                                         <Select
                                             value={form.data.category_id ? String(form.data.category_id) : 'none'}
-                                            onValueChange={(v) => form.setData('category_id', v === 'none' ? '' : v)}
+                                            onValueChange={handleCategoryChange}
                                         >
                                             <SelectTrigger id="edit-category" className="rounded-lg">
                                                 <SelectValue placeholder="Select Category" />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="none">None</SelectItem>
-                                                {categories.map((c) => (
+                                                {selectableCategories.map((c) => (
                                                     <SelectItem key={c.category_id} value={String(c.category_id)}>
                                                         {c.name}
                                                     </SelectItem>

@@ -318,7 +318,11 @@ class SalesAgentController extends Controller
                     ? ProductPackage::where('slug', $selectedSlug)->where('is_active', true)->first()
                     : null;
 
-                if ($package && $package->before_production_amount !== null) {
+                if ($package && strtolower((string) $package->slug) === 'starter') {
+                    // Starter Package supports selectable MOQ (100–500 pouches) at 50% before production / 50% before pickup.
+                    $initialAmount = $initialAmount ?? round($totalAmount / 2, 2);
+                    $balanceAmount = $balanceAmount ?? round(max(0, $totalAmount - $initialAmount), 2);
+                } elseif ($package && $package->before_production_amount !== null) {
                     $defaultInitial = round((float) $package->before_production_amount, 2);
                     $initialAmount = $initialAmount ?? min($defaultInitial, $totalAmount);
                     $balanceAmount = $balanceAmount ?? round(max(0, $totalAmount - $initialAmount), 2);
@@ -430,69 +434,79 @@ class SalesAgentController extends Controller
         }
 
         $order = null;
+        $deductedMaterials = [];
 
-        DB::transaction(function () use ($quotation, &$order) {
-            $totalAmount = round((float) $quotation->total_amount, 2);
-            $initialAmount = $quotation->initial_payment_amount !== null
-                ? round((float) $quotation->initial_payment_amount, 2)
-                : round($totalAmount / 2, 2);
-            $balanceAmount = $quotation->balance_payment_amount !== null
-                ? round((float) $quotation->balance_payment_amount, 2)
-                : round(max(0, $totalAmount - $initialAmount), 2);
+        try {
+            DB::transaction(function () use ($quotation, &$order, &$deductedMaterials) {
+                $totalAmount = round((float) $quotation->total_amount, 2);
+                $initialAmount = $quotation->initial_payment_amount !== null
+                    ? round((float) $quotation->initial_payment_amount, 2)
+                    : round($totalAmount / 2, 2);
+                $balanceAmount = $quotation->balance_payment_amount !== null
+                    ? round((float) $quotation->balance_payment_amount, 2)
+                    : round(max(0, $totalAmount - $initialAmount), 2);
 
-            $order = Order::create([
-                'client_id'    => $quotation->inquiry->client->client_id,
-                'quotation_id' => $quotation->quotation_id,
-                'total_amount' => $totalAmount,
-                'initial_payment_amount' => $initialAmount,
-                'initial_payment_verified_at' => now(),
-                'balance_payment_amount' => $balanceAmount,
-                'balance_payment_verified_at' => $balanceAmount <= 0 ? now() : null,
-                'status'       => 'approved', // matches Figure 6.3's first order stage
-            ]);
+                $order = Order::create([
+                    'client_id'    => $quotation->inquiry->client->client_id,
+                    'quotation_id' => $quotation->quotation_id,
+                    'total_amount' => $totalAmount,
+                    'initial_payment_amount' => $initialAmount,
+                    'initial_payment_verified_at' => now(),
+                    'balance_payment_amount' => $balanceAmount,
+                    'balance_payment_verified_at' => $balanceAmount <= 0 ? now() : null,
+                    'status'       => 'approved', // matches Figure 6.3's first order stage
+                ]);
 
-            $quotation->status = 'accepted';
-            $quotation->save();
-            $prevStatus = $quotation->inquiry->status;
-            $quotation->inquiry->update(['status' => 'converted']);
-            $quotation->inquiry->recordStatusChange($prevStatus, 'converted', 'Payment Verified', "Converted to Order #{$order->order_id}.", auth('web')->id());
+                // Automatically deduct raw-material stock based on the product's BOM upon payment confirmation
+                $deductedMaterials = \App\Services\InventoryService::deductOrderMaterials($order);
 
-            // Update or initialize per-client Gold/Elite stored packaging MOQ tracker
-            $inquiry = $quotation->inquiry;
-            if ($inquiry->inquiry_type === 'reorder_batch' && $inquiry->packagingBalance) {
-                $batchQty = (int) ($inquiry->reorder_batch_quantity ?: $inquiry->packagingBalance->batch_min_quantity);
-                $inquiry->packagingBalance->deductBatch($batchQty);
-            } elseif ($inquiry->inquiry_type === 'packaging_replenishment' && $inquiry->packagingBalance) {
-                $batchQty = (int) ($inquiry->reorder_batch_quantity ?: $inquiry->packagingBalance->batch_min_quantity);
-                $inquiry->packagingBalance->replenish($batchQty, $order->order_id);
-            } else {
-                $firstCust = $inquiry->customizations->first();
-                $selectedSlug = $firstCust?->selected_package;
-                $rules = ClientPackagingBalance::rulesForSlug($selectedSlug);
-                if ($rules) {
-                    $brandName = $inquiry->client->business_name ?? 'Client Brand';
-                    if ($firstCust?->client_notes && preg_match('/Brand:\s*([^|]+)/i', $firstCust->client_notes, $matches)) {
-                        $brandName = trim($matches[1]);
+                $quotation->status = 'accepted';
+                $quotation->save();
+                $prevStatus = $quotation->inquiry->status;
+                $quotation->inquiry->update(['status' => 'converted']);
+                $quotation->inquiry->recordStatusChange($prevStatus, 'converted', 'Payment Verified', "Converted to Order #{$order->order_id}.", auth('web')->id());
+
+                // Update or initialize per-client Gold/Elite stored packaging MOQ tracker
+                $inquiry = $quotation->inquiry;
+                if ($inquiry->inquiry_type === 'reorder_batch' && $inquiry->packagingBalance) {
+                    $batchQty = (int) ($inquiry->reorder_batch_quantity ?: $inquiry->packagingBalance->batch_min_quantity);
+                    $inquiry->packagingBalance->deductBatch($batchQty);
+                } elseif ($inquiry->inquiry_type === 'packaging_replenishment' && $inquiry->packagingBalance) {
+                    $batchQty = (int) ($inquiry->reorder_batch_quantity ?: $inquiry->packagingBalance->batch_min_quantity);
+                    $inquiry->packagingBalance->replenish($batchQty, $order->order_id);
+                } else {
+                    $firstCust = $inquiry->customizations->first();
+                    $selectedSlug = $firstCust?->selected_package;
+                    $rules = ClientPackagingBalance::rulesForSlug($selectedSlug);
+                    if ($rules) {
+                        $brandName = $inquiry->client->business_name ?? 'Client Brand';
+                        if ($firstCust?->client_notes && preg_match('/Brand:\s*([^|]+)/i', $firstCust->client_notes, $matches)) {
+                            $brandName = trim($matches[1]);
+                        }
+                        $usedFirstBatch = $rules['batch_min_quantity'];
+                        ClientPackagingBalance::create([
+                            'client_id'            => $inquiry->client->client_id,
+                            'source_order_id'      => $order->order_id,
+                            'brand_name'           => $brandName,
+                            'package_slug'         => strtolower($selectedSlug),
+                            'total_pouches'        => $rules['total_pouches'],
+                            'used_pouches'         => $usedFirstBatch,
+                            'remaining_pouches'    => max(0, $rules['total_pouches'] - $usedFirstBatch),
+                            'production_unit_cost' => $rules['production_unit_cost'],
+                            'packaging_unit_cost'  => $rules['packaging_unit_cost'],
+                            'batch_min_quantity'   => $rules['batch_min_quantity'],
+                            'cylinder_paid'        => true,
+                            'expires_at'           => now()->addYears(2),
+                            'status'               => 'active',
+                        ]);
                     }
-                    $usedFirstBatch = $rules['batch_min_quantity'];
-                    ClientPackagingBalance::create([
-                        'client_id'            => $inquiry->client->client_id,
-                        'source_order_id'      => $order->order_id,
-                        'brand_name'           => $brandName,
-                        'package_slug'         => strtolower($selectedSlug),
-                        'total_pouches'        => $rules['total_pouches'],
-                        'used_pouches'         => $usedFirstBatch,
-                        'remaining_pouches'    => max(0, $rules['total_pouches'] - $usedFirstBatch),
-                        'production_unit_cost' => $rules['production_unit_cost'],
-                        'packaging_unit_cost'  => $rules['packaging_unit_cost'],
-                        'batch_min_quantity'   => $rules['batch_min_quantity'],
-                        'cylinder_paid'        => true,
-                        'expires_at'           => now()->addYears(2),
-                        'status'               => 'active',
-                    ]);
                 }
-            }
-        });
+            });
+        } catch (\Throwable $e) {
+            return back()
+                ->with('error', $e->getMessage())
+                ->withErrors(['inventory' => $e->getMessage()]);
+        }
 
         // Notify client that payment was accepted and order created
         if ($quotation->inquiry?->client?->user) {
@@ -519,8 +533,12 @@ class SalesAgentController extends Controller
             ]
         );
 
+        $deductNote = ! empty($deductedMaterials)
+            ? ' BOM raw materials were automatically deducted from inventory.'
+            : '';
+
         return redirect()->route('quotations.index')
-            ->with('success', 'Order created and forwarded to Order Manager.');
+            ->with('success', 'Order created and forwarded to Order Manager.' . $deductNote);
     }
 
     /**

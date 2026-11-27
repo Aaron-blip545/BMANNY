@@ -426,8 +426,8 @@ class OrderManagerController extends Controller
 
         try {
             DB::transaction(function () use ($order, $previousStatus, $targetStatus) {
-                // If transitioning to "in_production", calculate and deduct required raw materials from inventory
-                if ($targetStatus === 'in_production' && $previousStatus !== 'in_production') {
+                // Fallback for legacy orders whose BOM inventory wasn't deducted yet on payment confirmation
+                if ($targetStatus === 'in_production' && $previousStatus !== 'in_production' && $order->inventory_deducted_at === null) {
                     InventoryService::deductOrderMaterials($order);
                 }
 
@@ -492,7 +492,8 @@ class OrderManagerController extends Controller
             );
         }
 
-        $successMsg = ($targetStatus === 'in_production' && $previousStatus !== 'in_production')
+        $wasDeductedNow = ($targetStatus === 'in_production' && $previousStatus !== 'in_production' && $order->wasChanged('inventory_deducted_at'));
+        $successMsg = $wasDeductedNow
             ? "Order #{$order->order_id} is now In Production. Required raw materials have been deducted from inventory."
             : "Order #{$order->order_id} status updated to " . str_replace('_', ' ', $order->status) . '.';
 

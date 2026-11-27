@@ -319,6 +319,7 @@ export async function submitInquiry(
     customizations: {
         customization_type?: string;
         selected_package?: string;
+        requested_quantity?: number;
         packaging_type: string;
         packaging_finish?: string;
         serving_size?: string;
@@ -532,6 +533,133 @@ export async function markAllNotificationsRead() {
 
 export async function deleteNotification(notificationId: number) {
     return request(`/notifications/${notificationId}`, {
+        method: 'DELETE',
+    });
+}
+
+/**
+ * Shared Product Reviews API (database-backed so all clients see each other's reviews)
+ */
+export interface ProductReviewPayload {
+    id: string;
+    user_id: number;
+    author: string;
+    avatar: string;
+    avatar_url?: string | null;
+    rating: number;
+    comment: string;
+    photos?: string[];
+    created_at?: string | null;
+    updated_at?: string | null;
+    is_edited?: boolean;
+}
+
+export async function getProductReviews(productTypeId: number): Promise<ProductReviewPayload[]> {
+    const res = await request(`/products/${productTypeId}/reviews`);
+    if (Array.isArray(res)) return res;
+    return Array.isArray(res?.reviews) ? res.reviews : [];
+}
+
+function sendMultipartReviewRequest(
+    url: string,
+    payload: {
+        rating: number;
+        comment: string;
+        author_name?: string;
+        photos?: string[];
+        isUpdate?: boolean;
+    },
+): Promise<{ review: ProductReviewPayload; message?: string }> {
+    return (async () => {
+        const token = await getToken();
+        const form = new FormData();
+        form.append('rating', String(payload.rating));
+        form.append('comment', payload.comment);
+        if (payload.author_name && payload.author_name.trim()) {
+            form.append('author_name', payload.author_name.trim());
+        }
+
+        const photos = payload.photos ?? [];
+        const keepPhotos: string[] = [];
+        const newLocalPhotos: string[] = [];
+
+        for (const uri of photos) {
+            if (!uri || typeof uri !== 'string') continue;
+            if (uri.startsWith('http://') || uri.startsWith('https://')) {
+                keepPhotos.push(uri);
+            } else {
+                newLocalPhotos.push(uri);
+            }
+        }
+
+        if (payload.isUpdate) {
+            for (const urlItem of keepPhotos) {
+                form.append('keep_photos[]', urlItem);
+            }
+        }
+
+        newLocalPhotos.forEach((uri, idx) => {
+            const filename = uri.split('/').pop() || `review-${idx + 1}.jpg`;
+            const extensionMatch = /\.(\w+)$/.exec(filename);
+            const ext = extensionMatch ? extensionMatch[1].toLowerCase() : 'jpeg';
+            const type = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+            form.append('photos[]', { uri, name: filename, type } as any);
+        });
+
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', `${API_BASE_URL}${url}`);
+            xhr.setRequestHeader('Accept', 'application/json');
+            if (token) {
+                xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+            }
+
+            xhr.onload = () => {
+                let data: any = {};
+                try {
+                    data = JSON.parse(xhr.responseText);
+                } catch {}
+
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    const reviewObj: ProductReviewPayload = data?.review ?? data;
+                    resolve({ review: reviewObj, message: data?.message });
+                    return;
+                }
+
+                const message = data.errors
+                    ? Object.values(data.errors).flat().join('\n')
+                    : data.message || 'Unable to save your review.';
+                reject(new Error(message));
+            };
+
+            xhr.onerror = () => reject(new Error('Network request failed.'));
+            xhr.send(form as any);
+        });
+    })();
+}
+
+export async function createProductReview(
+    productTypeId: number,
+    data: { rating: number; comment: string; author_name?: string; photos?: string[] },
+) {
+    return sendMultipartReviewRequest(`/products/${productTypeId}/reviews`, {
+        ...data,
+        isUpdate: false,
+    });
+}
+
+export async function updateProductReview(
+    reviewId: string | number,
+    data: { rating: number; comment: string; author_name?: string; photos?: string[] },
+) {
+    return sendMultipartReviewRequest(`/reviews/${reviewId}`, {
+        ...data,
+        isUpdate: true,
+    });
+}
+
+export async function deleteProductReview(reviewId: string | number) {
+    return request(`/reviews/${reviewId}`, {
         method: 'DELETE',
     });
 }

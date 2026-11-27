@@ -981,45 +981,71 @@ export default function InquiriesPage({ inquiries }: Props) {
                                             key={inquiry.inquiry_id}
                                             ref={inquiry.inquiry_id === notificationInquiryId ? notificationInquiryRow : undefined}
                                             onClick={() => setViewingInquiry(inquiry)}
-                                            className="group cursor-pointer bg-card shadow-sm transition-shadow hover:shadow-md"
+                                            title="Click to view inquiry details"
+                                            className="group cursor-pointer bg-card shadow-sm transition-all duration-150 hover:bg-blue-50/80 dark:hover:bg-blue-950/35 hover:shadow-md hover:-translate-y-[1px]"
                                         >
                                             {/* Lead */}
-                                                <td
-                                                    className={cn(
-                                                        'rounded-l-xl border-y border-l border-border/70 p-5 align-middle',
-                                                        inquiry.client?.is_flagged_nuisance && 'border-l-4 border-l-rose-600 bg-rose-500/5',
-                                                    )}
-                                                >
-                                                    <div className="flex flex-wrap items-center gap-2">
-                                                        <p className="text-base font-bold text-foreground">
-                                                            {inquiry.client?.business_name ?? '—'}
-                                                        </p>
-                                                        {inquiry.client?.is_flagged_nuisance && (
-                                                            <span
-                                                                title={inquiry.client.nuisance_reason ?? 'Flagged as nuisance client'}
-                                                                className="inline-flex items-center rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-bold uppercase text-white"
-                                                            >
-                                                                Nuisance{inquiry.client.nuisance_strikes ? ` · ${inquiry.client.nuisance_strikes} strikes` : ''}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <p className="mt-0.5 text-sm text-muted-foreground">
-                                                        {inquiry.client?.user?.email || inquiry.client?.contact_person || 'No contact'}
+                                            <td
+                                                className={cn(
+                                                    'rounded-l-xl border-y border-l border-border/70 p-5 align-middle transition-colors group-hover:border-blue-400/70 dark:group-hover:border-blue-500/60',
+                                                    inquiry.client?.is_flagged_nuisance && 'border-l-4 border-l-rose-600 bg-rose-500/5',
+                                                )}
+                                            >
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <p className="text-base font-bold text-foreground transition-colors group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                                                        {inquiry.client?.business_name ?? '—'}
                                                     </p>
-                                                    <p className="mt-1 text-sm font-semibold text-foreground/80">
+                                                    {inquiry.client?.is_flagged_nuisance && (
+                                                        <span
+                                                            title={inquiry.client.nuisance_reason ?? 'Flagged as nuisance client'}
+                                                            className="inline-flex items-center rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-bold uppercase text-white"
+                                                        >
+                                                            Nuisance{inquiry.client.nuisance_strikes ? ` · ${inquiry.client.nuisance_strikes} strikes` : ''}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <p className="mt-0.5 text-sm text-muted-foreground">
+                                                    {inquiry.client?.user?.email || inquiry.client?.contact_person || 'No contact'}
+                                                </p>
+                                                <div className="mt-1 flex items-center gap-2">
+                                                    <p className="text-sm font-semibold text-foreground/80">
                                                         #{inquiry.inquiry_id}
                                                     </p>
-                                                </td>
+                                                    <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                                                        View details →
+                                                    </span>
+                                                </div>
+                                            </td>
 
-                                                {/* Request */}
-                                                <td className="border-y border-border/70 p-5 align-middle">
-                                                    <div className="flex flex-wrap items-center gap-2">
-                                                        <p className="text-base font-bold text-foreground">
-                                                            {inquiry.customizations.length
-                                                                ? inquiry.customizations.map((item) => item.selected_package ?? item.packaging_type).join(', ')
-                                                                : 'Starter'}
-                                                        </p>
-                                                        {inquiry.inquiry_type === 'reorder_batch' && (
+                                            {/* Request */}
+                                            <td className="border-y border-border/70 p-5 align-middle transition-colors group-hover:border-blue-400/70 dark:group-hover:border-blue-500/60">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <p className="text-base font-bold capitalize text-foreground">
+                                                        {inquiry.customizations.length
+                                                            ? inquiry.customizations.map((item) => item.selected_package ?? item.packaging_type).join(', ')
+                                                            : 'Starter'}
+                                                    </p>
+                                                    {(() => {
+                                                        const first = inquiry.customizations[0];
+                                                        if (!first || inquiry.inquiry_type === 'reorder_batch' || inquiry.inquiry_type === 'packaging_replenishment') {
+                                                            return null;
+                                                        }
+                                                        if ((first.selected_package || '').toLowerCase() !== 'starter') {
+                                                            return null;
+                                                        }
+                                                        const match =
+                                                            first.serving_size?.match(/[×x]\s*([\d,]+)/i) ||
+                                                            first.client_notes?.match(/(?:^|\|\s*)MOQ\s*:\s*([\d,]+)/i);
+                                                        if (!match) return null;
+                                                        const qty = parseInt(match[1].replace(/,/g, ''), 10);
+                                                        if (Number.isNaN(qty) || qty <= 0) return null;
+                                                        return (
+                                                            <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300">
+                                                                {qty.toLocaleString()} pouches
+                                                            </span>
+                                                        );
+                                                    })()}
+                                                    {inquiry.inquiry_type === 'reorder_batch' && (
                                                             <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-bold text-blue-800 dark:bg-blue-500/20 dark:text-blue-300">
                                                                 Reorder Batch{inquiry.reorder_batch_quantity ? ` · ${inquiry.reorder_batch_quantity.toLocaleString()} pouches` : ''}
                                                             </span>
@@ -1818,9 +1844,24 @@ export default function InquiriesPage({ inquiries }: Props) {
                                         const parsedNotes = parseClientNotes(c.client_notes);
                                         return (
                                             <div key={c.customization_id || idx} className="rounded-xl border border-border/70 bg-card p-4 shadow-xs space-y-3">
-                                                <p className="text-xs font-bold text-primary uppercase tracking-wide">
-                                                    Specification #{idx + 1}: {c.selected_package ?? c.packaging_type ?? 'Custom Package'}
-                                                </p>
+                                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                                    <p className="text-xs font-bold text-primary uppercase tracking-wide">
+                                                        Specification #{idx + 1}: {c.selected_package ?? c.packaging_type ?? 'Custom Package'}
+                                                    </p>
+                                                    {(() => {
+                                                        const match =
+                                                            c.serving_size?.match(/[×x]\s*([\d,]+)/i) ||
+                                                            c.client_notes?.match(/(?:^|\|\s*)MOQ\s*:\s*([\d,]+)/i);
+                                                        if (!match) return null;
+                                                        const qty = parseInt(match[1].replace(/,/g, ''), 10);
+                                                        if (Number.isNaN(qty) || qty <= 0) return null;
+                                                        return (
+                                                            <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300">
+                                                                Order Qty: {qty.toLocaleString()} pouches
+                                                            </span>
+                                                        );
+                                                    })()}
+                                                </div>
                                                 <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
                                                     <div className="rounded-lg bg-muted/30 p-2.5">
                                                         <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Package</p>
