@@ -334,6 +334,21 @@ export async function submitInquiry(
     });
 }
 
+export async function submitNewProductRequest(payload: {
+    product_name: string;
+    category: string;
+    packaging_type: string;
+    target_quantity: string;
+    key_ingredients?: string;
+    formulation_notes?: string;
+    client_notes?: string;
+}) {
+    return request('/product-requests', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    });
+}
+
 export async function uploadInquiryDesign(inquiryId: number, imageUri: string) {
     const token = await getToken();
     const form = new FormData();

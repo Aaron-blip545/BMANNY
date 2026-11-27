@@ -345,9 +345,11 @@ export default function OrdersScreen() {
   /** Whether an inquiry is currently eligible for cancellation */
   const canCancelInquiry = (inq: Inquiry): boolean => {
     if (inq.cancelled_at) return false;         // already cancelled
+    if (['cancelled', 'lost', 'converted'].includes(String(inq.status || '').toLowerCase())) return false;
+    if (inq.manufacturing_review?.status === 'unavailable') return false; // cannot be manufactured
     if (inq.has_order) return false;            // order exists
     if (inq.payment_submitted_at) return false; // payment submitted
-    // Allow: no quotation yet OR quotation sent but unpaid
+    // Allow: active pre-quotation inquiry OR quotation sent but unpaid
     return true;
   };
 
@@ -1095,11 +1097,12 @@ export default function OrdersScreen() {
       <Modal
         visible={reorderModal.visible}
         transparent
+        statusBarTranslucent
         animationType="slide"
         onRequestClose={closeReorderModal}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalOverlay}
         >
           <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
@@ -1253,11 +1256,12 @@ export default function OrdersScreen() {
       <Modal
         visible={cancelModal.visible}
         transparent
+        statusBarTranslucent
         animationType="fade"
         onRequestClose={closeCancelModal}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalOverlay}
         >
           <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
@@ -1272,17 +1276,20 @@ export default function OrdersScreen() {
               <Text style={[styles.modalLabel, { color: colors.text, marginBottom: 0 }]}>
                 Reason for cancellation <Text style={{ color: '#E53935' }}>*</Text>
               </Text>
-              {cancelModal.reason.length > 0 && (
-                <Text
-                  style={{
-                    fontSize: 12,
-                    fontWeight: '700',
-                    color: cancelModal.reason.trim().length >= 5 ? '#10b981' : '#E53935',
-                  }}
-                >
-                  {cancelModal.reason.trim().length >= 5 ? '✓ Accepted' : `${cancelModal.reason.trim().length}/5 min`}
-                </Text>
-              )}
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: '700',
+                  color:
+                    cancelModal.reason.length === 0
+                      ? 'transparent'
+                      : cancelModal.reason.trim().length >= 5
+                        ? '#10b981'
+                        : '#E53935',
+                }}
+              >
+                {cancelModal.reason.trim().length >= 5 ? '✓ Accepted' : `${cancelModal.reason.trim().length}/5 min`}
+              </Text>
             </View>
             <TextInput
               style={[
@@ -1308,9 +1315,11 @@ export default function OrdersScreen() {
               editable={!cancelModal.submitting}
               maxLength={1000}
             />
-            {cancelModal.reason.trim().length > 0 && cancelModal.reason.trim().length < 5 && (
-              <Text style={styles.modalInputHint}>Please provide at least 5 characters.</Text>
-            )}
+            <View style={{ minHeight: 20 }}>
+              {cancelModal.reason.trim().length > 0 && cancelModal.reason.trim().length < 5 && (
+                <Text style={styles.modalInputHint}>Please provide at least 5 characters.</Text>
+              )}
+            </View>
 
             <View style={styles.modalActions}>
               <TouchableOpacity

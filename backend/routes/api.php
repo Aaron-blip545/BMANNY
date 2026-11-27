@@ -77,6 +77,8 @@ Route::middleware(['auth:sanctum', 'active.api'])->group(function () {
         // Inquiry routes
         Route::post('/inquiries', [InquiryController::class, 'store'])
             ->middleware('throttle:write');
+        Route::post('/product-requests', [InquiryController::class, 'requestNewProduct'])
+            ->middleware('throttle:write');
         Route::get('/inquiries/my-inquiries', [InquiryController::class, 'myInquiries']);
         Route::post('/inquiries/{inquiry_id}/cancel', [InquiryController::class, 'cancel']);
         Route::post('/inquiries/{inquiry_id}/upload-design', [FileUploadController::class, 'uploadDesign'])->middleware('throttle:upload');

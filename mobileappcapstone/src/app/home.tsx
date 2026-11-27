@@ -480,6 +480,98 @@ export default function HomeScreen() {
           </View>
         )}
 
+        {/* Beginner "Start Your Own Brand" Guide & Quick Inquiry Card */}
+        {!searchQuery && (
+          <View
+            style={[
+              styles.starterHeroCard,
+              {
+                backgroundColor: isDarkMode ? '#11223a' : '#eff6ff',
+                borderColor: isDarkMode ? '#1e3a5f' : '#bfdbfe',
+              },
+            ]}
+          >
+            <View style={styles.starterHeroTopRow}>
+              <View style={styles.starterHeroBadge}>
+                <Ionicons name="rocket-outline" size={12} color="#ffffff" />
+                <Text style={styles.starterHeroBadgeText}>FOR STARTING BRANDS</Text>
+              </View>
+              <Text style={[styles.starterHeroFreeTag, { color: isDarkMode ? '#93c5fd' : '#1d4ed8' }]}>
+                Free Quote · No Commitment
+              </Text>
+            </View>
+
+            <Text style={[styles.starterHeroTitle, { color: colors.text }]}>
+              Launch your own brand from ₱3,950 down payment
+            </Text>
+            <Text style={[styles.starterHeroSub, { color: colors.textSecondary }]}>
+              Start with as low as 100 pouches (10–15 days). No logo yet? Our Sales team will guide you step-by-step.
+            </Text>
+
+            <View style={styles.starterStepsRow}>
+              {[
+                { num: '1', label: 'Pick Package' },
+                { num: '2', label: 'Free Quote' },
+                { num: '3', label: '50% Down' },
+                { num: '4', label: 'Delivery' },
+              ].map((st) => (
+                <View
+                  key={st.num}
+                  style={[
+                    styles.starterStepItem,
+                    { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.06)' : '#ffffff' },
+                  ]}
+                >
+                  <Text style={styles.starterStepNum}>{st.num}</Text>
+                  <Text style={[styles.starterStepLabel, { color: colors.text }]} numberOfLines={1}>
+                    {st.label}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.starterHeroActions}>
+              <TouchableOpacity
+                style={styles.starterPrimaryBtn}
+                activeOpacity={0.85}
+                onPress={() => {
+                  const ashigo =
+                    products.find((p) => p.name?.toLowerCase().includes('ashigo')) ||
+                    products[0];
+                  if (ashigo) {
+                    router.push({
+                      pathname: '/product-customization',
+                      params: {
+                        id: String(ashigo.id || ashigo.product_type_id || 1),
+                        name: ashigo.name,
+                      },
+                    });
+                  } else {
+                    router.push('/product-customization');
+                  }
+                }}
+              >
+                <Ionicons name="sparkles-outline" size={15} color="#ffffff" />
+                <Text style={styles.starterPrimaryBtnText}>Start Free Inquiry</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.starterSecondaryBtn,
+                  {
+                    backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
+                    borderColor: isDarkMode ? '#334155' : '#93c5fd',
+                  },
+                ]}
+                activeOpacity={0.85}
+                onPress={() => router.push('/new-chat')}
+              >
+                <Ionicons name="chatbubble-ellipses-outline" size={15} color="#2196F3" />
+                <Text style={styles.starterSecondaryBtnText}>Ask Sales</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {/* Categories Section */}
         <View style={styles.categoriesSection}>
           <View style={styles.categoriesHeader}>
@@ -580,6 +672,22 @@ export default function HomeScreen() {
                     ? "You haven't favorited any products yet. Tap the heart icon on any product to save your favorites here!"
                     : `No formulations available in "${selectedCategory}".`}
               </Text>
+              {searchQuery.trim().length > 0 && (
+                <TouchableOpacity
+                  style={styles.requestFromEmptyBtn}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/request-product',
+                      params: { query: searchQuery.trim() },
+                    } as any)
+                  }
+                >
+                  <Ionicons name="flask-outline" size={16} color="#ffffff" />
+                  <Text style={styles.requestFromEmptyBtnText}>
+                    Request "{searchQuery.trim()}" as a New Product
+                  </Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
                 style={styles.resetBtn}
                 onPress={() => {
@@ -656,6 +764,37 @@ export default function HomeScreen() {
               );
             })
           )}
+        </View>
+
+        {/* Request a New Product Card */}
+        <View
+          style={[
+            styles.requestProductCard,
+            {
+              backgroundColor: isDarkMode ? '#141e30' : '#f8fafc',
+              borderColor: isDarkMode ? '#24344d' : '#dbe3ef',
+            },
+          ]}
+        >
+          <View style={styles.requestProductIconBox}>
+            <Ionicons name="flask-outline" size={22} color="#10b981" />
+          </View>
+          <View style={styles.requestProductTextWrap}>
+            <Text style={[styles.requestProductTitle, { color: colors.text }]}>
+              Can't find the product you want?
+            </Text>
+            <Text style={[styles.requestProductSub, { color: colors.textSecondary }]}>
+              Request a custom formulation or new product concept — reviewed directly by Sales & Product Control.
+            </Text>
+            <TouchableOpacity
+              style={styles.requestProductBtn}
+              activeOpacity={0.85}
+              onPress={() => router.push('/request-product')}
+            >
+              <Ionicons name="add-circle-outline" size={16} color="#ffffff" />
+              <Text style={styles.requestProductBtnText}>Request a New Product</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
 
@@ -1151,5 +1290,169 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 19,
+  },
+  starterHeroCard: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+  },
+  starterHeroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  starterHeroBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  starterHeroBadgeText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  starterHeroFreeTag: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  starterHeroTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    lineHeight: 22,
+    marginBottom: 4,
+  },
+  starterHeroSub: {
+    fontSize: 12.5,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  starterStepsRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 14,
+  },
+  starterStepItem: {
+    flex: 1,
+    borderRadius: 10,
+    paddingVertical: 7,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+  },
+  starterStepNum: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#2563eb',
+    marginBottom: 2,
+  },
+  starterStepLabel: {
+    fontSize: 10.5,
+    fontWeight: '700',
+  },
+  starterHeroActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  starterPrimaryBtn: {
+    flex: 1.3,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#2563eb',
+    paddingVertical: 11,
+    borderRadius: 11,
+  },
+  starterPrimaryBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  starterSecondaryBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1,
+    paddingVertical: 11,
+    borderRadius: 11,
+  },
+  starterSecondaryBtnText: {
+    color: '#2196F3',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  requestFromEmptyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    backgroundColor: '#10b981',
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    borderRadius: 12,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  requestFromEmptyBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  requestProductCard: {
+    marginHorizontal: 20,
+    marginTop: 6,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 15,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  requestProductIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: 'rgba(16, 185, 129, 0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  requestProductTextWrap: {
+    flex: 1,
+  },
+  requestProductTitle: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    marginBottom: 3,
+  },
+  requestProductSub: {
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 11,
+  },
+  requestProductBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    backgroundColor: '#10b981',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 10,
+  },
+  requestProductBtnText: {
+    color: '#ffffff',
+    fontSize: 12.5,
+    fontWeight: '800',
   },
 });

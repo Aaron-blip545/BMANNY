@@ -156,8 +156,8 @@ export default function ProductCustomizationScreen() {
     [submitting, setSubmitting] = useState(false),
     [success, setSuccess] = useState(false);
   const [productName, setProductName] = useState(
-      params.name || "AshigoPlus Coffee Drink Mix",
-    ),
+    params.name || "AshigoPlus Coffee Drink Mix",
+  ),
     [code, setCode] = useState(params.product_code || "FP-0001"),
     [image, setImage] = useState(params.image || "");
   const [tier, setTier] = useState<Tier | null>(null),
@@ -220,6 +220,40 @@ export default function ProductCustomizationScreen() {
     [breakdownPackageId, PACKAGES],
   );
   const isAshigo = productName.toLowerCase().includes("ashigo");
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [targetSrpInput, setTargetSrpInput] = useState("250");
+  const [showRoiHelp, setShowRoiHelp] = useState(false);
+  const parsedSrp = Math.max(0, parseFloat(targetSrpInput) || 0);
+  const roiMetrics = useMemo(() => {
+    const activePack = selected || PACKAGES[0];
+    if (!activePack) return null;
+    const batchQty =
+      activePack.id === "starter"
+        ? effectiveStarterQty
+        : activePack.id === "gold"
+          ? 150
+          : 350;
+    const costPerPouch =
+      activePack.id === "starter"
+        ? activePack.initialPrice / Math.max(1, batchQty)
+        : activePack.id === "gold"
+          ? 65
+          : 60;
+    const batchCost = Math.round(costPerPouch * batchQty);
+    const estRevenue = Math.round(parsedSrp * batchQty);
+    const estProfit = estRevenue - batchCost;
+    const marginPct = estRevenue > 0 ? Math.round((estProfit / estRevenue) * 100) : 0;
+    return {
+      title: activePack.title,
+      batchQty,
+      costPerPouch: Math.round(costPerPouch),
+      batchCost,
+      estRevenue,
+      estProfit,
+      marginPct,
+      downPayment: activePack.beforeProductionAmount,
+    };
+  }, [selected, PACKAGES, effectiveStarterQty, parsedSrp]);
   const surface = isDarkMode ? "#131d31" : colors.card,
     muted = isDarkMode ? "#1d2a40" : "#f7faff",
     border = isDarkMode ? "#31425e" : colors.border;
@@ -239,7 +273,7 @@ export default function ProductCustomizationScreen() {
               String(x.id || x.product_type_id) === String(params.id)) ||
             (params.name &&
               String(x.name).toLowerCase() ===
-                String(params.name).toLowerCase()),
+              String(params.name).toLowerCase()),
         );
         if (p) {
           setProductName(p.name || productName);
@@ -252,51 +286,51 @@ export default function ProductCustomizationScreen() {
                   (item) => item.id === x.slug,
                 );
                 return {
-                id: x.slug as Tier,
-                title: x.name,
-                desc: x.description || "",
-                moq: Number(x.minimum_quantity).toLocaleString() + " pouches",
-                packaging: x.packaging_details,
-                label: x.label_details,
-                weight: x.net_weight,
-                lead: x.lead_time_text,
-                cost:
-                  "₱" +
-                  Number(x.initial_price).toLocaleString("en-PH", {
-                    minimumFractionDigits: 2,
-                  }),
-                initialPrice: Number(x.initial_price),
-                beforeProductionAmount:
-                  x.before_production_amount != null
-                    ? Number(x.before_production_amount)
-                    : fallback?.beforeProductionAmount ??
+                  id: x.slug as Tier,
+                  title: x.name,
+                  desc: x.description || "",
+                  moq: Number(x.minimum_quantity).toLocaleString() + " pouches",
+                  packaging: x.packaging_details,
+                  label: x.label_details,
+                  weight: x.net_weight,
+                  lead: x.lead_time_text,
+                  cost:
+                    "₱" +
+                    Number(x.initial_price).toLocaleString("en-PH", {
+                      minimumFractionDigits: 2,
+                    }),
+                  initialPrice: Number(x.initial_price),
+                  beforeProductionAmount:
+                    x.before_production_amount != null
+                      ? Number(x.before_production_amount)
+                      : fallback?.beforeProductionAmount ??
                       Number(x.initial_price) / 2,
-                beforeProductionLabel:
-                  x.before_production_label ||
-                  fallback?.beforeProductionLabel ||
-                  "Before production (50%)",
-                beforePickupAmount:
-                  x.before_pickup_amount != null
-                    ? Number(x.before_pickup_amount)
-                    : fallback?.beforePickupAmount ??
+                  beforeProductionLabel:
+                    x.before_production_label ||
+                    fallback?.beforeProductionLabel ||
+                    "Before production (50%)",
+                  beforePickupAmount:
+                    x.before_pickup_amount != null
+                      ? Number(x.before_pickup_amount)
+                      : fallback?.beforePickupAmount ??
                       Number(x.initial_price) / 2,
-                beforePickupLabel:
-                  x.before_pickup_label ||
-                  fallback?.beforePickupLabel ||
-                  "Before pickup (50%)",
-                terms: x.payment_terms,
-                publicIngredients:
-                  x.public_ingredients || fallback?.publicIngredients || "",
-                costBreakdown: Array.isArray(x.cost_breakdown)
-                  ? x.cost_breakdown.map((line: any) => ({
+                  beforePickupLabel:
+                    x.before_pickup_label ||
+                    fallback?.beforePickupLabel ||
+                    "Before pickup (50%)",
+                  terms: x.payment_terms,
+                  publicIngredients:
+                    x.public_ingredients || fallback?.publicIngredients || "",
+                  costBreakdown: Array.isArray(x.cost_breakdown)
+                    ? x.cost_breakdown.map((line: any) => ({
                       label: line.label,
                       amount: Number(line.amount),
                       quantity: line.quantity || "",
                     }))
-                  : fallback?.costBreakdown || [],
-                packageNotes: x.package_notes || fallback?.packageNotes || "",
-                allowsRequest: Boolean(x.allows_ingredient_request),
-              };
+                    : fallback?.costBreakdown || [],
+                  packageNotes: x.package_notes || fallback?.packageNotes || "",
+                  allowsRequest: Boolean(x.allows_ingredient_request),
+                };
               }),
             );
         }
@@ -572,63 +606,70 @@ export default function ProductCustomizationScreen() {
                         activeOpacity={0.82}
                         onPress={() => setTier(p.id)}
                       >
-                      <View style={s.packMain}>
-                        <Image
-                          source={PACKAGE_PREVIEWS[p.id]}
-                          style={s.packagePreview}
-                        />
-                        <View style={s.grow}>
-                          <View style={s.row}>
-                            <View
-                              style={[
-                                s.icon,
-                                { backgroundColor: active ? "#2196F3" : muted },
-                              ]}
-                            >
-                              <Ionicons
-                                name={
-                                  p.id === "starter"
-                                    ? "rocket-outline"
-                                    : p.id === "gold"
-                                      ? "ribbon-outline"
-                                      : "sparkles-outline"
-                                }
-                                size={21}
-                                color={active ? "#fff" : "#2196F3"}
-                              />
-                            </View>
-                            <View style={s.grow}>
-                              <Text
-                                style={[s.packTitle, { color: colors.text }]}
-                              >
-                                {p.title}
-                              </Text>
-                              <Text
+                        <View style={s.packMain}>
+                          <Image
+                            source={PACKAGE_PREVIEWS[p.id]}
+                            style={s.packagePreview}
+                          />
+                          <View style={s.grow}>
+                            <View style={s.row}>
+                              <View
                                 style={[
-                                  s.desc,
-                                  { color: colors.textSecondary },
+                                  s.icon,
+                                  { backgroundColor: active ? "#2196F3" : muted },
                                 ]}
                               >
-                                {p.desc}
-                              </Text>
+                                <Ionicons
+                                  name={
+                                    p.id === "starter"
+                                      ? "rocket-outline"
+                                      : p.id === "gold"
+                                        ? "ribbon-outline"
+                                        : "sparkles-outline"
+                                  }
+                                  size={21}
+                                  color={active ? "#fff" : "#2196F3"}
+                                />
+                              </View>
+                              <View style={s.grow}>
+                                <View style={s.titleBadgeRow}>
+                                  <Text
+                                    style={[s.packTitle, { color: colors.text }]}
+                                  >
+                                    {p.title}
+                                  </Text>
+                                  {p.id === "starter" && (
+                                    <View style={s.beginnerBadge}>
+                                      <Text style={s.beginnerBadgeText}>Best for Beginners</Text>
+                                    </View>
+                                  )}
+                                </View>
+                                <Text
+                                  style={[
+                                    s.desc,
+                                    { color: colors.textSecondary },
+                                  ]}
+                                >
+                                  {p.desc}
+                                </Text>
+                              </View>
+                              <Ionicons
+                                name={
+                                  active ? "checkmark-circle" : "ellipse-outline"
+                                }
+                                size={24}
+                                color={active ? "#2196F3" : colors.textSecondary}
+                              />
                             </View>
-                            <Ionicons
-                              name={
-                                active ? "checkmark-circle" : "ellipse-outline"
-                              }
-                              size={24}
-                              color={active ? "#2196F3" : colors.textSecondary}
-                            />
+                            <View style={[s.line, { backgroundColor: border }]} />
+                            <Text
+                              style={[s.facts, { color: colors.textSecondary }]}
+                            >
+                              {p.moq} · {p.weight} · {p.label}
+                            </Text>
+                            <Text style={s.cost}>{p.cost}</Text>
                           </View>
-                          <View style={[s.line, { backgroundColor: border }]} />
-                          <Text
-                            style={[s.facts, { color: colors.textSecondary }]}
-                          >
-                            {p.moq} · {p.weight} · {p.label}
-                          </Text>
-                          <Text style={s.cost}>{p.cost}</Text>
                         </View>
-                      </View>
                       </TouchableOpacity>
                       {active && p.id === "starter" ? (
                         <View
@@ -730,6 +771,133 @@ export default function ProductCustomizationScreen() {
                     </View>
                   );
                 })}
+
+                {/* Compare Packages Trigger */}
+                <TouchableOpacity
+                  style={[s.compareBtn, { backgroundColor: surface, borderColor: border }]}
+                  onPress={() => setCompareOpen(true)}
+                >
+                  <Ionicons name="git-compare-outline" size={16} color="#2196F3" />
+                  <Text style={s.compareBtnText}>Compare Starter vs. Gold vs. Elite</Text>
+                </TouchableOpacity>
+
+                {/* Interactive Profit & ROI Estimator for Starting Clients */}
+                {roiMetrics && (
+                  <View style={[s.roiCard, { backgroundColor: surface, borderColor: border }]}>
+                    <View style={s.roiHeader}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
+                        <Ionicons name="calculator-outline" size={16} color="#10b981" />
+                        <Text style={[s.roiTitle, { color: colors.text }]}>
+                          Profit Estimator ({roiMetrics.title})
+                        </Text>
+                      </View>
+                      <Text style={s.roiMarginBadge}>
+                        {roiMetrics.marginPct > 0 ? `${roiMetrics.marginPct}% profit share` : "Set higher price"}
+                      </Text>
+                    </View>
+                    <Text style={[s.roiSub, { color: colors.textSecondary }]}>
+                      Sample earnings for {roiMetrics.batchQty.toLocaleString()} pouches (your cost: ~₱{roiMetrics.costPerPouch}/pouch).
+                    </Text>
+
+                    <View style={s.roiSrpRow}>
+                      <Text style={[s.roiSrpLabel, { color: colors.textSecondary }]}>
+                        How much will you sell each pouch for?
+                      </Text>
+                      <View style={s.roiPresets}>
+                        {["200", "250", "300", "450"].map((val) => {
+                          const picked = targetSrpInput === val;
+                          return (
+                            <TouchableOpacity
+                              key={val}
+                              style={[
+                                s.roiChip,
+                                {
+                                  backgroundColor: picked ? "#10b981" : muted,
+                                  borderColor: picked ? "#10b981" : border,
+                                },
+                              ]}
+                              onPress={() => setTargetSrpInput(val)}
+                            >
+                              <Text style={[s.roiChipText, { color: picked ? "#fff" : colors.text }]}>
+                                ₱{val}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                      <View style={s.roiCustomRow}>
+                        <Text style={[s.roiCustomLabel, { color: colors.textSecondary }]}>
+                          Or enter your own price:
+                        </Text>
+                        <View style={[s.roiCustomInputWrap, { backgroundColor: muted, borderColor: border }]}>
+                          <Text style={[s.roiCurrencyPrefix, { color: colors.textSecondary }]}>₱</Text>
+                          <TextInput
+                            value={targetSrpInput}
+                            onChangeText={(txt) => setTargetSrpInput(txt.replace(/[^0-9.]/g, ""))}
+                            keyboardType="numeric"
+                            maxLength={6}
+                            placeholder="250"
+                            placeholderTextColor={colors.textSecondary}
+                            style={[s.roiCustomInput, { color: colors.text }]}
+                          />
+                        </View>
+                      </View>
+                    </View>
+
+                    <View style={[s.roiStatsGrid, { backgroundColor: muted, borderColor: border }]}>
+                      <View style={s.roiStatBox}>
+                        <Text style={[s.roiStatLabel, { color: colors.textSecondary }]}>Total Sales</Text>
+                        <Text style={[s.roiStatVal, { color: colors.text }]}>{peso(roiMetrics.estRevenue)}</Text>
+                      </View>
+                      <View style={s.roiStatBox}>
+                        <Text style={[s.roiStatLabel, { color: colors.textSecondary }]}>Your Cost</Text>
+                        <Text style={[s.roiStatVal, { color: colors.text }]}>{peso(roiMetrics.batchCost)}</Text>
+                      </View>
+                      <View style={s.roiStatBox}>
+                        <Text style={[s.roiStatLabel, { color: colors.textSecondary }]}>Gross Profit</Text>
+                        <Text style={[s.roiStatVal, { color: roiMetrics.estProfit >= 0 ? "#10b981" : "#ef4444" }]}>
+                          {peso(roiMetrics.estProfit)}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <TouchableOpacity
+                      style={s.roiHelpToggle}
+                      onPress={() => setShowRoiHelp((prev) => !prev)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name={showRoiHelp ? "chevron-up-circle-outline" : "help-circle-outline"}
+                        size={15}
+                        color="#2196F3"
+                      />
+                      <Text style={s.roiHelpToggleText}>
+                        {showRoiHelp ? "Hide guide & formula" : "New to business? See how this is computed"}
+                      </Text>
+                    </TouchableOpacity>
+
+                    {showRoiHelp ? (
+                      <View style={[s.roiHelpBox, { backgroundColor: muted, borderColor: border }]}>
+                        <Text style={[s.roiHelpLine, { color: colors.text }]}>
+                          • <Text style={{ fontWeight: "800" }}>Total Sales</Text>: Money you collect if you sell all pouches (₱{parsedSrp} × {roiMetrics.batchQty.toLocaleString()} = {peso(roiMetrics.estRevenue)}).
+                        </Text>
+                        <Text style={[s.roiHelpLine, { color: colors.text }]}>
+                          • <Text style={{ fontWeight: "800" }}>Your Cost</Text>: What you pay BMANNY for this batch (~₱{roiMetrics.costPerPouch} × {roiMetrics.batchQty.toLocaleString()} = {peso(roiMetrics.batchCost)}).
+                        </Text>
+                        <Text style={[s.roiHelpLine, { color: colors.text }]}>
+                          • <Text style={{ fontWeight: "800" }}>Gross Profit</Text>: Total Sales minus Your Cost ({peso(roiMetrics.estProfit)}).
+                        </Text>
+                        <Text style={[s.roiHelpLine, { color: colors.text }]}>
+                          • <Text style={{ fontWeight: "800" }}>Profit Share (Margin)</Text>: {roiMetrics.marginPct}% of every sale stays with you after product cost.
+                        </Text>
+                        <Text style={[s.roiHelpNote, { color: colors.textSecondary }]}>
+                          Basis: Preset prices (₱200–₱450) reflect typical PH herbal drink pouch retail prices (2.5×–5× unit cost). Gross profit excludes shipping, ads, and online marketplace fees.
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                )}
+
                 <Button label="Continue" onPress={next} />
               </View>
             ) : step === 2 && selected ? (
@@ -838,9 +1006,9 @@ export default function ProductCustomizationScreen() {
                       Attach brand logo or label artwork
                     </Text>
                     <Text
-                      style={{ color: colors.textSecondary, fontSize: 12 }}
+                      style={{ color: colors.textSecondary, fontSize: 12, textAlign: "center" }}
                     >
-                      Optional — Sales will review your file.
+                      No logo yet? That&apos;s okay — submit your inquiry now and finalize your design with Sales later.
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -854,7 +1022,14 @@ export default function ProductCustomizationScreen() {
                     maxLength={500}
                     placeholder="Example: Please consider cinnamon extract to help reduce bitterness."
                   />
-                ) : null}
+                ) : (
+                  <View style={[s.allowedNotice, { backgroundColor: muted, borderColor: border }]}>
+                    <Ionicons name="information-circle-outline" size={16} color="#2196F3" />
+                    <Text style={[s.allowedNoticeText, { color: colors.textSecondary }]}>
+                      Starter Package uses BMANNY&apos;s pre-vetted standard formulation for fast 10–15 day turnaround. Want custom herbal ingredients? Choose Gold (up to 6) or Elite (up to 8).
+                    </Text>
+                  </View>
+                )}
                 <Field
                   label="Special instructions (optional)"
                   value={notes}
@@ -997,6 +1172,93 @@ export default function ProductCustomizationScreen() {
             ) : null}
           </ScrollView>
         )}
+        <Modal
+          visible={compareOpen}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setCompareOpen(false)}
+        >
+          <View style={s.sheetOverlay}>
+            <View style={[s.breakdownSheet, { backgroundColor: surface }]}>
+              <View style={s.sheetHandle} />
+              <View style={s.sheetHeader}>
+                <View style={s.grow}>
+                  <Text style={[s.sheetEyebrow, { color: "#10b981" }]}>SIDE-BY-SIDE GUIDE</Text>
+                  <Text style={[s.sheetTitle, { color: colors.text }]}>Compare Packages</Text>
+                  <Text style={[s.sheetSubtitle, { color: colors.textSecondary }]}>
+                    Start small with Starter, or scale faster with Gold & Elite
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  accessibilityLabel="Close package comparison"
+                  style={[s.sheetClose, { borderColor: border }]}
+                  onPress={() => setCompareOpen(false)}
+                >
+                  <Ionicons name="close" size={21} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+              <ScrollView contentContainerStyle={s.sheetContent} showsVerticalScrollIndicator={false}>
+                <View style={[s.compareTable, { borderColor: border, backgroundColor: muted }]}>
+                  <View style={[s.compareRow, s.compareHeaderRow, { borderBottomColor: border }]}>
+                    <Text style={[s.compareFeatureCol, s.compareHeaderText, { color: colors.textSecondary }]}>Feature</Text>
+                    <Text style={[s.compareValCol, s.compareHeaderText, { color: "#10b981" }]}>Starter</Text>
+                    <Text style={[s.compareValCol, s.compareHeaderText, { color: "#2196F3" }]}>Gold</Text>
+                    <Text style={[s.compareValCol, s.compareHeaderText, { color: "#f59e0b" }]}>Elite</Text>
+                  </View>
+                  {[
+                    { label: "MOQ (Pouches)", starter: "100–500", gold: "5,000", elite: "10,000" },
+                    { label: "Unit Cost", starter: "₱79.00", gold: "₱28.96", elite: "₱24.48" },
+                    { label: "50% Down", starter: "₱3,950+", gold: "₱72,400", elite: "₱122,400" },
+                    { label: "Lead Time", starter: "10–15 days", gold: "40–60 days", elite: "40–60 days" },
+                    { label: "Packaging", starter: "Sticker label", gold: "Full-color pouch", elite: "Full-color pouch" },
+                    { label: "Custom Herbs", starter: "Preset only", gold: "Up to 6", elite: "Up to 8" },
+                    { label: "Cylinder Fee", starter: "None", gold: "One-time", elite: "One-time" },
+                  ].map((row, idx, arr) => (
+                    <View
+                      key={row.label}
+                      style={[
+                        s.compareRow,
+                        idx < arr.length - 1 ? { borderBottomWidth: 1, borderBottomColor: border } : null,
+                      ]}
+                    >
+                      <Text style={[s.compareFeatureCol, s.compareLabelText, { color: colors.text }]}>{row.label}</Text>
+                      <Text style={[s.compareValCol, s.compareValText, { color: colors.text }]}>{row.starter}</Text>
+                      <Text style={[s.compareValCol, s.compareValText, { color: colors.textSecondary }]}>{row.gold}</Text>
+                      <Text style={[s.compareValCol, s.compareValText, { color: colors.textSecondary }]}>{row.elite}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                <View style={s.comparePickRow}>
+                  {(["starter", "gold", "elite"] as Tier[]).map((pkgId) => {
+                    const active = tier === pkgId;
+                    const title = pkgId === "starter" ? "Pick Starter" : pkgId === "gold" ? "Pick Gold" : "Pick Elite";
+                    return (
+                      <TouchableOpacity
+                        key={pkgId}
+                        style={[
+                          s.comparePickBtn,
+                          {
+                            backgroundColor: active ? "#2196F3" : muted,
+                            borderColor: active ? "#2196F3" : border,
+                          },
+                        ]}
+                        onPress={() => {
+                          setTier(pkgId);
+                          setCompareOpen(false);
+                        }}
+                      >
+                        <Text style={[s.comparePickText, { color: active ? "#fff" : colors.text }]}>
+                          {title}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
         <Modal
           visible={Boolean(breakdownPackage)}
           transparent
@@ -1779,5 +2041,234 @@ const s = StyleSheet.create({
     color: "#ffffff",
     fontSize: 13,
     fontWeight: "800",
+  },
+  titleBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  beginnerBadge: {
+    backgroundColor: "#10b981",
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  beginnerBadgeText: {
+    color: "#ffffff",
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  compareBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 11,
+    marginBottom: 14,
+  },
+  compareBtnText: {
+    color: "#2196F3",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  roiCard: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 14,
+  },
+  roiHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  roiTitle: {
+    fontSize: 13.5,
+    fontWeight: "800",
+  },
+  roiMarginBadge: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#10b981",
+  },
+  roiSub: {
+    fontSize: 11.5,
+    marginBottom: 10,
+  },
+  roiSrpRow: {
+    marginBottom: 10,
+    gap: 6,
+  },
+  roiSrpLabel: {
+    fontSize: 11.5,
+    fontWeight: "600",
+  },
+  roiPresets: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  roiChip: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 6,
+    alignItems: "center",
+  },
+  roiChipText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  roiStatsGrid: {
+    flexDirection: "row",
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    gap: 8,
+  },
+  roiStatBox: {
+    flex: 1,
+    alignItems: "center",
+  },
+  roiStatLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  roiStatVal: {
+    fontSize: 12.5,
+    fontWeight: "800",
+  },
+  allowedNotice: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  allowedNoticeText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  compareTable: {
+    borderWidth: 1,
+    borderRadius: 14,
+    overflow: "hidden",
+    marginTop: 4,
+    marginBottom: 14,
+  },
+  compareRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+  },
+  compareHeaderRow: {
+    borderBottomWidth: 1,
+  },
+  compareFeatureCol: {
+    flex: 1.25,
+    paddingRight: 6,
+  },
+  compareValCol: {
+    flex: 1,
+    textAlign: "center",
+  },
+  compareHeaderText: {
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  compareLabelText: {
+    fontSize: 11.5,
+    fontWeight: "700",
+  },
+  compareValText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  comparePickRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  comparePickBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  comparePickText: {
+    fontSize: 12.5,
+    fontWeight: "800",
+  },
+  roiCustomRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 6,
+    gap: 10,
+  },
+  roiCustomLabel: {
+    fontSize: 11.5,
+    fontWeight: "600",
+  },
+  roiCustomInputWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    minWidth: 96,
+    height: 34,
+  },
+  roiCurrencyPrefix: {
+    fontSize: 13,
+    fontWeight: "700",
+    marginRight: 4,
+  },
+  roiCustomInput: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "700",
+    paddingVertical: 0,
+  },
+  roiHelpToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    marginTop: 10,
+    paddingVertical: 4,
+  },
+  roiHelpToggleText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#2196F3",
+  },
+  roiHelpBox: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 11,
+    gap: 6,
+  },
+  roiHelpLine: {
+    fontSize: 11.5,
+    lineHeight: 16,
+  },
+  roiHelpNote: {
+    fontSize: 11,
+    lineHeight: 15,
+    marginTop: 2,
+    fontStyle: "italic",
   },
 });

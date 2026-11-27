@@ -109,6 +109,117 @@ class InquiryController extends Controller
     }
 
     /**
+     * Allow a business client to request a brand-new product not yet in the catalog.
+     * Creates an Inquiry + InquiryCustomization and auto-routes a pending
+     * ProductRequestReview to both Sales and the Product Controller (Option A).
+     */
+    public function requestNewProduct(Request $request)
+    {
+        $data = $request->validate([
+            'product_name'      => 'required|string|max:150',
+            'category'          => 'required|string|max:80',
+            'packaging_type'    => 'required|string|max:80',
+            'target_quantity'   => 'required|string|max:50',
+            'key_ingredients'   => 'nullable|string|max:2000',
+            'formulation_notes' => 'nullable|string|max:2000',
+            'client_notes'      => 'nullable|string|max:2000',
+        ]);
+
+        $user   = $request->user();
+        $client = $user?->businessClient;
+
+        if (! $client) {
+            return response()->json([
+                'message' => 'Your business client profile could not be located.',
+            ], 422);
+        }
+
+        $productName = trim($data['product_name']);
+        $category    = trim($data['category']);
+        $packaging   = trim($data['packaging_type']);
+        $targetQty   = trim($data['target_quantity']);
+        $ingredients = trim((string) ($data['key_ingredients'] ?? ''));
+        $formulation = trim((string) ($data['formulation_notes'] ?? ''));
+        $extraNotes  = trim((string) ($data['client_notes'] ?? ''));
+
+        $structuredSummary = implode(' | ', array_filter([
+            'Request Type: New Product Concept',
+            'Proposed Product: ' . $productName,
+            'Category: ' . $category,
+            'Preferred Packaging: ' . $packaging,
+            'Estimated Target Qty: ' . $targetQty,
+            $ingredients !== '' ? 'Key Ingredients: ' . $ingredients : null,
+            $formulation !== '' ? 'Formulation / Benefits: ' . $formulation : null,
+            $extraNotes !== '' ? 'Additional Notes: ' . $extraNotes : null,
+        ]));
+
+        DB::beginTransaction();
+
+        try {
+            $inquiry = Inquiry::create([
+                'client_id' => $client->client_id,
+                'status'    => 'new',
+            ]);
+
+            InquiryCustomization::create([
+                'inquiry_id'                => $inquiry->inquiry_id,
+                'customization_type'        => 'New Product Request — ' . $productName,
+                'selected_package'          => 'custom',
+                'packaging_type'            => $packaging,
+                'serving_size'              => 'Target Qty: ' . $targetQty,
+                'formulation_notes'         => trim("New Product Concept: {$productName} ({$category}). {$formulation}"),
+                'requested_ingredient_note' => $ingredients !== '' ? $ingredients : null,
+                'client_notes'              => $structuredSummary,
+            ]);
+
+            ProductRequestReview::create([
+                'inquiry_id'    => $inquiry->inquiry_id,
+                'requested_by'  => $user->user_id,
+                'status'        => 'pending',
+                'request_notes' => $structuredSummary,
+            ]);
+
+            DB::commit();
+
+            $clientName = $client->business_name ?: $user->full_name;
+
+            NotificationService::sendToRoles(
+                ['sales_agent', 'admin'],
+                'inquiry',
+                'New Product Request Received',
+                "{$clientName} requested a new product: {$productName} ({$category})",
+                [
+                    'inquiry_id' => $inquiry->inquiry_id,
+                    'client_id'  => $client->client_id,
+                ]
+            );
+
+            NotificationService::sendToRoles(
+                ['product_controller'],
+                'product_request',
+                'New Product Request Awaiting Review',
+                "{$clientName} requested a new product ({$productName}) — Inquiry #{$inquiry->inquiry_id}.",
+                [
+                    'inquiry_id' => $inquiry->inquiry_id,
+                    'client_id'  => $client->client_id,
+                ]
+            );
+
+            return response()->json([
+                'message' => 'Your new product request has been submitted to Sales and Product Control for review.',
+                'inquiry' => $inquiry->load(['customizations', 'productRequestReview']),
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'error'   => 'Failed to submit new product request.',
+                'details' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Return all inquiries belonging to the authenticated customer.
      * Used by the mobile app so customers can track their submissions.
      */
@@ -242,8 +353,13 @@ class InquiryController extends Controller
             return response()->json(['message' => 'Payment has already been submitted. Please contact our sales team to cancel.'], 422);
         }
 
-        // Allow: no quotation yet (pending/reviewed) OR quotation sent but unpaid
-        if ($quotation === null && ! in_array($inquiry->status, ['new', 'for_quotation', 'follow_up'], true)) {
+        // Block if already closed / converted
+        if (in_array($inquiry->status, ['cancelled', 'lost', 'converted'], true)) {
+            return response()->json(['message' => "This inquiry is already {$inquiry->status} and cannot be cancelled."], 422);
+        }
+
+        // Allow: no quotation yet (active pre-quotation stage) OR quotation sent but unpaid
+        if ($quotation === null && ! in_array($inquiry->status, ['new', 'contacted', 'for_quotation', 'follow_up', 'pending', 'reviewed'], true)) {
             return response()->json(['message' => 'This inquiry cannot be cancelled in its current state.'], 422);
         }
 
