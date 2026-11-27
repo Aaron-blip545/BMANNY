@@ -223,11 +223,14 @@ class InquiryController extends Controller
             return response()->json(['message' => 'This inquiry cannot be cancelled in its current state.'], 422);
         }
 
+        $prevStatus = $inquiry->status;
         $inquiry->update([
             'status'               => 'cancelled',
             'cancelled_at'         => now(),
             'cancellation_reason'  => $request->cancellation_reason,
         ]);
+        $inquiry->recordStatusChange($prevStatus, 'cancelled', 'Cancelled by Client', $request->cancellation_reason, $request->user()->user_id);
+        \App\Services\ClientRiskService::evaluateClient((int) $client->client_id);
 
         $clientName = $client->business_name ?? $request->user()->full_name ?? 'Client';
         NotificationService::sendToRoles(

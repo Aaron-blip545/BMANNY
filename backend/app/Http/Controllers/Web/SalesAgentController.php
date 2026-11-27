@@ -27,6 +27,7 @@ class SalesAgentController extends Controller
     public function inquiries(Request $request): Response
     {
         app(FollowUpReminderService::class)->sendDueReminders();
+        Quotation::expireOverdue();
 
         $archiveQuery = ConversationArchive::where('user_id', $request->user('web')->user_id);
         $archivedCustomerIds = (clone $archiveQuery)
@@ -47,6 +48,7 @@ class SalesAgentController extends Controller
             'productRequestReview.suggestedVariant.productType',
             'productRequestReview.suggestedPackaging',
             'followUps.creator',
+            'statusLogs.actor',
         ])
         ->whereNotIn('inquiry_id', $legacyArchivedInquiryIds)
         ->when($archivedCustomerIds->isNotEmpty(), fn ($query) => $query->whereHas(
@@ -70,18 +72,134 @@ class SalesAgentController extends Controller
         ]);
 
         $inquiry = Inquiry::findOrFail($inquiryId);
-        if (in_array($inquiry->status, ['converted', 'cancelled'], true) || $inquiry->cancelled_at) {
+        if (in_array($inquiry->status, ['converted', 'cancelled', 'lost'], true) || $inquiry->cancelled_at) {
             return back()->withErrors(['follow_up' => 'Follow-ups can only be scheduled for active leads.']);
         }
 
+        $prevStatus = $inquiry->status;
+
         InquiryFollowup::create([
-            'inquiry_id' => $inquiry->inquiry_id,
-            'created_by' => $request->user('web')->user_id,
+            'inquiry_id'     => $inquiry->inquiry_id,
+            'created_by'     => $request->user('web')->user_id,
             'follow_up_date' => $data['follow_up_date'],
-            'note' => $data['note'],
+            'note'           => $data['note'],
         ]);
 
-        return back()->with('success', 'Follow-up scheduled.');
+        if ($prevStatus !== 'follow_up') {
+            $inquiry->update([
+                'status'         => 'follow_up',
+                'status_remarks' => $data['note'],
+            ]);
+            $inquiry->recordStatusChange($prevStatus, 'follow_up', 'Follow-up Scheduled', $data['note'], $request->user('web')->user_id);
+        }
+
+        return back()->with('success', 'Follow-up scheduled and lead moved to Follow-up.');
+    }
+
+    /**
+     * Allow Sales Agent / Admin to update lead status, cancel a lead, or mark a lead as Lost
+     * with structured lost reasons and remarks.
+     * PATCH /inquiries/{inquiry_id}/status
+     */
+    public function updateLeadStatus(Request $request, int $inquiryId)
+    {
+        $validated = $request->validate([
+            'status'  => ['required', 'in:new,for_quotation,follow_up,quotation_sent,lost,cancelled'],
+            'reason'  => ['nullable', 'string', 'max:120'],
+            'remarks' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $inquiry = Inquiry::with(['client.user', 'quotation'])->findOrFail($inquiryId);
+
+        if ($inquiry->status === 'converted') {
+            return back()->withErrors(['status' => 'Converted leads that already have an order cannot be modified here.']);
+        }
+
+        $targetStatus = $validated['status'];
+        if (in_array($targetStatus, ['lost', 'cancelled'], true) && empty(trim((string) ($validated['reason'] ?? '')))) {
+            return back()->withErrors(['reason' => 'Please select a reason when cancelling or marking a lead as lost.']);
+        }
+
+        $prevStatus = $inquiry->cancelled_at ? 'cancelled' : $inquiry->status;
+        $actorId = $request->user('web')->user_id;
+
+        $updates = [
+            'status'         => $targetStatus,
+            'status_remarks' => $validated['remarks'],
+        ];
+
+        if ($targetStatus === 'cancelled') {
+            $updates['cancelled_at'] = now();
+            $updates['cancellation_reason'] = $validated['reason'] . ($validated['remarks'] ? " — {$validated['remarks']}" : '');
+            $updates['cancelled_by'] = $actorId;
+        } elseif ($targetStatus === 'lost') {
+            $updates['lost_at'] = now();
+            $updates['lost_reason'] = $validated['reason'];
+            $updates['cancellation_reason'] = $validated['reason'] . ($validated['remarks'] ? " — {$validated['remarks']}" : '');
+            $updates['cancelled_by'] = $actorId;
+        } else {
+            // Re-opening a lead clears cancellation/lost timestamps
+            $updates['cancelled_at'] = null;
+            $updates['lost_at'] = null;
+        }
+
+        $inquiry->update($updates);
+        $inquiry->recordStatusChange($prevStatus, $targetStatus, $validated['reason'] ?? null, $validated['remarks'], $actorId);
+
+        if (in_array($targetStatus, ['cancelled', 'lost'], true)) {
+            if ($inquiry->quotation && $inquiry->quotation->status === 'sent') {
+                $inquiry->quotation->update(['status' => 'rejected']);
+            }
+            if ($inquiry->client_id) {
+                \App\Services\ClientRiskService::evaluateClient((int) $inquiry->client_id);
+            }
+        }
+
+        if ($targetStatus === 'cancelled' && $inquiry->client?->user) {
+            NotificationService::send(
+                $inquiry->client->user->user_id,
+                'inquiry',
+                "Inquiry #{$inquiry->inquiry_id} Cancelled",
+                "Your inquiry was cancelled by Sales. Reason: {$validated['reason']}.",
+                ['inquiry_id' => $inquiry->inquiry_id]
+            );
+        }
+
+        return back()->with('success', "Lead #{$inquiry->inquiry_id} updated to " . ucwords(str_replace('_', ' ', $targetStatus)) . '.');
+    }
+
+    /**
+     * Manually flag or unflag a business client as a nuisance / high-risk client.
+     * POST /clients/{client_id}/toggle-nuisance
+     */
+    public function toggleNuisanceClient(Request $request, int $clientId)
+    {
+        $validated = $request->validate([
+            'is_flagged' => ['required', 'boolean'],
+            'reason'     => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $client = \App\Models\BusinessClient::findOrFail($clientId);
+
+        if ($validated['is_flagged']) {
+            $reason = trim((string) ($validated['reason'] ?? '')) ?: 'Flagged by Sales for repeated cancellations / nuisance inquiries.';
+            $client->update([
+                'is_flagged_nuisance' => true,
+                'nuisance_reason'     => $reason,
+                'nuisance_flagged_at' => now(),
+                'nuisance_flagged_by' => $request->user('web')?->user_id,
+            ]);
+            return back()->with('success', "{$client->business_name} has been flagged as a Nuisance Client.");
+        }
+
+        $client->update([
+            'is_flagged_nuisance' => false,
+            'nuisance_reason'     => null,
+            'nuisance_flagged_at' => null,
+            'nuisance_flagged_by' => null,
+        ]);
+
+        return back()->with('success', "Nuisance flag removed for {$client->business_name}.");
     }
 
     /** Keep a completed follow-up in the lead history. */
@@ -106,9 +224,12 @@ class SalesAgentController extends Controller
         // otherwise the lead is ready for quotation.
         $inquiry = $followUp->inquiry;
         if ($inquiry?->status === 'follow_up') {
+            $nextStatus = $inquiry->quotation()->exists() ? 'quotation_sent' : 'for_quotation';
             $inquiry->update([
-                'status' => $inquiry->quotation()->exists() ? 'quotation_sent' : 'for_quotation',
+                'status'         => $nextStatus,
+                'status_remarks' => $data['completion_note'] ?? 'Follow-up completed.',
             ]);
+            $inquiry->recordStatusChange('follow_up', $nextStatus, 'Follow-up Completed', $data['completion_note'] ?? null, $request->user('web')->user_id);
         }
 
         return back()->with('success', 'Follow-up marked complete.');
@@ -227,7 +348,9 @@ class SalesAgentController extends Controller
 
         // Mark the lead as quotation sent once the client can review it.
         if ($inquiry) {
+            $prevStatus = $inquiry->status;
             $inquiry->update(['status' => 'quotation_sent']);
+            $inquiry->recordStatusChange($prevStatus, 'quotation_sent', 'Quotation Prepared', "Quotation #{$quotation->quotation_id} sent (₱" . number_format($quotation->total_amount, 2) . ").", $request->user('web')?->user_id);
 
             if ($inquiry->client && $inquiry->client->user) {
                 NotificationService::send(
@@ -253,6 +376,8 @@ class SalesAgentController extends Controller
      */
     public function quotations(): Response
     {
+        Quotation::expireOverdue();
+
         $quotations = Quotation::with(['inquiry.client.user', 'inquiry.customizations', 'order'])
             ->orderByDesc('created_at')
             ->get();
@@ -284,6 +409,13 @@ class SalesAgentController extends Controller
     public function acceptQuotation($id)
     {
         $quotation = Quotation::with(['inquiry.client.user', 'inquiry.customizations', 'inquiry.packagingBalance'])->findOrFail($id);
+
+        if ($quotation->is_expired) {
+            if ($quotation->status === 'sent') {
+                $quotation->update(['status' => 'expired']);
+            }
+            return back()->withErrors(['status' => 'This quotation has expired and cannot be accepted.']);
+        }
 
         if ($quotation->status !== 'sent') {
             return back()->withErrors(['status' => 'Only a sent quotation can be accepted.']);
@@ -321,7 +453,9 @@ class SalesAgentController extends Controller
 
             $quotation->status = 'accepted';
             $quotation->save();
+            $prevStatus = $quotation->inquiry->status;
             $quotation->inquiry->update(['status' => 'converted']);
+            $quotation->inquiry->recordStatusChange($prevStatus, 'converted', 'Payment Verified', "Converted to Order #{$order->order_id}.", auth('web')->id());
 
             // Update or initialize per-client Gold/Elite stored packaging MOQ tracker
             $inquiry = $quotation->inquiry;

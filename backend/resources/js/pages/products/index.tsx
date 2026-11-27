@@ -50,11 +50,18 @@ interface Product {
     category_id: number | null;
     name: string;
     sku: string;
+    batch_lot_number?: string | null;
     description: string | null;
     price: string | number;
     stock_quantity: number | string;
     reorder_level?: number | string;
+    max_stock_level?: number | string | null;
     unit_of_measure?: string;
+    expiration_date?: string | null;
+    restock_lead_days?: number | null;
+    stock_status?: string;
+    expiry_status?: 'none' | 'fresh' | 'expiring_soon' | 'expired';
+    days_until_expiry?: number | null;
     recipes_count?: number;
     product_image: string | null;
     created_at?: string;
@@ -96,7 +103,7 @@ function formatQuantity(value: string | number, unit: string = 'pcs') {
     return `${formatted} ${displayUnit}`;
 }
 
-function getStockStatus(stock: number, reorder: number = 0) {
+function getStockStatus(stock: number, reorder: number = 0, maxStock: number = 0) {
     if (stock <= 0) {
         return {
             label: 'Out of Stock',
@@ -107,6 +114,12 @@ function getStockStatus(stock: number, reorder: number = 0) {
         return {
             label: 'Reorder Alert',
             pill: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+        };
+    }
+    if (maxStock > 0 && stock > maxStock) {
+        return {
+            label: 'Overstock',
+            pill: 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
         };
     }
     return {
@@ -136,11 +149,15 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
 
     const form = useForm({
         name: '',
+        batch_lot_number: '',
         category_id: '' as string | number,
         price: '',
         stock_quantity: '',
         reorder_level: '',
+        max_stock_level: '',
         unit_of_measure: 'pcs',
+        expiration_date: '',
+        restock_lead_days: '7',
         description: '',
         product_image: '',
     });
@@ -149,14 +166,22 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
         let inStock = 0;
         let reorderNeeded = 0;
         let outOfStock = 0;
+        let overstock = 0;
+        let expiryRisk = 0;
         for (const p of products) {
             const s = Number(p.stock_quantity) || 0;
             const r = Number(p.reorder_level) || 0;
+            const m = Number(p.max_stock_level) || 0;
             if (s <= 0) outOfStock++;
             else if (r > 0 && s <= r) reorderNeeded++;
+            else if (m > 0 && s > m) overstock++;
             else inStock++;
+
+            if (p.expiry_status === 'expired' || p.expiry_status === 'expiring_soon') {
+                expiryRisk++;
+            }
         }
-        return { total: products.length, inStock, reorderNeeded, outOfStock };
+        return { total: products.length, inStock, reorderNeeded, outOfStock, overstock, expiryRisk };
     }, [products]);
 
     const filteredProducts = useMemo(() => {
@@ -172,16 +197,21 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
             if (statusFilter !== 'all') {
                 const s = Number(p.stock_quantity) || 0;
                 const r = Number(p.reorder_level) || 0;
+                const m = Number(p.max_stock_level) || 0;
                 const isReorder = r > 0 && s <= r;
+                const isOverstock = m > 0 && s > m;
 
-                if (statusFilter === 'in_stock' && (s <= 0 || isReorder)) return false;
+                if (statusFilter === 'in_stock' && (s <= 0 || isReorder || isOverstock)) return false;
                 if (statusFilter === 'reorder' && (!isReorder || s <= 0)) return false;
                 if (statusFilter === 'out_of_stock' && s > 0) return false;
+                if (statusFilter === 'overstock' && !isOverstock) return false;
+                if (statusFilter === 'expiry_risk' && p.expiry_status !== 'expired' && p.expiry_status !== 'expiring_soon') return false;
             }
             if (!term) return true;
             return (
                 p.name?.toLowerCase().includes(term) ||
                 p.sku?.toLowerCase().includes(term) ||
+                (p.batch_lot_number?.toLowerCase().includes(term) ?? false) ||
                 (p.category?.name?.toLowerCase().includes(term) ?? false)
             );
         });
@@ -272,11 +302,15 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
         form.clearErrors();
         form.setData({
             name: '',
+            batch_lot_number: '',
             category_id: '',
             price: '',
             stock_quantity: '',
             reorder_level: '',
+            max_stock_level: '',
             unit_of_measure: 'pcs',
+            expiration_date: '',
+            restock_lead_days: '7',
             description: '',
             product_image: '',
         });
@@ -299,11 +333,15 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
         form.clearErrors();
         form.setData({
             name: product.name,
+            batch_lot_number: product.batch_lot_number ?? '',
             category_id: product.category_id ? String(product.category_id) : '',
             price: String(product.price),
             stock_quantity: String(product.stock_quantity),
             reorder_level: product.reorder_level ? String(product.reorder_level) : '0',
+            max_stock_level: product.max_stock_level ? String(product.max_stock_level) : '',
             unit_of_measure: product.unit_of_measure ?? 'pcs',
+            expiration_date: product.expiration_date ?? '',
+            restock_lead_days: product.restock_lead_days ? String(product.restock_lead_days) : '7',
             description: product.description ?? '',
             product_image: product.product_image ?? '',
         });
@@ -368,7 +406,7 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
                 </header>
 
                 {/* Metric Summary Cards */}
-                <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+                <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
                     {[
                         {
                             label: 'Total Materials',
@@ -379,13 +417,13 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
                         {
                             label: 'In Stock',
                             value: metrics.inStock,
-                            description: 'Above reorder level',
+                            description: 'Healthy stock level',
                             icon: CircleCheck,
                         },
                         {
                             label: 'Reorder Alert',
                             value: metrics.reorderNeeded,
-                            description: 'At or below reorder level',
+                            description: 'At or below reorder',
                             icon: CircleAlert,
                         },
                         {
@@ -393,6 +431,18 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
                             value: metrics.outOfStock,
                             description: 'Zero stock on hand',
                             icon: CircleX,
+                        },
+                        {
+                            label: 'Overstock',
+                            value: metrics.overstock,
+                            description: 'Above max threshold',
+                            icon: Layers,
+                        },
+                        {
+                            label: 'Expiry Risk',
+                            value: metrics.expiryRisk,
+                            description: 'Expired or ≤30d left',
+                            icon: AlertTriangle,
                         },
                     ].map((item) => (
                         <div key={item.label} className="rounded-xl border border-border/70 bg-card p-5 shadow-sm transition-shadow hover:shadow-md">
@@ -461,6 +511,8 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
                                 <option value="in_stock">In Stock</option>
                                 <option value="reorder">Reorder Alert</option>
                                 <option value="out_of_stock">Out of Stock</option>
+                                <option value="overstock">Overstock</option>
+                                <option value="expiry_risk">Expiring / Expired</option>
                             </select>
                             <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                         </div>
@@ -555,7 +607,8 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
                                 {paginatedProducts.map((product) => {
                                     const stockNum = Number(product.stock_quantity) || 0;
                                     const reorderNum = Number(product.reorder_level) || 0;
-                                    const status = getStockStatus(stockNum, reorderNum);
+                                    const maxStockNum = Number(product.max_stock_level) || 0;
+                                    const status = getStockStatus(stockNum, reorderNum, maxStockNum);
                                     const isSelected = selectedIds.includes(product.product_id);
                                     const rawUnit = product.unit_of_measure ?? 'pcs';
                                     const unit = (!rawUnit || rawUnit === 'kg' || rawUnit === 'pieces') ? 'pcs' : rawUnit;
@@ -613,8 +666,26 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
                                                     {formatQuantity(product.stock_quantity, unit)}
                                                 </p>
                                                 <p className="mt-0.5 text-xs text-muted-foreground">
-                                                    {reorderNum > 0 ? `Reorder at: ${formatQuantity(reorderNum, unit)}` : 'No reorder threshold'}
+                                                    {reorderNum > 0 ? `Reorder: ${formatQuantity(reorderNum, unit)}` : 'No reorder threshold'}
+                                                    {maxStockNum > 0 ? ` · Max: ${formatQuantity(maxStockNum, unit)}` : ''}
                                                 </p>
+                                                {product.expiration_date && (
+                                                    <p
+                                                        className={`mt-0.5 text-[11px] font-semibold ${
+                                                            product.expiry_status === 'expired'
+                                                                ? 'text-rose-600 dark:text-rose-400'
+                                                                : product.expiry_status === 'expiring_soon'
+                                                                  ? 'text-orange-600 dark:text-orange-400'
+                                                                  : 'text-muted-foreground'
+                                                        }`}
+                                                    >
+                                                        {product.expiry_status === 'expired'
+                                                            ? `Expired: ${product.expiration_date}`
+                                                            : product.expiry_status === 'expiring_soon'
+                                                              ? `Expiring in ${product.days_until_expiry}d (${product.expiration_date})`
+                                                              : `Exp: ${product.expiration_date}`}
+                                                    </p>
+                                                )}
                                             </td>
 
                                             {/* Unit Rate */}
@@ -856,24 +927,83 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
                                     </div>
                                 </div>
 
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="create-stock" className="text-xs font-semibold text-foreground">
-                                        Initial Stock on Hand <span className="text-muted-foreground">*</span>
-                                    </Label>
-                                    <Input
-                                        id="create-stock"
-                                        type="number"
-                                        step="0.0001"
-                                        min="0"
-                                        value={form.data.stock_quantity}
-                                        onChange={(e) => form.setData('stock_quantity', e.target.value)}
-                                        placeholder="409.52"
-                                        required
-                                        className="rounded-lg"
-                                    />
-                                    {form.errors.stock_quantity && (
-                                        <p className="text-xs text-destructive">{form.errors.stock_quantity}</p>
-                                    )}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="create-stock" className="text-xs font-semibold text-foreground">
+                                            Initial Stock on Hand <span className="text-muted-foreground">*</span>
+                                        </Label>
+                                        <Input
+                                            id="create-stock"
+                                            type="number"
+                                            step="0.0001"
+                                            min="0"
+                                            value={form.data.stock_quantity}
+                                            onChange={(e) => form.setData('stock_quantity', e.target.value)}
+                                            placeholder="409.52"
+                                            required
+                                            className="rounded-lg"
+                                        />
+                                        {form.errors.stock_quantity && (
+                                            <p className="text-xs text-destructive">{form.errors.stock_quantity}</p>
+                                        )}
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="create-max-stock" className="text-xs font-semibold text-foreground">
+                                            Max Stock (Overstock Alert)
+                                        </Label>
+                                        <Input
+                                            id="create-max-stock"
+                                            type="number"
+                                            step="0.0001"
+                                            min="0"
+                                            value={form.data.max_stock_level}
+                                            onChange={(e) => form.setData('max_stock_level', e.target.value)}
+                                            placeholder="e.g. 1000"
+                                            className="rounded-lg"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="create-lot" className="text-xs font-semibold text-foreground">
+                                            Batch / Lot #
+                                        </Label>
+                                        <Input
+                                            id="create-lot"
+                                            maxLength={80}
+                                            value={form.data.batch_lot_number}
+                                            onChange={(e) => form.setData('batch_lot_number', e.target.value)}
+                                            placeholder="LOT-2026-01"
+                                            className="rounded-lg"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="create-expiry" className="text-xs font-semibold text-foreground">
+                                            Expiration Date
+                                        </Label>
+                                        <Input
+                                            id="create-expiry"
+                                            type="date"
+                                            value={form.data.expiration_date}
+                                            onChange={(e) => form.setData('expiration_date', e.target.value)}
+                                            className="rounded-lg"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="create-lead" className="text-xs font-semibold text-foreground">
+                                            Restock Lead (Days)
+                                        </Label>
+                                        <Input
+                                            id="create-lead"
+                                            type="number"
+                                            min="1"
+                                            max="365"
+                                            value={form.data.restock_lead_days}
+                                            onChange={(e) => form.setData('restock_lead_days', e.target.value)}
+                                            className="rounded-lg"
+                                        />
+                                    </div>
                                 </div>
 
                                 <div className="space-y-1.5">
@@ -1033,23 +1163,82 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
                                     </div>
                                 </div>
 
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="edit-stock" className="text-xs font-semibold text-foreground">
-                                        Stock on Hand <span className="text-muted-foreground">*</span>
-                                    </Label>
-                                    <Input
-                                        id="edit-stock"
-                                        type="number"
-                                        step="0.0001"
-                                        min="0"
-                                        value={form.data.stock_quantity}
-                                        onChange={(e) => form.setData('stock_quantity', e.target.value)}
-                                        required
-                                        className="rounded-lg"
-                                    />
-                                    {form.errors.stock_quantity && (
-                                        <p className="text-xs text-destructive">{form.errors.stock_quantity}</p>
-                                    )}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="edit-stock" className="text-xs font-semibold text-foreground">
+                                            Stock on Hand <span className="text-muted-foreground">*</span>
+                                        </Label>
+                                        <Input
+                                            id="edit-stock"
+                                            type="number"
+                                            step="0.0001"
+                                            min="0"
+                                            value={form.data.stock_quantity}
+                                            onChange={(e) => form.setData('stock_quantity', e.target.value)}
+                                            required
+                                            className="rounded-lg"
+                                        />
+                                        {form.errors.stock_quantity && (
+                                            <p className="text-xs text-destructive">{form.errors.stock_quantity}</p>
+                                        )}
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="edit-max-stock" className="text-xs font-semibold text-foreground">
+                                            Max Stock (Overstock Alert)
+                                        </Label>
+                                        <Input
+                                            id="edit-max-stock"
+                                            type="number"
+                                            step="0.0001"
+                                            min="0"
+                                            value={form.data.max_stock_level}
+                                            onChange={(e) => form.setData('max_stock_level', e.target.value)}
+                                            placeholder="e.g. 1000"
+                                            className="rounded-lg"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="edit-lot" className="text-xs font-semibold text-foreground">
+                                            Batch / Lot #
+                                        </Label>
+                                        <Input
+                                            id="edit-lot"
+                                            maxLength={80}
+                                            value={form.data.batch_lot_number}
+                                            onChange={(e) => form.setData('batch_lot_number', e.target.value)}
+                                            placeholder="LOT-2026-01"
+                                            className="rounded-lg"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="edit-expiry" className="text-xs font-semibold text-foreground">
+                                            Expiration Date
+                                        </Label>
+                                        <Input
+                                            id="edit-expiry"
+                                            type="date"
+                                            value={form.data.expiration_date}
+                                            onChange={(e) => form.setData('expiration_date', e.target.value)}
+                                            className="rounded-lg"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="edit-lead" className="text-xs font-semibold text-foreground">
+                                            Restock Lead (Days)
+                                        </Label>
+                                        <Input
+                                            id="edit-lead"
+                                            type="number"
+                                            min="1"
+                                            max="365"
+                                            value={form.data.restock_lead_days}
+                                            onChange={(e) => form.setData('restock_lead_days', e.target.value)}
+                                            className="rounded-lg"
+                                        />
+                                    </div>
                                 </div>
 
                                 <div className="space-y-1.5">

@@ -24,6 +24,35 @@ const ProfileIcon = ({ colors }: { colors: any }) => (
 interface Order {
   order_id?: number;
   status?: string;
+  priority?: string;
+  estimated_completion_date?: string | null;
+  estimated_delivery_date?: string | null;
+  courier_name?: string | null;
+  courier_tracking_number?: string | null;
+  initial_payment_amount?: number | string | null;
+  balance_payment_amount?: number | string | null;
+  balance_payment_verified_at?: string | null;
+  production_schedule?: {
+    batch_code?: string | null;
+    production_start_date?: string | null;
+    target_end_date?: string | null;
+    actual_start_date?: string | null;
+    actual_end_date?: string | null;
+    planned_quantity?: number;
+    production_status?: string;
+  } | null;
+  delivery_batches?: Array<{
+    batch_id: number;
+    batch_number: number;
+    quantity: number;
+    fulfillment_type: string;
+    delivery_status: string;
+    scheduled_date?: string | null;
+    courier_name?: string | null;
+    tracking_number?: string | null;
+    remarks?: string | null;
+  }>;
+  timeline?: Array<{ label: string; at: string }>;
   customizations?: { packaging_type?: string; serving_size?: string | null; client_notes?: string | null }[];
   productType?: string;
   flavor?: string;
@@ -158,7 +187,32 @@ export default function OrderDetailScreen() {
 
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Payment Information</Text>
-          
+
+          {order.total_amount && (
+            <View style={styles.detailRow}>
+              <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Total Contract</Text>
+              <Text style={[styles.detailValue, { color: colors.text }]}>
+                ₱{Number(order.total_amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+              </Text>
+            </View>
+          )}
+          {order.initial_payment_amount != null && (
+            <View style={styles.detailRow}>
+              <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Before Production</Text>
+              <Text style={[styles.detailValue, { color: colors.text }]}>
+                ₱{Number(order.initial_payment_amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+              </Text>
+            </View>
+          )}
+          {order.balance_payment_amount != null && (
+            <View style={styles.detailRow}>
+              <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Remaining Balance</Text>
+              <Text style={[styles.detailValue, { color: colors.text }]}>
+                ₱{Number(order.balance_payment_amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                {order.balance_payment_verified_at ? ' (Verified)' : Number(order.balance_payment_amount) > 0 ? ' (Pending)' : ''}
+              </Text>
+            </View>
+          )}
           <View style={styles.detailRow}>
             <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Payment Method</Text>
             <Text style={[styles.detailValue, { color: colors.text }]}>
@@ -166,20 +220,84 @@ export default function OrderDetailScreen() {
                 if (order.paymentMethod === 'gcash') return 'GCash';
                 if (order.paymentMethod === 'card') return 'Credit/Debit Card';
                 if (order.paymentMethod === 'cod') return 'Cash on Delivery';
-                return order.paymentMethod || 'N/A';
+                return order.paymentMethod || 'Bank Transfer';
               })()}
             </Text>
           </View>
-          
-          {order.paymentDate && (
-            <View style={styles.detailRow}>
-              <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Payment Date</Text>
-              <Text style={[styles.detailValue, { color: colors.text }]}>
-                {new Date(order.paymentDate || '').toLocaleDateString()}
-              </Text>
-            </View>
-          )}
         </View>
+
+        {(order.production_schedule || order.estimated_completion_date || order.estimated_delivery_date) && (
+          <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Production Schedule</Text>
+            {order.production_schedule?.batch_code && (
+              <View style={styles.detailRow}>
+                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Batch Code</Text>
+                <Text style={[styles.detailValue, { color: colors.text }]}>{order.production_schedule.batch_code}</Text>
+              </View>
+            )}
+            {order.production_schedule?.production_start_date && (
+              <View style={styles.detailRow}>
+                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Scheduled Window</Text>
+                <Text style={[styles.detailValue, { color: colors.text }]}>
+                  {order.production_schedule.production_start_date} → {order.production_schedule.target_end_date}
+                </Text>
+              </View>
+            )}
+            {order.estimated_completion_date && (
+              <View style={styles.detailRow}>
+                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Est. Completion</Text>
+                <Text style={[styles.detailValue, { color: colors.text }]}>{order.estimated_completion_date}</Text>
+              </View>
+            )}
+            {order.estimated_delivery_date && (
+              <View style={styles.detailRow}>
+                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Est. Release / Delivery</Text>
+                <Text style={[styles.detailValue, { color: colors.text }]}>{order.estimated_delivery_date}</Text>
+              </View>
+            )}
+            {order.courier_name && (
+              <View style={styles.detailRow}>
+                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Courier &amp; Tracking</Text>
+                <Text style={[styles.detailValue, { color: colors.text }]}>
+                  {order.courier_name}{order.courier_tracking_number ? ` (${order.courier_tracking_number})` : ''}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {order.delivery_batches && order.delivery_batches.length > 0 && (
+          <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Delivery &amp; Pickup Batches</Text>
+            {order.delivery_batches.map((b) => (
+              <View key={b.batch_id} style={[styles.detailRow, { flexDirection: 'column', alignItems: 'flex-start', gap: 4 }]}>
+                <Text style={[styles.detailValue, { color: colors.text }]}>
+                  Batch #{b.batch_number} · {b.quantity} units ({b.fulfillment_type}) — {b.delivery_status.replace(/_/g, ' ')}
+                </Text>
+                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+                  {b.scheduled_date ? `Date: ${b.scheduled_date}` : 'Date TBD'}
+                  {b.courier_name ? ` · ${b.courier_name}` : ''}
+                  {b.tracking_number ? ` (${b.tracking_number})` : ''}
+                </Text>
+                {b.remarks ? <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>{b.remarks}</Text> : null}
+              </View>
+            ))}
+          </View>
+        )}
+
+        {order.timeline && order.timeline.length > 0 && (
+          <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Order Progress Timeline</Text>
+            {order.timeline.map((step, idx) => (
+              <View key={`${step.label}-${idx}`} style={styles.detailRow}>
+                <Text style={[styles.detailValue, { color: colors.text }]}>{step.label}</Text>
+                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+                  {new Date(step.at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
 
         {order.imageData && (
           <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>

@@ -24,11 +24,16 @@ class Inquiry extends Model
         'source_order_id',
         'cancelled_at',
         'cancellation_reason',
+        'lost_reason',
+        'lost_at',
+        'status_remarks',
+        'cancelled_by',
     ];
 
     protected $casts = [
         'reorder_batch_quantity' => 'integer',
-        'cancelled_at' => 'datetime',
+        'cancelled_at'           => 'datetime',
+        'lost_at'                => 'datetime',
     ];
 
 
@@ -68,5 +73,29 @@ class Inquiry extends Model
     public function sourceOrder()
     {
         return $this->belongsTo(Order::class, 'source_order_id', 'order_id');
+    }
+
+    public function statusLogs()
+    {
+        return $this->hasMany(InquiryStatusLog::class, 'inquiry_id', 'inquiry_id')
+            ->orderByDesc('created_at')
+            ->orderByDesc('log_id');
+    }
+
+    public function cancelledByUser()
+    {
+        return $this->belongsTo(User::class, 'cancelled_by', 'user_id');
+    }
+
+    public function recordStatusChange(?string $from, string $to, ?string $reason = null, ?string $remarks = null, ?int $actorId = null): InquiryStatusLog
+    {
+        return InquiryStatusLog::create([
+            'inquiry_id'  => $this->inquiry_id,
+            'from_status' => $from,
+            'to_status'   => $to,
+            'reason'      => $reason,
+            'remarks'     => $remarks,
+            'changed_by'  => $actorId,
+        ]);
     }
 }

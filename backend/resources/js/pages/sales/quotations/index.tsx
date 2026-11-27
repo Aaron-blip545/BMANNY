@@ -38,7 +38,8 @@ interface Inquiry {
 
 interface Quotation {
     quotation_id: number;
-    status: 'sent' | 'accepted' | 'rejected';
+    status: 'sent' | 'accepted' | 'rejected' | 'expired';
+    is_expired?: boolean;
     total_amount: string | number;
     initial_payment_amount?: string | number | null;
     balance_payment_amount?: string | number | null;
@@ -60,16 +61,17 @@ const STATUS_COLORS: Record<string, string> = {
     sent: 'bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300',
     accepted: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-300',
     rejected: 'bg-rose-100 text-rose-900 dark:bg-rose-500/20 dark:text-rose-300',
+    expired: 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
 };
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
     gcash: 'GCash',
-    bank_transfer: 'Bank Transfer (BDO)',
+    bank_transfer: 'Bank Transfer',
     card: 'Card',
     cod: 'Cash on Delivery',
 };
 
-const STATUS_FILTERS = ['all', 'awaiting_payment', 'payment_submitted', 'accepted', 'rejected'] as const;
+const STATUS_FILTERS = ['all', 'awaiting_payment', 'payment_submitted', 'accepted', 'expired', 'rejected'] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
 
 const STATUS_FILTER_LABELS: Record<StatusFilter, string> = {
@@ -77,6 +79,7 @@ const STATUS_FILTER_LABELS: Record<StatusFilter, string> = {
     awaiting_payment: 'Awaiting Payment',
     payment_submitted: 'Payment Submitted',
     accepted: 'Accepted',
+    expired: 'Expired',
     rejected: 'Rejected',
 };
 
@@ -389,6 +392,18 @@ export default function QuotationsPage({ quotations }: Props) {
                                                 >
                                                     {quotation.status}
                                                 </span>
+                                                {quotation.valid_until && (
+                                                    <p
+                                                        className={`mt-1 text-[11px] font-mono ${
+                                                            quotation.is_expired || quotation.status === 'expired'
+                                                                ? 'font-bold text-rose-600 dark:text-rose-400'
+                                                                : 'text-muted-foreground'
+                                                        }`}
+                                                    >
+                                                        {quotation.is_expired || quotation.status === 'expired' ? 'Expired: ' : 'Valid until: '}
+                                                        {formatDate(quotation.valid_until)}
+                                                    </p>
+                                                )}
                                             </td>
 
                                             {/* Payment */}

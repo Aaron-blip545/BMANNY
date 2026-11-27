@@ -14,12 +14,18 @@ class QuotationController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'inquiry_id' => 'required|exists:inquiries,inquiry_id',
+            'inquiry_id'   => 'required|exists:inquiries,inquiry_id',
             'total_amount' => 'required|numeric|min:0',
-            'valid_until' => 'nullable|date',
+            'valid_until'  => 'nullable|date|after_or_equal:today',
             'item_details' => 'nullable|string',
         ]);
-        $inquiry = Inquiry::with(['client.user', 'productRequestReview'])->findOrFail($validated['inquiry_id']);
+        $inquiry = Inquiry::with(['client.user', 'productRequestReview', 'quotation'])->findOrFail($validated['inquiry_id']);
+
+        if ($inquiry->quotation && in_array($inquiry->quotation->status, ['sent', 'accepted'], true)) {
+            return response()->json([
+                'message' => 'This inquiry already has an active quotation.',
+            ], 422);
+        }
 
         if (!$inquiry->productRequestReview || !in_array($inquiry->productRequestReview->status, ['available', 'alternative'], true)) {
             return response()->json([
@@ -113,6 +119,13 @@ class QuotationController extends Controller
 
         if (! $quotation->inquiry || (int) $quotation->inquiry->client_id !== (int) $client->client_id) {
             return response()->json(['message' => 'This quotation does not belong to you.'], 403);
+        }
+
+        if ($quotation->is_expired) {
+            if ($quotation->status === 'sent') {
+                $quotation->update(['status' => 'expired']);
+            }
+            return response()->json(['message' => 'This quotation has expired. Please request a revised quotation from Sales.'], 422);
         }
 
         if ($quotation->status !== 'sent') {

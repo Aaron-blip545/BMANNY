@@ -13,6 +13,10 @@ class FollowUpReminderService
             ->whereNull('completed_at')
             ->whereNull('reminded_at')
             ->where('follow_up_date', '<=', now())
+            ->whereHas('inquiry', function ($q) {
+                $q->whereNull('cancelled_at')
+                    ->whereNotIn('status', ['converted', 'cancelled', 'lost']);
+            })
             ->get()
             ->each(function (InquiryFollowup $followUp) {
                 $businessName = $followUp->inquiry?->client?->business_name ?? "Inquiry #{$followUp->inquiry_id}";

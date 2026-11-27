@@ -4,7 +4,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, Sid
 import { type NavItem } from '@/types';
 import { roleDashboardHref } from '@/lib/role-dashboard';
 import { Link, usePage } from '@inertiajs/react';
-import { BarChart3, Bell, BookOpen, CircleHelp, ClipboardCheck, FileText, House, Package, PackageCheck, PackageMinus, Settings, SlidersHorizontal, Users as UsersIcon } from 'lucide-react';
+import { BarChart3, Bell, BookOpen, CalendarClock, CircleHelp, ClipboardCheck, FileText, House, Package, PackageCheck, PackageMinus, Settings, SlidersHorizontal, Users as UsersIcon } from 'lucide-react';
 import AppLogo from './app-logo';
 
 export function AppSidebar() {
@@ -34,8 +34,15 @@ export function AppSidebar() {
 
         // Order Manager + Admin: production and delivery tracking
         ...(isOrderManager || isAdmin
-            ? [{ title: 'Orders', url: '/orders', icon: PackageCheck }]
+            ? [
+                { title: 'Orders', url: '/orders', icon: PackageCheck },
+                { title: 'Production Schedules', url: '/production-schedules', icon: CalendarClock },
+            ]
             : []),
+
+        // Role-appropriate Analytics & Reports — all staff roles
+        { title: 'Analytics', url: '/analytics', icon: BarChart3 },
+        { title: 'Reports', url: '/reports', icon: FileText },
 
         // Settings & Documentation — everyone
         { title: 'User Guide', url: '/user-guide', icon: BookOpen },
@@ -43,11 +50,7 @@ export function AppSidebar() {
 
         // Admin-only: user management
         ...(isAdmin
-            ? [
-                { title: 'Analytics', url: '/admin/analytics', icon: BarChart3 },
-                { title: 'Reports', url: '/admin/reports', icon: FileText },
-                { title: 'Manage Users', url: '/users', icon: UsersIcon },
-            ]
+            ? [{ title: 'Manage Users', url: '/users', icon: UsersIcon }]
             : []),
     ];
 
@@ -56,6 +59,8 @@ export function AppSidebar() {
         { title: 'Inventory', url: '/products', icon: PackageMinus },
         { title: 'Product Management', url: '/product-controller/products', icon: Package },
         { title: 'Product Requests', url: '/product-controller/requests', icon: ClipboardCheck },
+        { title: 'Analytics', url: '/analytics', icon: BarChart3 },
+        { title: 'Reports', url: '/reports', icon: FileText },
         { title: 'Notifications', url: '/notifications/page', icon: Bell },
         { title: 'User Guide', url: '/user-guide', icon: BookOpen },
         { title: 'Settings', url: '/settings/profile', icon: Settings },

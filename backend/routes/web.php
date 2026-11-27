@@ -57,6 +57,18 @@ Route::middleware(['backend.auth'])->group(function () {
         Route::delete('products/{id}', [ProductPageController::class, 'destroy'])->name('products.destroy');
     });
 
+    // Role-appropriate Analytics & Reports (Admin, Sales Agent, Order Manager, Product Controller)
+    Route::middleware(['backend.role:admin,sales_agent,order_manager,product_controller'])->group(function () {
+        Route::get('analytics', [AdminDashboardController::class, 'analytics'])->name('analytics.index');
+        Route::get('reports', [AdminDashboardController::class, 'reports'])->name('reports.index');
+        Route::get('reports/{report}/export', [AdminDashboardController::class, 'exportReport'])
+            ->whereIn('report', ['inquiries', 'quotations', 'orders', 'lost_leads', 'product_requests', 'inventory', 'production', 'reorders'])
+            ->name('reports.export');
+        Route::get('reports/{report}/pdf', [AdminDashboardController::class, 'exportPdf'])
+            ->whereIn('report', ['inquiries', 'quotations', 'orders', 'lost_leads', 'product_requests', 'inventory', 'production', 'reorders', 'summary'])
+            ->name('reports.pdf');
+    });
+
     Route::middleware(['backend.role:admin'])->get('admin/dashboard', [AdminDashboardController::class, 'index'])
         ->name('admin.dashboard');
     Route::middleware(['backend.role:admin'])->get('admin/analytics', [AdminDashboardController::class, 'analytics'])
@@ -64,10 +76,10 @@ Route::middleware(['backend.auth'])->group(function () {
     Route::middleware(['backend.role:admin'])->get('admin/reports', [AdminDashboardController::class, 'reports'])
         ->name('admin.reports');
     Route::middleware(['backend.role:admin'])->get('admin/reports/{report}/export', [AdminDashboardController::class, 'exportReport'])
-        ->whereIn('report', ['inquiries', 'quotations', 'orders'])
+        ->whereIn('report', ['inquiries', 'quotations', 'orders', 'lost_leads', 'product_requests', 'inventory', 'production', 'reorders'])
         ->name('admin.reports.export');
     Route::middleware(['backend.role:admin'])->get('admin/reports/{report}/pdf', [AdminDashboardController::class, 'exportPdf'])
-        ->whereIn('report', ['inquiries', 'quotations', 'orders', 'summary'])
+        ->whereIn('report', ['inquiries', 'quotations', 'orders', 'lost_leads', 'product_requests', 'inventory', 'production', 'reorders', 'summary'])
         ->name('admin.reports.pdf');
     Route::middleware(['backend.role:admin'])->get('admin/reports/import/{type}/template', [AdminDashboardController::class, 'importTemplate'])
         ->whereIn('type', ['inquiries', 'quotations', 'orders'])
@@ -164,6 +176,12 @@ Route::middleware(['backend.auth'])->group(function () {
             ->name('inquiries.product-request.submit');
         Route::post('inquiries/{inquiry_id}/follow-ups', [SalesAgentController::class, 'storeFollowUp'])
             ->name('inquiries.follow-ups.store');
+        Route::patch('inquiries/{inquiry_id}/status', [SalesAgentController::class, 'updateLeadStatus'])
+            ->middleware('throttle:write')
+            ->name('inquiries.update-status');
+        Route::post('clients/{client_id}/toggle-nuisance', [SalesAgentController::class, 'toggleNuisanceClient'])
+            ->middleware('throttle:write')
+            ->name('clients.toggle-nuisance');
         Route::patch('follow-ups/{follow_up_id}/complete', [SalesAgentController::class, 'completeFollowUp'])
             ->name('follow-ups.complete');
 
@@ -176,9 +194,15 @@ Route::middleware(['backend.auth'])->group(function () {
         Route::get('archived-chats', [SalesAgentController::class, 'archivedChats'])->name('archived-chats.index');
     });
 
-    // Order Manager + Admin: Orders list and status updates
+    // Order Manager + Admin: Orders list, production schedules, delivery batches, and status updates
     Route::middleware(['backend.role:order_manager,admin'])->group(function () {
         Route::get('orders', [OrderManagerController::class, 'index'])->name('orders.index');
+        Route::get('production-schedules', [OrderManagerController::class, 'schedules'])->name('production-schedules.index');
+        Route::post('orders/{id}/schedule', [OrderManagerController::class, 'storeSchedule'])->middleware('throttle:write')->name('orders.schedule.store');
+        Route::patch('production-schedules/{id}', [OrderManagerController::class, 'updateSchedule'])->middleware('throttle:write')->name('production-schedules.update');
+        Route::patch('orders/{id}/priority', [OrderManagerController::class, 'updatePriority'])->middleware('throttle:write')->name('orders.update-priority');
+        Route::post('orders/{id}/delivery-batches', [OrderManagerController::class, 'storeDeliveryBatch'])->middleware('throttle:write')->name('orders.delivery-batches.store');
+        Route::patch('delivery-batches/{id}', [OrderManagerController::class, 'updateDeliveryBatch'])->middleware('throttle:write')->name('delivery-batches.update');
         Route::patch('orders/{id}/status', [OrderManagerController::class, 'updateStatus'])->middleware('throttle:write')->name('orders.update-status');
         Route::patch('orders/{id}/tracking', [OrderManagerController::class, 'updateTracking'])->middleware('throttle:write')->name('orders.update-tracking');
     });

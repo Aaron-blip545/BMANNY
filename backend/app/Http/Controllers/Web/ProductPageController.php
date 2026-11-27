@@ -49,18 +49,23 @@ class ProductPageController extends Controller
         }
 
         $data = $request->validate([
-            'name'            => 'required|string|max:200',
-            'category_id'     => 'nullable|exists:categories,category_id',
-            'price'           => 'required|numeric|min:0',
-            'stock_quantity'  => 'required|numeric|min:0',
-            'reorder_level'   => 'nullable|numeric|min:0',
-            'unit_of_measure' => 'nullable|string|max:20',
-            'description'     => 'nullable|string',
-            'product_image'   => 'nullable|string|max:255',
+            'name'              => 'required|string|max:200',
+            'batch_lot_number'  => 'nullable|string|max:80',
+            'category_id'       => 'nullable|exists:categories,category_id',
+            'price'             => 'required|numeric|min:0',
+            'stock_quantity'    => 'required|numeric|min:0',
+            'reorder_level'     => 'nullable|numeric|min:0',
+            'max_stock_level'   => 'nullable|numeric|min:0',
+            'unit_of_measure'   => 'nullable|string|max:20',
+            'expiration_date'   => 'nullable|date',
+            'restock_lead_days' => 'nullable|integer|min:1|max:365',
+            'description'       => 'nullable|string',
+            'product_image'     => 'nullable|string|max:255',
         ]);
 
         $data['reorder_level'] = $data['reorder_level'] ?? 0;
         $data['unit_of_measure'] = $data['unit_of_measure'] ?? 'kg';
+        $data['restock_lead_days'] = $data['restock_lead_days'] ?? 7;
 
         DB::transaction(function () use ($data) {
             // SKU is system-generated from the auto-increment product_id.
@@ -90,18 +95,23 @@ class ProductPageController extends Controller
         $product = Product::findOrFail($id);
 
         $data = $request->validate([
-            'name'            => 'required|string|max:200',
-            'category_id'     => 'nullable|exists:categories,category_id',
-            'price'           => 'required|numeric|min:0',
-            'stock_quantity'  => 'required|numeric|min:0',
-            'reorder_level'   => 'nullable|numeric|min:0',
-            'unit_of_measure' => 'nullable|string|max:20',
-            'description'     => 'nullable|string',
-            'product_image'   => 'nullable|string|max:255',
+            'name'              => 'required|string|max:200',
+            'batch_lot_number'  => 'nullable|string|max:80',
+            'category_id'       => 'nullable|exists:categories,category_id',
+            'price'             => 'required|numeric|min:0',
+            'stock_quantity'    => 'required|numeric|min:0',
+            'reorder_level'     => 'nullable|numeric|min:0',
+            'max_stock_level'   => 'nullable|numeric|min:0',
+            'unit_of_measure'   => 'nullable|string|max:20',
+            'expiration_date'   => 'nullable|date',
+            'restock_lead_days' => 'nullable|integer|min:1|max:365',
+            'description'       => 'nullable|string',
+            'product_image'     => 'nullable|string|max:255',
         ]);
 
         $data['reorder_level'] = $data['reorder_level'] ?? 0;
         $data['unit_of_measure'] = $data['unit_of_measure'] ?? 'kg';
+        $data['restock_lead_days'] = $data['restock_lead_days'] ?? 7;
 
         $product->update($data);
 

@@ -12,21 +12,25 @@ import {
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
+    AlertTriangle,
     Building2,
     Calendar,
+    CalendarClock,
     Check,
     CheckCircle2,
     ChevronDown,
     Clock,
     FileCheck,
     FileText,
+    Flame,
     Layers,
     Mail,
     MapPin,
     Package,
     PackageCheck,
+    Plus,
     Search,
     Sparkles,
     Truck,
@@ -87,9 +91,57 @@ interface OrderItem {
     } | null;
 }
 
+interface ProductionSchedule {
+    schedule_id: number;
+    batch_code: string | null;
+    production_start_date: string;
+    target_end_date: string;
+    actual_start_date: string | null;
+    actual_end_date: string | null;
+    planned_quantity: number;
+    daily_capacity_units: number;
+    priority: 'normal' | 'high' | 'rush';
+    production_status: 'scheduled' | 'in_progress' | 'completed' | 'delayed' | 'cancelled';
+    production_notes: string | null;
+    is_overdue?: boolean;
+}
+
+interface DeliveryBatch {
+    batch_id: number;
+    batch_number: number;
+    quantity: number;
+    fulfillment_type: 'delivery' | 'pickup';
+    delivery_status: 'scheduled' | 'packed' | 'ready_for_pickup' | 'for_delivery' | 'delivered' | 'cancelled';
+    scheduled_date: string | null;
+    dispatched_at: string | null;
+    delivered_at: string | null;
+    courier_name: string | null;
+    tracking_number: string | null;
+    remarks: string | null;
+}
+
+interface PlanningEstimate {
+    ordered_quantity: number;
+    daily_capacity_units: number;
+    priority: 'normal' | 'high' | 'rush';
+    production_days: number;
+    queue_delay_days: number;
+    restock_delay_days: number;
+    recommended_start_date: string;
+    estimated_completion_date: string;
+    estimated_delivery_date: string;
+    inventory_ready: boolean;
+    shortages: Array<{ name: string; unit: string; required: number; available: number; shortage: number; restock_lead_days: number }>;
+    expiry_risks: Array<{ name: string; expiration_date: string; expiry_status: string }>;
+}
+
 interface Order {
     order_id: number;
     status: OrderStatus;
+    priority?: 'normal' | 'high' | 'rush';
+    estimated_completion_date?: string | null;
+    estimated_delivery_date?: string | null;
+    ordered_quantity?: number;
     total_amount: string;
     initial_payment_amount?: string | number | null;
     initial_payment_verified_at?: string | null;
@@ -101,18 +153,27 @@ interface Order {
     client: BusinessClient | null;
     quotation: Quotation | null;
     items?: OrderItem[];
+    latest_production_schedule?: ProductionSchedule | null;
+    delivery_batches?: DeliveryBatch[];
+    planning?: PlanningEstimate | null;
 }
 
 interface Props {
     orders: Order[];
 }
 
-const ORDER_STATUSES = ['approved', 'in_production', 'ready_for_pickup', 'completed', 'cancelled'] as const;
+const ORDER_STATUSES = [
+    'approved',
+    'in_production',
+    'packed',
+    'ready_for_pickup',
+    'for_delivery',
+    'delivered',
+    'completed',
+    'cancelled',
+] as const;
 type OrderStatus = (typeof ORDER_STATUSES)[number];
 
-// The dropdown is only for progressing an order through its normal
-// lifecycle. Cancelling is destructive and handled by its own button +
-// confirmation dialog below, so it's deliberately left out of this list.
 const SELECTABLE_STATUSES = ORDER_STATUSES.filter((s) => s !== 'cancelled');
 
 const STATUS_FILTER_OPTIONS = ['all', ...ORDER_STATUSES] as const;
@@ -123,13 +184,27 @@ function getStatusBadge(status: OrderStatus) {
         case 'approved':
             return 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300';
         case 'in_production':
+        case 'packed':
             return 'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300';
         case 'ready_for_pickup':
+        case 'for_delivery':
             return 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300';
+        case 'delivered':
         case 'completed':
             return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300';
         case 'cancelled':
             return 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300';
+    }
+}
+
+function getPriorityBadge(priority?: string) {
+    switch (priority) {
+        case 'rush':
+            return 'bg-rose-100 text-rose-700 border border-rose-300 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800';
+        case 'high':
+            return 'bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800';
+        default:
+            return 'bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800/60 dark:text-slate-300 dark:border-slate-700';
     }
 }
 
@@ -166,15 +241,15 @@ interface OrderRowProps {
     order: Order;
     updatingId: number | null;
     onUpdateStatus: (orderId: number, status: OrderStatus) => void;
+    onUpdatePriority: (orderId: number, priority: 'normal' | 'high' | 'rush') => void;
     onRequestCancel: (order: Order) => void;
     onTrackingUpdate: (orderId: number, field: 'courier_name' | 'courier_tracking_number', value: string) => void;
     onViewOrder: (order: Order) => void;
 }
 
-function OrderRow({ order, updatingId, onUpdateStatus, onRequestCancel, onTrackingUpdate, onViewOrder }: OrderRowProps) {
+function OrderRow({ order, updatingId, onUpdateStatus, onUpdatePriority, onRequestCancel, onTrackingUpdate, onViewOrder }: OrderRowProps) {
     const [selectedStatus, setSelectedStatus] = useState<OrderStatus>(order.status);
 
-    // Keep the dropdown in sync once the server confirms a status change
     useEffect(() => {
         setSelectedStatus(order.status);
     }, [order.status]);
@@ -184,21 +259,68 @@ function OrderRow({ order, updatingId, onUpdateStatus, onRequestCancel, onTracki
     const options = SELECTABLE_STATUSES.includes(order.status as (typeof SELECTABLE_STATUSES)[number])
         ? SELECTABLE_STATUSES
         : [order.status, ...SELECTABLE_STATUSES];
+    const priority = order.priority ?? 'normal';
+    const batchCount = order.delivery_batches?.length ?? 0;
 
     return (
         <tr
             onClick={() => onViewOrder(order)}
             className="group bg-card shadow-sm transition-shadow hover:shadow-md cursor-pointer"
         >
-            {/* Order # */}
-            <td className="w-[110px] rounded-l-xl border-y border-l border-border/70 p-5 align-middle">
+            {/* Order # & Priority */}
+            <td
+                className={cn(
+                    'w-[130px] rounded-l-xl border-y border-l border-border/70 p-4 align-middle',
+                    !isFinal && priority === 'rush' && 'border-l-4 border-l-rose-500',
+                    !isFinal && priority === 'high' && 'border-l-4 border-l-amber-500',
+                )}
+            >
                 <span className="font-mono text-base font-bold text-foreground">#{order.order_id}</span>
+                <div className="mt-1.5" onClick={(e) => e.stopPropagation()}>
+                    <select
+                        value={priority}
+                        disabled={isFinal}
+                        onChange={(e) => onUpdatePriority(order.order_id, e.target.value as 'normal' | 'high' | 'rush')}
+                        className={cn(
+                            'rounded-full px-2 py-0.5 text-[10px] font-bold uppercase focus:outline-none disabled:opacity-60',
+                            getPriorityBadge(priority),
+                        )}
+                    >
+                        <option value="normal">Normal</option>
+                        <option value="high">High</option>
+                        <option value="rush">Rush</option>
+                    </select>
+                </div>
             </td>
 
-            {/* Client */}
-            <td className="min-w-[200px] border-y border-border/70 p-5 align-middle">
+            {/* Client & Schedule/Material Cue */}
+            <td className="min-w-[210px] border-y border-border/70 p-4 align-middle">
                 <p className="text-base font-bold text-foreground">{order.client?.business_name ?? '—'}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">{order.client?.contact_person ?? ''}</p>
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    {order.latest_production_schedule ? (
+                        <span className="inline-flex items-center gap-1 rounded bg-blue-500/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-blue-700 dark:text-blue-300">
+                            <Calendar className="size-2.5" />
+                            {order.latest_production_schedule.target_end_date}
+                        </span>
+                    ) : order.planning ? (
+                        <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                            Est: {order.planning.estimated_completion_date}
+                        </span>
+                    ) : null}
+                    {order.planning && !order.planning.inventory_ready && (
+                        <span className="inline-flex items-center gap-1 rounded bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 dark:text-rose-300">
+                            <AlertTriangle className="size-2.5" />
+                            {order.planning.shortages.length} Short
+                        </span>
+                    )}
+                    {batchCount > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
+                            <Truck className="size-2.5" />
+                            {batchCount} {batchCount === 1 ? 'Batch' : 'Batches'}
+                        </span>
+                    )}
+                </div>
             </td>
 
             {/* Quote # */}
@@ -298,7 +420,86 @@ export default function OrdersIndex({ orders }: Props) {
     const [cancelConfirmText, setCancelConfirmText] = useState('');
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-    const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
+    const [viewingOrderId, setViewingOrderId] = useState<number | null>(null);
+
+    const viewingOrder = useMemo(
+        () => orders.find((o) => o.order_id === viewingOrderId) ?? null,
+        [orders, viewingOrderId],
+    );
+
+    // Quick schedule & delivery batch form states inside the drawer
+    const [schedStart, setSchedStart] = useState('');
+    const [schedEnd, setSchedEnd] = useState('');
+    const [schedQty, setSchedQty] = useState('100');
+    const [schedNotes, setSchedNotes] = useState('');
+
+    const [batchQty, setBatchQty] = useState('100');
+    const [batchType, setBatchType] = useState<'delivery' | 'pickup'>('delivery');
+    const [batchDate, setBatchDate] = useState('');
+    const [batchCourier, setBatchCourier] = useState('');
+    const [batchTracking, setBatchTracking] = useState('');
+    const [batchRemarks, setBatchRemarks] = useState('');
+
+    const openOrderDrawer = (order: Order) => {
+        setViewingOrderId(order.order_id);
+        setSchedStart(order.planning?.recommended_start_date ?? new Date().toISOString().slice(0, 10));
+        setSchedEnd(order.planning?.estimated_completion_date ?? new Date().toISOString().slice(0, 10));
+        setSchedQty(String(order.ordered_quantity ?? order.planning?.ordered_quantity ?? 100));
+        setSchedNotes('');
+        setBatchQty(String(order.ordered_quantity ?? 100));
+        setBatchType('delivery');
+        setBatchDate(order.estimated_delivery_date ?? order.planning?.estimated_delivery_date ?? '');
+        setBatchCourier(order.courier_name ?? '');
+        setBatchTracking('');
+        setBatchRemarks('');
+    };
+
+    const handleUpdatePriority = (orderId: number, priority: 'normal' | 'high' | 'rush') => {
+        router.patch(route('orders.update-priority', orderId), { priority }, { preserveScroll: true });
+    };
+
+    const handleQuickSchedule = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!viewingOrder) return;
+        router.post(
+            route('orders.schedule.store', viewingOrder.order_id),
+            {
+                production_start_date: schedStart,
+                target_end_date: schedEnd,
+                planned_quantity: Number(schedQty) || 100,
+                priority: viewingOrder.priority ?? 'normal',
+                production_notes: schedNotes || null,
+            },
+            { preserveScroll: true },
+        );
+    };
+
+    const handleAddDeliveryBatch = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!viewingOrder) return;
+        router.post(
+            route('orders.delivery-batches.store', viewingOrder.order_id),
+            {
+                quantity: Number(batchQty) || 1,
+                fulfillment_type: batchType,
+                scheduled_date: batchDate || null,
+                courier_name: batchCourier || null,
+                tracking_number: batchTracking || null,
+                remarks: batchRemarks || null,
+            },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setBatchTracking('');
+                    setBatchRemarks('');
+                },
+            },
+        );
+    };
+
+    const handleUpdateBatchStatus = (batchId: number, delivery_status: string) => {
+        router.patch(route('delivery-batches.update', batchId), { delivery_status }, { preserveScroll: true });
+    };
 
     // Auto-hiding scrollbar on the drawer
     const [isDrawerScrolling, setIsDrawerScrolling] = useState(false);
@@ -448,9 +649,15 @@ export default function OrdersIndex({ orders }: Props) {
                             <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Order Operations</p>
                             <h1 className="text-2xl font-black uppercase tracking-tight text-foreground sm:text-3xl">ORDERS</h1>
                             <p className="text-xs text-muted-foreground sm:text-sm">
-                                Manage production and delivery status for all orders
+                                Manage production schedules, priority orders, delivery batches, and fulfillment status
                             </p>
                         </div>
+                        <Button asChild className="h-10 rounded-lg bg-blue-600 px-4 text-xs font-semibold text-white hover:bg-blue-700">
+                            <Link href="/production-schedules">
+                                <CalendarClock className="mr-1.5 h-4 w-4" />
+                                Production Schedules
+                            </Link>
+                        </Button>
                     </header>
 
                     {/* Flash Messages */}
@@ -569,9 +776,10 @@ export default function OrdersIndex({ orders }: Props) {
                                             order={order}
                                             updatingId={updatingId}
                                             onUpdateStatus={handleUpdateStatus}
+                                            onUpdatePriority={handleUpdatePriority}
                                             onRequestCancel={requestCancel}
                                             onTrackingUpdate={handleTrackingUpdate}
-                                            onViewOrder={setViewingOrder}
+                                            onViewOrder={openOrderDrawer}
                                         />
                                     ))}
                                 </tbody>
@@ -582,7 +790,7 @@ export default function OrdersIndex({ orders }: Props) {
             </div>
 
             {/* SIDEBAR DRAWER: View Quoted Order Details (Right slide-over) */}
-            <Sheet open={Boolean(viewingOrder)} onOpenChange={(open) => !open && setViewingOrder(null)}>
+            <Sheet open={Boolean(viewingOrder)} onOpenChange={(open) => !open && setViewingOrderId(null)}>
                 <SheetContent
                     side="right"
                     hideClose
@@ -756,6 +964,184 @@ export default function OrdersIndex({ orders }: Props) {
                                     </div>
                                 )}
 
+                                {/* Production Schedule & Inventory Feasibility */}
+                                <div className="rounded-xl border border-border/70 bg-card p-4 space-y-3 shadow-xs">
+                                    <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
+                                        <div className="flex items-center gap-2">
+                                            <CalendarClock className="size-4 text-primary" />
+                                            <h3 className="text-sm font-bold text-foreground">
+                                                Production Schedule &amp; Lead-Time Estimate
+                                            </h3>
+                                        </div>
+                                        <span className={cn('rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase', getPriorityBadge(viewingOrder.priority))}>
+                                            {viewingOrder.priority ?? 'normal'} priority
+                                        </span>
+                                    </div>
+
+                                    {viewingOrder.planning && (
+                                        <div className="rounded-lg border border-border/60 bg-muted/20 p-3 text-xs space-y-2">
+                                            <div className="grid grid-cols-3 gap-2">
+                                                <div>
+                                                    <p className="text-[10px] font-bold uppercase text-muted-foreground">Ordered Qty</p>
+                                                    <p className="font-bold text-foreground">{viewingOrder.planning.ordered_quantity.toLocaleString()} units</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] font-bold uppercase text-muted-foreground">Est. Finish</p>
+                                                    <p className="font-mono font-semibold text-foreground">{viewingOrder.planning.estimated_completion_date}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] font-bold uppercase text-muted-foreground">Est. Delivery/Pickup</p>
+                                                    <p className="font-mono font-semibold text-foreground">{viewingOrder.planning.estimated_delivery_date}</p>
+                                                </div>
+                                            </div>
+                                            {!viewingOrder.planning.inventory_ready ? (
+                                                <div className="rounded-md bg-rose-500/10 p-2 text-[11px] text-rose-700 dark:text-rose-300">
+                                                    <strong>Material Shortage (+{viewingOrder.planning.restock_delay_days}d restock buffer):</strong>{' '}
+                                                    {viewingOrder.planning.shortages.map((s) => `${s.name} (need ${s.required}, avail ${s.available} ${s.unit})`).join('; ')}
+                                                </div>
+                                            ) : (
+                                                <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+                                                    All BOM raw materials are available in inventory.
+                                                </p>
+                                            )}
+                                            {viewingOrder.planning.expiry_risks.length > 0 && (
+                                                <div className="rounded-md bg-amber-500/10 p-2 text-[11px] text-amber-800 dark:text-amber-300">
+                                                    <strong>Expiration Risk:</strong>{' '}
+                                                    {viewingOrder.planning.expiry_risks.map((r) => `${r.name} (${r.expiry_status.replace('_', ' ')}: ${r.expiration_date})`).join('; ')}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {viewingOrder.latest_production_schedule ? (
+                                        <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-3 text-xs space-y-1.5">
+                                            <div className="flex items-center justify-between">
+                                                <span className="font-mono font-bold text-primary">
+                                                    {viewingOrder.latest_production_schedule.batch_code}
+                                                </span>
+                                                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold uppercase text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
+                                                    {viewingOrder.latest_production_schedule.production_status.replace('_', ' ')}
+                                                </span>
+                                            </div>
+                                            <p className="text-muted-foreground">
+                                                Window:{' '}
+                                                <span className="font-mono font-semibold text-foreground">
+                                                    {viewingOrder.latest_production_schedule.production_start_date} → {viewingOrder.latest_production_schedule.target_end_date}
+                                                </span>{' '}
+                                                ({viewingOrder.latest_production_schedule.planned_quantity.toLocaleString()} units)
+                                            </p>
+                                            {viewingOrder.latest_production_schedule.production_notes && (
+                                                <p className="text-muted-foreground">Notes: {viewingOrder.latest_production_schedule.production_notes}</p>
+                                            )}
+                                        </div>
+                                    ) : viewingOrder.status !== 'completed' && viewingOrder.status !== 'cancelled' ? (
+                                        <form onSubmit={handleQuickSchedule} className="space-y-2.5 rounded-lg border border-dashed border-border p-3 bg-muted/10">
+                                            <p className="text-xs font-semibold text-foreground">Schedule Production Run</p>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                <div>
+                                                    <label className="text-[10px] font-semibold text-muted-foreground">Start Date</label>
+                                                    <Input type="date" value={schedStart} onChange={(e) => setSchedStart(e.target.value)} required className="h-8 text-xs" />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-semibold text-muted-foreground">Target End</label>
+                                                    <Input type="date" value={schedEnd} onChange={(e) => setSchedEnd(e.target.value)} required className="h-8 text-xs" />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-semibold text-muted-foreground">Planned Qty</label>
+                                                    <Input type="number" min={1} value={schedQty} onChange={(e) => setSchedQty(e.target.value)} required className="h-8 text-xs" />
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <Input
+                                                    value={schedNotes}
+                                                    onChange={(e) => setSchedNotes(e.target.value)}
+                                                    placeholder="Production notes (optional)..."
+                                                    className="h-8 text-xs"
+                                                />
+                                                <Button type="submit" size="sm" className="h-8 bg-blue-600 text-xs text-white hover:bg-blue-700 shrink-0">
+                                                    Save Schedule
+                                                </Button>
+                                            </div>
+                                        </form>
+                                    ) : null}
+                                </div>
+
+                                {/* Delivery & Pickup Batches */}
+                                <div className="rounded-xl border border-border/70 bg-card p-4 space-y-3 shadow-xs">
+                                    <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
+                                        <div className="flex items-center gap-2">
+                                            <Truck className="size-4 text-primary" />
+                                            <h3 className="text-sm font-bold text-foreground">
+                                                Delivery &amp; Pickup Batches ({viewingOrder.delivery_batches?.length ?? 0})
+                                            </h3>
+                                        </div>
+                                    </div>
+
+                                    {viewingOrder.delivery_batches && viewingOrder.delivery_batches.length > 0 ? (
+                                        <div className="space-y-2">
+                                            {viewingOrder.delivery_batches.map((batch) => (
+                                                <div key={batch.batch_id} className="flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/20 p-3 text-xs sm:flex-row sm:items-center sm:justify-between">
+                                                    <div>
+                                                        <p className="font-bold text-foreground">
+                                                            Batch #{batch.batch_number} · {batch.quantity.toLocaleString()} units ({batch.fulfillment_type})
+                                                        </p>
+                                                        <p className="text-[11px] text-muted-foreground">
+                                                            {batch.scheduled_date ? `Date: ${batch.scheduled_date}` : 'Date TBD'}
+                                                            {batch.courier_name ? ` · ${batch.courier_name}` : ''}
+                                                            {batch.tracking_number ? ` (${batch.tracking_number})` : ''}
+                                                        </p>
+                                                        {batch.remarks && <p className="text-[11px] text-muted-foreground mt-0.5">{batch.remarks}</p>}
+                                                    </div>
+                                                    <select
+                                                        value={batch.delivery_status}
+                                                        onChange={(e) => handleUpdateBatchStatus(batch.batch_id, e.target.value)}
+                                                        className="h-7 rounded-md border border-input bg-background px-2 text-[11px] font-semibold capitalize"
+                                                    >
+                                                        <option value="scheduled">Scheduled</option>
+                                                        <option value="packed">Packed</option>
+                                                        <option value="ready_for_pickup">Ready for Pickup</option>
+                                                        <option value="for_delivery">For Delivery</option>
+                                                        <option value="delivered">Delivered</option>
+                                                        <option value="cancelled">Cancelled</option>
+                                                    </select>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-muted-foreground italic">No delivery batches recorded yet.</p>
+                                    )}
+
+                                    {viewingOrder.status !== 'cancelled' && (
+                                        <form onSubmit={handleAddDeliveryBatch} className="space-y-2 rounded-lg border border-dashed border-border p-3 bg-muted/10">
+                                            <p className="text-xs font-semibold text-foreground flex items-center gap-1">
+                                                <Plus className="size-3.5" /> Add Delivery / Pickup Batch
+                                            </p>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                <Input type="number" min={1} value={batchQty} onChange={(e) => setBatchQty(e.target.value)} placeholder="Qty" required className="h-8 text-xs" />
+                                                <select
+                                                    value={batchType}
+                                                    onChange={(e) => setBatchType(e.target.value as 'delivery' | 'pickup')}
+                                                    className="h-8 rounded-md border border-input bg-background px-2 text-xs font-semibold"
+                                                >
+                                                    <option value="delivery">Delivery</option>
+                                                    <option value="pickup">Warehouse Pickup</option>
+                                                </select>
+                                                <Input type="date" value={batchDate} onChange={(e) => setBatchDate(e.target.value)} className="h-8 text-xs" />
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <Input value={batchCourier} onChange={(e) => setBatchCourier(e.target.value)} placeholder="Courier (optional)" className="h-8 text-xs" />
+                                                <Input value={batchTracking} onChange={(e) => setBatchTracking(e.target.value)} placeholder="Tracking # (optional)" className="h-8 text-xs" />
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <Input value={batchRemarks} onChange={(e) => setBatchRemarks(e.target.value)} placeholder="Batch remarks..." className="h-8 text-xs" />
+                                                <Button type="submit" size="sm" className="h-8 bg-emerald-600 text-xs text-white hover:bg-emerald-700 shrink-0">
+                                                    Add Batch
+                                                </Button>
+                                            </div>
+                                        </form>
+                                    )}
+                                </div>
+
                                 {/* Ordered Items List (if present) */}
                                 {viewingOrder.items && viewingOrder.items.length > 0 && (
                                     <div className="rounded-xl border border-border/70 bg-card p-4 space-y-3 shadow-xs">
@@ -794,7 +1180,7 @@ export default function OrdersIndex({ orders }: Props) {
                         <Button
                             type="button"
                             variant="outline"
-                            onClick={() => setViewingOrder(null)}
+                            onClick={() => setViewingOrderId(null)}
                             className="h-9 rounded-lg border-border/80 bg-card px-5 text-xs font-semibold text-foreground shadow-sm hover:bg-muted"
                         >
                             Close

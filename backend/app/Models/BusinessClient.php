@@ -21,6 +21,17 @@ class BusinessClient extends Model
         'contact_person',
         'business_address',
         'profile_pic',
+        'is_flagged_nuisance',
+        'nuisance_strikes',
+        'nuisance_reason',
+        'nuisance_flagged_at',
+        'nuisance_flagged_by',
+    ];
+
+    protected $casts = [
+        'is_flagged_nuisance' => 'boolean',
+        'nuisance_strikes'    => 'integer',
+        'nuisance_flagged_at' => 'datetime',
     ];
 
     protected $appends = [
@@ -38,5 +49,10 @@ class BusinessClient extends Model
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id', 'user_id');
+    }
+
+    public function flaggedByUser()
+    {
+        return $this->belongsTo(User::class, 'nuisance_flagged_by', 'user_id');
     }
 }

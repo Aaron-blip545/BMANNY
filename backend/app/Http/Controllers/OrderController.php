@@ -145,6 +145,8 @@ class OrderController extends Controller
 
         $orders = Order::with([
             'quotation.inquiry.customizations',
+            'latestProductionSchedule',
+            'deliveryBatches',
         ])
         ->where('client_id', $client->client_id)
         ->orderByDesc('created_at')
@@ -158,21 +160,58 @@ class OrderController extends Controller
                 }
             }
 
+            $schedule = $order->latestProductionSchedule;
+
             return [
-                'order_id'                 => $order->order_id,
-                'brand_name'               => $brandName,
-                'status'                   => $order->status,
-                'total_amount'             => $order->total_amount,
-                'initial_payment_amount'   => $order->initial_payment_amount,
-                'balance_payment_amount'   => $order->balance_payment_amount,
+                'order_id'                     => $order->order_id,
+                'brand_name'                   => $brandName,
+                'status'                       => $order->status,
+                'priority'                     => $order->priority ?? 'normal',
+                'estimated_completion_date'    => $order->estimated_completion_date?->format('Y-m-d'),
+                'estimated_delivery_date'      => $order->estimated_delivery_date?->format('Y-m-d'),
+                'total_amount'                 => $order->total_amount,
+                'initial_payment_amount'       => $order->initial_payment_amount,
+                'balance_payment_amount'       => $order->balance_payment_amount,
                 'balance_payment_submitted_at' => $order->balance_payment_submitted_at,
-                'balance_payment_verified_at' => $order->balance_payment_verified_at,
+                'balance_payment_verified_at'  => $order->balance_payment_verified_at,
+                'courier_name'                 => $order->courier_name,
+                'courier_tracking_number'      => $order->courier_tracking_number,
+                'production_schedule'          => $schedule ? [
+                    'schedule_id'           => $schedule->schedule_id,
+                    'batch_code'            => $schedule->batch_code,
+                    'production_start_date' => $schedule->production_start_date?->format('Y-m-d'),
+                    'target_end_date'       => $schedule->target_end_date?->format('Y-m-d'),
+                    'actual_start_date'     => $schedule->actual_start_date?->format('Y-m-d'),
+                    'actual_end_date'       => $schedule->actual_end_date?->format('Y-m-d'),
+                    'planned_quantity'      => $schedule->planned_quantity,
+                    'production_status'     => $schedule->production_status,
+                ] : null,
+                'delivery_batches'             => $order->deliveryBatches->map(fn ($b) => [
+                    'batch_id'         => $b->batch_id,
+                    'batch_number'     => $b->batch_number,
+                    'quantity'         => $b->quantity,
+                    'fulfillment_type' => $b->fulfillment_type,
+                    'delivery_status'  => $b->delivery_status,
+                    'scheduled_date'   => $b->scheduled_date?->format('Y-m-d'),
+                    'dispatched_at'    => $b->dispatched_at,
+                    'delivered_at'     => $b->delivered_at,
+                    'courier_name'     => $b->courier_name,
+                    'tracking_number'  => $b->tracking_number,
+                    'remarks'          => $b->remarks,
+                ])->values(),
                 'timeline' => array_values(array_filter([
                     $order->initial_payment_verified_at ? ['label' => 'Initial payment verified', 'at' => $order->initial_payment_verified_at] : null,
-                    $order->status === 'in_production' || $order->status === 'ready_for_pickup' || $order->status === 'for_delivery' || $order->status === 'delivered' || $order->status === 'completed' ? ['label' => 'In production', 'at' => $order->updated_at] : null,
-                    in_array($order->status, ['ready_for_pickup', 'for_delivery', 'delivered', 'completed'], true) ? ['label' => 'Ready for pickup', 'at' => $order->updated_at] : null,
+                    ($order->production_started_at || in_array($order->status, ['in_production', 'packed', 'ready_for_pickup', 'for_delivery', 'delivered', 'completed'], true))
+                        ? ['label' => 'In production', 'at' => $order->production_started_at ?? $order->updated_at] : null,
+                    ($order->packed_at || in_array($order->status, ['packed', 'ready_for_pickup', 'for_delivery', 'delivered', 'completed'], true))
+                        ? ['label' => 'Packed', 'at' => $order->packed_at ?? $order->updated_at] : null,
+                    ($order->ready_for_pickup_at || in_array($order->status, ['ready_for_pickup', 'for_delivery', 'delivered', 'completed'], true))
+                        ? ['label' => 'Ready for pickup', 'at' => $order->ready_for_pickup_at ?? $order->updated_at] : null,
                     $order->balance_payment_verified_at ? ['label' => 'Balance payment verified', 'at' => $order->balance_payment_verified_at] : null,
-                    in_array($order->status, ['for_delivery', 'delivered', 'completed'], true) ? ['label' => 'Released / dispatched', 'at' => $order->updated_at] : null,
+                    ($order->dispatched_at || in_array($order->status, ['for_delivery', 'delivered', 'completed'], true))
+                        ? ['label' => 'Dispatched / Released', 'at' => $order->dispatched_at ?? $order->updated_at] : null,
+                    ($order->completed_at || $order->status === 'completed')
+                        ? ['label' => 'Completed', 'at' => $order->completed_at ?? $order->updated_at] : null,
                 ])),
                 'internal_tracking_number' => $order->internal_tracking_number,
                 'created_at'               => $order->created_at,
@@ -182,9 +221,11 @@ class OrderController extends Controller
                 'inquiry_id'               => $order->quotation?->inquiry?->inquiry_id,
                 'customizations'           => $order->quotation?->inquiry?->customizations
                     ?->map(fn ($c) => [
-                        'packaging_type' => $c->packaging_type,
-                        'serving_size'   => $c->serving_size,
-                        'client_notes'   => $c->client_notes,
+                        'packaging_type'   => $c->packaging_type,
+                        'packaging_finish' => $c->packaging_finish,
+                        'serving_size'     => $c->serving_size,
+                        'selected_package' => $c->selected_package,
+                        'client_notes'     => $c->client_notes,
                     ])->values() ?? [],
             ];
         })->values();

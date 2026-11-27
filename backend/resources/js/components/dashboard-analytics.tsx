@@ -33,12 +33,15 @@ export interface AnalyticsPeriod {
     activity: MonthlyActivity[];
     statusBreakdown: StatusBreakdownItem[];
     funnel: Array<{ label: string; value: number }>;
+    conversionRate?: number;
+    activeOrders?: number;
     totalRevenue: number;
 }
 
 export type ActivityPeriods = Record<'daily' | 'weekly' | 'monthly' | 'yearly', AnalyticsPeriod>;
 
 interface DashboardAnalyticsProps {
+    workspaceLabel?: string;
     title?: string;
     description: string;
     periods: ActivityPeriods;
@@ -70,6 +73,7 @@ function getStatusIcon(label: string) {
 }
 
 export function DashboardAnalytics({
+    workspaceLabel = 'Analytics Workspace',
     title = 'ANALYTICS',
     description = 'Business activity and pipeline performance at a glance.',
     periods: analyticsPeriods,
@@ -79,17 +83,22 @@ export function DashboardAnalytics({
     const values = selected.activity ?? [];
 
     const totalInquiries = values.reduce((sum, item) => sum + item.inquiries, 0);
-    const totalOrders = values.reduce((sum, item) => sum + item.orders, 0);
+    const totalOrders = selected.activeOrders ?? values.reduce((sum, item) => sum + item.orders, 0);
     const maximum = Math.max(1, ...values.flatMap((item) => [item.inquiries, item.orders]));
-    const totalStatuses = Math.max(1, selected.statusBreakdown.reduce((total, item) => total + item.value, 0));
-    const conversionRate = totalInquiries > 0 ? ((totalOrders / totalInquiries) * 100).toFixed(1) + '%' : '0.0%';
+    const totalStatuses = selected.statusBreakdown.reduce((total, item) => total + item.value, 0);
+    const conversionRate =
+        selected.conversionRate !== undefined
+            ? `${selected.conversionRate.toFixed(1)}%`
+            : totalInquiries > 0
+              ? `${((totalOrders / totalInquiries) * 100).toFixed(1)}%`
+              : '0.0%';
 
     return (
         <section aria-label={title} className="space-y-6">
             {/* Header Banner */}
             <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="border-l-4 border-amber-400 pl-3.5">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Admin Workspace</p>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{workspaceLabel}</p>
                     <h1 className="text-2xl font-black uppercase tracking-tight text-foreground sm:text-3xl">{title}</h1>
                     <p className="text-xs text-muted-foreground sm:text-sm">{description}</p>
                 </div>
@@ -284,14 +293,14 @@ export function DashboardAnalytics({
                             <p className="text-xs text-muted-foreground">Orders by current fulfillment stage</p>
                         </div>
                         <span className="rounded-full bg-muted/60 px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
-                            {totalOrders} Orders
+                            {totalStatuses} Orders
                         </span>
                     </div>
 
                     <div className="mt-5 space-y-4">
                         {selected.statusBreakdown.map((item) => {
                             const Icon = getStatusIcon(item.label);
-                            const pct = totalOrders > 0 ? Math.round((item.value / totalOrders) * 100) : 0;
+                            const pct = totalStatuses > 0 ? Math.round((item.value / totalStatuses) * 100) : 0;
 
                             return (
                                 <div key={item.label} className="space-y-1.5">
@@ -311,7 +320,7 @@ export function DashboardAnalytics({
                                         <div
                                             className="h-full rounded-full transition-all duration-500"
                                             style={{
-                                                width: `${totalOrders > 0 ? (item.value / totalOrders) * 100 : 0}%`,
+                                                width: `${totalStatuses > 0 ? (item.value / totalStatuses) * 100 : 0}%`,
                                                 backgroundColor: item.color,
                                             }}
                                         />
@@ -339,13 +348,18 @@ export function DashboardAnalytics({
                     {selected.funnel.map((item, idx) => {
                         const icons = [MessageSquare, FileCheck, BadgeCheck, PackageCheck];
                         const Icon = icons[idx] ?? BarChart3;
+                        const firstVal = selected.funnel[0]?.value ?? 0;
+                        const pctOfStart = firstVal > 0 ? Math.round((item.value / firstVal) * 100) : 0;
 
                         return (
                             <div
                                 key={item.label}
                                 className="relative rounded-xl border border-border/70 bg-muted/20 p-4 transition-all hover:bg-muted/40"
                             >
-                                <div className="flex items-center justify-end">
+                                <div className="flex items-center justify-between">
+                                    <span className="rounded bg-background/80 px-1.5 py-0.5 font-mono text-[10px] font-bold text-muted-foreground">
+                                        {idx === 0 ? '100%' : `${pctOfStart}%`}
+                                    </span>
                                     <Icon className="size-4 text-muted-foreground/70" />
                                 </div>
                                 <p className="mt-2 text-3xl font-black tabular-nums tracking-tight text-foreground sm:text-4xl lg:text-5xl">

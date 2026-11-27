@@ -855,6 +855,27 @@ export default function OrdersScreen() {
                           <Text style={[styles.rowValue, { color: colors.text }]}>{order.internal_tracking_number}</Text>
                         </View>
                       ) : null}
+                      {(order as any).production_schedule ? (
+                        <View style={styles.row}>
+                          <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Production:</Text>
+                          <Text style={[styles.rowValue, { color: colors.text }]}>
+                            {(order as any).production_schedule.batch_code} ({(order as any).production_schedule.production_start_date} → {(order as any).production_schedule.target_end_date})
+                          </Text>
+                        </View>
+                      ) : (order as any).estimated_completion_date ? (
+                        <View style={styles.row}>
+                          <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Est. Finish:</Text>
+                          <Text style={[styles.rowValue, { color: colors.text }]}>{(order as any).estimated_completion_date}</Text>
+                        </View>
+                      ) : null}
+                      {(order as any).delivery_batches?.length ? (
+                        <View style={styles.row}>
+                          <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Delivery Batches:</Text>
+                          <Text style={[styles.rowValue, { color: colors.text }]}>
+                            {(order as any).delivery_batches.length} {(order as any).delivery_batches.length === 1 ? 'batch' : 'batches'} scheduled
+                          </Text>
+                        </View>
+                      ) : null}
                       {order.timeline?.length ? <View style={[styles.timeline, { borderTopColor: colors.border }]}><Text style={[styles.timelineTitle, { color: colors.textSecondary }]}>ORDER TIMELINE</Text>{order.timeline.map((event, index) => <Text key={`${event.label}-${index}`} style={[styles.timelineItem, { color: colors.text }]}>{index === order.timeline!.length - 1 ? '●' : '○'} {event.label}</Text>)}</View> : null}
                     </View>
 
@@ -862,21 +883,23 @@ export default function OrdersScreen() {
                       style={styles.viewBtn}
                       onPress={() => {
                         const notes = order.customizations?.[0]?.client_notes || '';
+                        const productMatch = notes.match(/Finished Product:\s*([^|]+)/i);
                         const flavorMatch = notes.match(/Flavor:\s*([^|]+)/i);
-                        const labelMatch = notes.match(/Label:\s*([^|]+)/i);
+                        const labelMatch = notes.match(/Label(?:\s*Style)?:\s*([^|]+)/i);
+                        const moqMatch = notes.match(/MOQ:\s*([^|]+)/i);
                         const serving = order.customizations?.[0]?.serving_size || '';
-                        const sizeMatch = serving.match(/^([^\s×x]+)/);
-                        const qtyMatch = serving.match(/[×x]\s*([^\s]+(?:\s+units)?)/i);
+                        const sizeMatch = serving.match(/^([^\s×x]+(?:\s*[a-zA-Z]+)?)/);
+                        const qtyMatch = serving.match(/[×x]\s*([^\s]+(?:\s+(?:units|pouches))?)/i);
 
                         const detailPayload = {
                           ...order,
                           brandName: orderTitle,
-                          productType: order.customizations?.[0]?.packaging_type || 'Custom Order',
+                          productType: productMatch ? productMatch[1].trim() : ((order.customizations?.[0] as any)?.selected_package || order.customizations?.[0]?.packaging_type || 'Custom Order'),
                           packaging: order.customizations?.[0]?.packaging_type || 'N/A',
-                          flavor: flavorMatch ? flavorMatch[1].trim() : undefined,
+                          flavor: flavorMatch ? flavorMatch[1].trim() : 'Standard Formulation',
                           size: sizeMatch ? sizeMatch[1].trim() : undefined,
-                          quantity: qtyMatch ? qtyMatch[1].trim() : undefined,
-                          labelDesign: labelMatch ? labelMatch[1].trim() : undefined,
+                          quantity: qtyMatch ? qtyMatch[1].trim() : (moqMatch ? moqMatch[1].trim() : undefined),
+                          labelDesign: (order.customizations?.[0] as any)?.packaging_finish || (labelMatch ? labelMatch[1].trim() : undefined),
                           orderDate: order.created_at,
                         };
 
@@ -897,7 +920,7 @@ export default function OrdersScreen() {
                         <Text style={styles.balanceBtnText}>Pay Balance ₱{Number(order.balance_payment_amount).toLocaleString('en-PH')}</Text>
                       </TouchableOpacity>
                     ) : order.status === 'ready_for_pickup' && order.balance_payment_submitted_at && !order.balance_payment_verified_at ? (
-                      <Text style={[styles.balanceNotice, { color: colors.textSecondary }]}>Balance proof submitted â€” awaiting Sales verification.</Text>
+                      <Text style={[styles.balanceNotice, { color: colors.textSecondary }]}>Balance proof submitted — awaiting Sales verification.</Text>
                     ) : null}
 
                     {/* Reorder button is inside the order detail screen */}

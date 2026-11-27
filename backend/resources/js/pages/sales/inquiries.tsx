@@ -26,11 +26,21 @@ import {
     Send,
     Sparkles,
     UserCheck,
+    XCircle,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Inquiries', href: '/inquiries' }];
-const LEAD_STATUSES = ['new', 'for_quotation', 'quotation_sent', 'converted', 'cancelled'] as const;
+const LEAD_STATUSES = ['new', 'for_quotation', 'follow_up', 'quotation_sent', 'converted', 'lost', 'cancelled'] as const;
+const LOST_LEAD_REASONS = [
+    'Pricing too high',
+    'Turnaround / Lead time',
+    'MOQ too high',
+    'Unavailable ingredients',
+    'Client unresponsive',
+    'Budget constraints',
+    'Other',
+] as const;
 
 type LeadStatus = (typeof LEAD_STATUSES)[number];
 
@@ -83,6 +93,16 @@ interface PackagingBalanceInfo {
     inquiries?: ReorderHistoryEntry[];
 }
 
+interface StatusLogEntry {
+    log_id: number;
+    from_status: string | null;
+    to_status: string;
+    reason: string | null;
+    remarks: string | null;
+    created_at: string;
+    actor?: { full_name: string } | null;
+}
+
 interface Inquiry {
     inquiry_id: number;
     status: LeadStatus;
@@ -93,7 +113,19 @@ interface Inquiry {
     created_at: string;
     cancelled_at: string | null;
     cancellation_reason: string | null;
-    client: { business_name: string; contact_person: string; business_address?: string | null; user: { email: string } | null } | null;
+    lost_reason?: string | null;
+    lost_at?: string | null;
+    status_remarks?: string | null;
+    client: {
+        client_id?: number;
+        business_name: string;
+        contact_person: string;
+        business_address?: string | null;
+        is_flagged_nuisance?: boolean;
+        nuisance_strikes?: number;
+        nuisance_reason?: string | null;
+        user: { email: string } | null;
+    } | null;
     customizations: Customization[];
     quotation: null | {
         quotation_id: number;
@@ -105,6 +137,7 @@ interface Inquiry {
     };
     product_request_review: null | { status: 'pending' | 'available' | 'alternative' | 'unavailable'; response_notes: string | null };
     follow_ups: FollowUp[];
+    status_logs?: StatusLogEntry[];
 }
 
 interface Props {
@@ -134,10 +167,12 @@ function statusLabel(status: LeadStatus) {
     return ({
         new: 'New',
         for_quotation: 'For Quotation',
+        follow_up: 'Follow-up',
         quotation_sent: 'Quotation Sent',
         converted: 'Converted',
+        lost: 'Lost Lead',
         cancelled: 'Cancelled',
-    } as Record<LeadStatus, string>)[status];
+    } as Record<LeadStatus, string>)[status] ?? status;
 }
 
 function getStatusConfig(status: string) {
@@ -146,6 +181,11 @@ function getStatusConfig(status: string) {
             return {
                 label: 'Cancelled',
                 pill: 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300',
+            };
+        case 'lost':
+            return {
+                label: 'Lost Lead',
+                pill: 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300',
             };
         case 'new':
             return {
@@ -156,6 +196,11 @@ function getStatusConfig(status: string) {
             return {
                 label: 'For Quotation',
                 pill: 'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300',
+            };
+        case 'follow_up':
+            return {
+                label: 'Follow-up',
+                pill: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300',
             };
         case 'quotation_sent':
             return {
@@ -696,6 +741,41 @@ export default function InquiriesPage({ inquiries }: Props) {
         return () => window.cancelAnimationFrame(frame);
     }, [notificationInquiryId, inquiries]);
 
+    const [statusModalFor, setStatusModalFor] = useState<Inquiry | null>(null);
+    const [nextLeadStatus, setNextLeadStatus] = useState<'lost' | 'cancelled' | 'follow_up' | 'for_quotation' | 'new'>('lost');
+    const [leadReason, setLeadReason] = useState<string>(LOST_LEAD_REASONS[0]);
+    const [leadRemarks, setLeadRemarks] = useState('');
+    const [submittingLeadStatus, setSubmittingLeadStatus] = useState(false);
+
+    const openStatusModal = (inq: Inquiry) => {
+        setStatusModalFor(inq);
+        setNextLeadStatus('lost');
+        setLeadReason(LOST_LEAD_REASONS[0]);
+        setLeadRemarks(inq.status_remarks ?? '');
+    };
+
+    const submitLeadStatus = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!statusModalFor) return;
+        setSubmittingLeadStatus(true);
+        router.patch(
+            route('inquiries.update-status', statusModalFor.inquiry_id),
+            {
+                status: nextLeadStatus,
+                reason: ['lost', 'cancelled'].includes(nextLeadStatus) ? leadReason : null,
+                remarks: leadRemarks,
+            },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setStatusModalFor(null);
+                    setLeadRemarks('');
+                },
+                onFinish: () => setSubmittingLeadStatus(false),
+            },
+        );
+    };
+
     const filteredInquiries = useMemo(() => {
         const term = search.trim().toLowerCase();
         return inquiries.filter((inquiry) => {
@@ -904,201 +984,228 @@ export default function InquiriesPage({ inquiries }: Props) {
                                             className="group cursor-pointer bg-card shadow-sm transition-shadow hover:shadow-md"
                                         >
                                             {/* Lead */}
-                                            <td className="rounded-l-xl border-y border-l border-border/70 p-5 align-middle">
-                                                <p className="text-base font-bold text-foreground">
-                                                    {inquiry.client?.business_name ?? '—'}
-                                                </p>
-                                                <p className="mt-0.5 text-sm text-muted-foreground">
-                                                    {inquiry.client?.user?.email || inquiry.client?.contact_person || 'No contact'}
-                                                </p>
-                                                <p className="mt-1 text-sm font-semibold text-foreground/80">
-                                                    #{inquiry.inquiry_id}
-                                                </p>
-                                            </td>
-
-                                            {/* Request */}
-                                            <td className="border-y border-border/70 p-5 align-middle">
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <p className="text-base font-bold text-foreground">
-                                                        {inquiry.customizations.length
-                                                            ? inquiry.customizations.map((item) => item.selected_package ?? item.packaging_type).join(', ')
-                                                            : 'Starter'}
-                                                    </p>
-                                                    {inquiry.inquiry_type === 'reorder_batch' && (
-                                                        <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-bold text-blue-800 dark:bg-blue-500/20 dark:text-blue-300">
-                                                            Reorder Batch{inquiry.reorder_batch_quantity ? ` · ${inquiry.reorder_batch_quantity.toLocaleString()} pouches` : ''}
-                                                        </span>
+                                                <td
+                                                    className={cn(
+                                                        'rounded-l-xl border-y border-l border-border/70 p-5 align-middle',
+                                                        inquiry.client?.is_flagged_nuisance && 'border-l-4 border-l-rose-600 bg-rose-500/5',
                                                     )}
-                                                    {inquiry.inquiry_type === 'packaging_replenishment' && (
-                                                        <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
-                                                            Packaging Refill (₱0 Cylinder){inquiry.reorder_batch_quantity ? ` · ${inquiry.reorder_batch_quantity.toLocaleString()} batch` : ''}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                {inquiry.packaging_balance && (
-                                                    <p className="mt-1 text-xs font-medium text-primary">
-                                                        Stored MOQ: {inquiry.packaging_balance.remaining_pouches.toLocaleString()} / {inquiry.packaging_balance.total_pouches.toLocaleString()} pouches remaining
+                                                >
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <p className="text-base font-bold text-foreground">
+                                                            {inquiry.client?.business_name ?? '—'}
+                                                        </p>
+                                                        {inquiry.client?.is_flagged_nuisance && (
+                                                            <span
+                                                                title={inquiry.client.nuisance_reason ?? 'Flagged as nuisance client'}
+                                                                className="inline-flex items-center rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-bold uppercase text-white"
+                                                            >
+                                                                Nuisance{inquiry.client.nuisance_strikes ? ` · ${inquiry.client.nuisance_strikes} strikes` : ''}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="mt-0.5 text-sm text-muted-foreground">
+                                                        {inquiry.client?.user?.email || inquiry.client?.contact_person || 'No contact'}
                                                     </p>
-                                                )}
-                                                <p className="mt-1 text-sm text-muted-foreground">
-                                                    received {formatDate(inquiry.created_at)}
-                                                </p>
-                                            </td>
+                                                    <p className="mt-1 text-sm font-semibold text-foreground/80">
+                                                        #{inquiry.inquiry_id}
+                                                    </p>
+                                                </td>
 
-                                            {/* Status */}
-                                            <td className="border-y border-border/70 p-5 align-middle">
-                                                {(() => {
-                                                    const effectiveStatus = isCancelled ? 'cancelled' : inquiry.status;
-                                                    const config = getStatusConfig(effectiveStatus);
-                                                    return (
-                                                        <span className={`inline-flex items-center rounded-full px-4 py-1.5 text-sm font-bold sm:text-base ${config.pill}`}>
-                                                            {config.label}
-                                                        </span>
-                                                    );
-                                                })()}
-                                            </td>
+                                                {/* Request */}
+                                                <td className="border-y border-border/70 p-5 align-middle">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <p className="text-base font-bold text-foreground">
+                                                            {inquiry.customizations.length
+                                                                ? inquiry.customizations.map((item) => item.selected_package ?? item.packaging_type).join(', ')
+                                                                : 'Starter'}
+                                                        </p>
+                                                        {inquiry.inquiry_type === 'reorder_batch' && (
+                                                            <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-bold text-blue-800 dark:bg-blue-500/20 dark:text-blue-300">
+                                                                Reorder Batch{inquiry.reorder_batch_quantity ? ` · ${inquiry.reorder_batch_quantity.toLocaleString()} pouches` : ''}
+                                                            </span>
+                                                        )}
+                                                        {inquiry.inquiry_type === 'packaging_replenishment' && (
+                                                            <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
+                                                                Packaging Refill (₱0 Cylinder){inquiry.reorder_batch_quantity ? ` · ${inquiry.reorder_batch_quantity.toLocaleString()} batch` : ''}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {inquiry.packaging_balance && (
+                                                        <p className="mt-1 text-xs font-medium text-primary">
+                                                            Stored MOQ: {inquiry.packaging_balance.remaining_pouches.toLocaleString()} / {inquiry.packaging_balance.total_pouches.toLocaleString()} pouches remaining
+                                                        </p>
+                                                    )}
+                                                    <p className="mt-1 text-sm text-muted-foreground">
+                                                        received {formatDate(inquiry.created_at)}
+                                                    </p>
+                                                </td>
 
-                                            {/* Follow-Ups */}
-                                            <td
-                                                className="border-y border-border/70 p-5 align-middle"
-                                                onClick={(e) => e.stopPropagation()}
-                                            >
-                                                {followUp ? (
-                                                    <div>
-                                                        <p className="text-base font-semibold text-foreground">{formatFollowUpDateTime(followUp.follow_up_date)}</p>
-                                                        <p className="mt-0.5 max-w-44 text-sm text-muted-foreground line-clamp-2">{followUp.note}</p>
+                                                {/* Status */}
+                                                <td className="border-y border-border/70 p-5 align-middle">
+                                                    {(() => {
+                                                        const effectiveStatus = isCancelled ? 'cancelled' : inquiry.status;
+                                                        const config = getStatusConfig(effectiveStatus);
+                                                        return (
+                                                            <span className={`inline-flex items-center rounded-full px-4 py-1.5 text-sm font-bold sm:text-base ${config.pill}`}>
+                                                                {config.label}
+                                                            </span>
+                                                        );
+                                                    })()}
+                                                </td>
+
+                                                {/* Follow-Ups */}
+                                                <td
+                                                    className="border-y border-border/70 p-5 align-middle"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    {followUp ? (
+                                                        <div>
+                                                            <p className="text-base font-semibold text-foreground">{formatFollowUpDateTime(followUp.follow_up_date)}</p>
+                                                            <p className="mt-0.5 max-w-44 text-sm text-muted-foreground line-clamp-2">{followUp.note}</p>
+                                                            <Button
+                                                                variant="secondary"
+                                                                size="sm"
+                                                                className="mt-2 h-8 rounded-md bg-muted/60 px-3 text-xs font-semibold hover:bg-muted"
+                                                                onClick={() => {
+                                                                    setCompletingFollowUp(followUp);
+                                                                    setCompletionNote('');
+                                                                }}
+                                                            >
+                                                                <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                                                <span className="whitespace-nowrap">Mark done</span>
+                                                            </Button>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-base font-medium text-foreground">Not Scheduled</span>
+                                                    )}
+                                                </td>
+
+                                                {/* History */}
+                                                <td
+                                                    className="border-y border-border/70 p-5 align-middle"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    {(() => {
+                                                        const reorderCount = inquiry.packaging_balance?.inquiries?.length ?? 0;
+                                                        return (
+                                                            <div>
+                                                                <p className="text-base font-medium text-foreground">
+                                                                    {inquiry.follow_ups.length} Follow-up{inquiry.follow_ups.length === 1 ? '' : 's'}
+                                                                </p>
+                                                                {inquiry.packaging_balance && (
+                                                                    <p className="mt-0.5 text-xs font-semibold text-primary">
+                                                                        {reorderCount} Reorder{reorderCount === 1 ? '' : 's'}
+                                                                    </p>
+                                                                )}
+                                                                {(inquiry.follow_ups.length > 0 || Boolean(inquiry.cancelled_at) || Boolean(inquiry.packaging_balance)) && (
+                                                                    <Button
+                                                                        variant="link"
+                                                                        size="sm"
+                                                                        className="mt-1 h-auto p-0 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                                                                        onClick={() => setHistoryFor(inquiry)}
+                                                                    >
+                                                                        {inquiry.cancelled_at
+                                                                            ? 'Cancellation history'
+                                                                            : inquiry.packaging_balance
+                                                                                ? 'Reorder history'
+                                                                                : 'View history'}
+                                                                    </Button>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })()}
+                                                </td>
+
+                                                {/* Actions */}
+                                                <td
+                                                    className="rounded-r-xl border-y border-r border-border/70 p-5 align-middle"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <div className="grid grid-cols-2 gap-2.5 min-w-[260px]">
                                                         <Button
                                                             variant="secondary"
                                                             size="sm"
-                                                            className="mt-2 h-8 rounded-md bg-muted/60 px-3 text-xs font-semibold hover:bg-muted"
+                                                            className="h-9 justify-start rounded-md bg-muted/60 px-3 text-xs font-semibold hover:bg-muted"
+                                                            disabled={inactive || inquiry.product_request_review?.status === 'pending'}
+                                                            onClick={() => router.post(route('inquiries.product-request.submit', inquiry.inquiry_id))}
+                                                        >
+                                                            <FileCheck className="mr-1.5 h-4 w-4 text-muted-foreground shrink-0" />
+                                                            <span className="whitespace-nowrap">{inquiry.product_request_review ? 'Resend Review' : 'Send Review'}</span>
+                                                        </Button>
+
+                                                        <Button
+                                                            variant="secondary"
+                                                            size="sm"
+                                                            className="h-9 justify-start rounded-md bg-muted/60 px-3 text-xs font-semibold hover:bg-muted"
+                                                            disabled={inactive}
                                                             onClick={() => {
-                                                                setCompletingFollowUp(followUp);
-                                                                setCompletionNote('');
+                                                                setFollowUpFor(inquiry);
+                                                                const initialDt = getInitialFollowUpDateTime();
+                                                                setFollowUpDatePart(initialDt.slice(0, 10));
+                                                                setFollowUpTimePart(initialDt.slice(11, 16));
+                                                                setFollowUpNote('');
                                                             }}
                                                         >
-                                                            <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                                                            <span className="whitespace-nowrap">Mark done</span>
+                                                            <UserCheck className="mr-1.5 h-4 w-4 text-muted-foreground shrink-0" />
+                                                            <span className="whitespace-nowrap">Follow-up</span>
                                                         </Button>
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-base font-medium text-foreground">Not Scheduled</span>
-                                                )}
-                                            </td>
 
-                                            {/* History */}
-                                            <td
-                                                className="border-y border-border/70 p-5 align-middle"
-                                                onClick={(e) => e.stopPropagation()}
-                                            >
-                                                {(() => {
-                                                    const reorderCount = inquiry.packaging_balance?.inquiries?.length ?? 0;
-                                                    return (
-                                                        <div>
-                                                            <p className="text-base font-medium text-foreground">
-                                                                {inquiry.follow_ups.length} Follow-up{inquiry.follow_ups.length === 1 ? '' : 's'}
-                                                            </p>
-                                                            {inquiry.packaging_balance && (
-                                                                <p className="mt-0.5 text-xs font-semibold text-primary">
-                                                                    {reorderCount} Reorder{reorderCount === 1 ? '' : 's'}
-                                                                </p>
-                                                            )}
-                                                            {(inquiry.follow_ups.length > 0 || Boolean(inquiry.cancelled_at) || Boolean(inquiry.packaging_balance)) && (
-                                                                <Button
-                                                                    variant="link"
-                                                                    size="sm"
-                                                                    className="mt-1 h-auto p-0 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
-                                                                    onClick={() => setHistoryFor(inquiry)}
-                                                                >
-                                                                    {inquiry.cancelled_at
-                                                                        ? 'Cancellation history'
-                                                                        : inquiry.packaging_balance
-                                                                            ? 'Reorder history'
-                                                                            : 'View history'}
-                                                                </Button>
-                                                            )}
-                                                        </div>
-                                                    );
-                                                })()}
-                                            </td>
+                                                        {quoteAllowed ? (
+                                                            <Button
+                                                                variant="secondary"
+                                                                size="sm"
+                                                                className="h-9 justify-start rounded-md bg-muted/60 px-3 text-xs font-semibold hover:bg-muted"
+                                                                asChild
+                                                            >
+                                                                <Link href={route('quotations.create', { inquiry_id: inquiry.inquiry_id })}>
+                                                                    <FilePenLine className="mr-1.5 h-4 w-4 text-muted-foreground shrink-0" />
+                                                                    <span className="whitespace-nowrap">Quote</span>
+                                                                </Link>
+                                                            </Button>
+                                                        ) : (
+                                                            <Button
+                                                                variant="secondary"
+                                                                size="sm"
+                                                                className="h-9 justify-start rounded-md bg-muted/30 px-3 text-xs font-semibold text-muted-foreground/60 cursor-not-allowed"
+                                                                disabled
+                                                                title={
+                                                                    inquiry.quotation
+                                                                        ? 'Quotation already created'
+                                                                        : !isReviewedByProductController
+                                                                            ? 'Requires Product Controller review before quoting'
+                                                                            : 'Quotation not available'
+                                                                }
+                                                            >
+                                                                <FilePenLine className="mr-1.5 h-4 w-4 text-muted-foreground/40 shrink-0" />
+                                                                <span className="whitespace-nowrap">Quote</span>
+                                                            </Button>
+                                                        )}
 
-                                            {/* Actions */}
-                                            <td
-                                                className="rounded-r-xl border-y border-r border-border/70 p-5 align-middle"
-                                                onClick={(e) => e.stopPropagation()}
-                                            >
-                                                <div className="grid grid-cols-2 gap-2.5 min-w-[260px]">
-                                                    <Button
-                                                        variant="secondary"
-                                                        size="sm"
-                                                        className="h-9 justify-start rounded-md bg-muted/60 px-3 text-xs font-semibold hover:bg-muted"
-                                                        disabled={inactive || inquiry.product_request_review?.status === 'pending'}
-                                                        onClick={() => router.post(route('inquiries.product-request.submit', inquiry.inquiry_id))}
-                                                    >
-                                                        <FileCheck className="mr-1.5 h-4 w-4 text-muted-foreground shrink-0" />
-                                                        <span className="whitespace-nowrap">{inquiry.product_request_review ? 'Resend Review' : 'Send Review'}</span>
-                                                    </Button>
-
-                                                    <Button
-                                                        variant="secondary"
-                                                        size="sm"
-                                                        className="h-9 justify-start rounded-md bg-muted/60 px-3 text-xs font-semibold hover:bg-muted"
-                                                        disabled={inactive}
-                                                        onClick={() => {
-                                                            setFollowUpFor(inquiry);
-                                                            const initialDt = getInitialFollowUpDateTime();
-                                                            setFollowUpDatePart(initialDt.slice(0, 10));
-                                                            setFollowUpTimePart(initialDt.slice(11, 16));
-                                                            setFollowUpNote('');
-                                                        }}
-                                                    >
-                                                        <UserCheck className="mr-1.5 h-4 w-4 text-muted-foreground shrink-0" />
-                                                        <span className="whitespace-nowrap">Follow-up</span>
-                                                    </Button>
-
-                                                    {quoteAllowed ? (
                                                         <Button
                                                             variant="secondary"
                                                             size="sm"
                                                             className="h-9 justify-start rounded-md bg-muted/60 px-3 text-xs font-semibold hover:bg-muted"
                                                             asChild
                                                         >
-                                                            <Link href={route('quotations.create', { inquiry_id: inquiry.inquiry_id })}>
-                                                                <FilePenLine className="mr-1.5 h-4 w-4 text-muted-foreground shrink-0" />
-                                                                <span className="whitespace-nowrap">Quote</span>
+                                                            <Link href={route('chat.show', inquiry.inquiry_id)}>
+                                                                <MessageSquare className="mr-1.5 h-4 w-4 text-muted-foreground shrink-0" />
+                                                                <span className="whitespace-nowrap">Chat</span>
                                                             </Link>
                                                         </Button>
-                                                    ) : (
-                                                        <Button
-                                                            variant="secondary"
-                                                            size="sm"
-                                                            className="h-9 justify-start rounded-md bg-muted/30 px-3 text-xs font-semibold text-muted-foreground/60 cursor-not-allowed"
-                                                            disabled
-                                                            title={
-                                                                inquiry.quotation
-                                                                    ? 'Quotation already created'
-                                                                    : !isReviewedByProductController
-                                                                        ? 'Requires Product Controller review before quoting'
-                                                                        : 'Quotation not available'
-                                                            }
-                                                        >
-                                                            <FilePenLine className="mr-1.5 h-4 w-4 text-muted-foreground/40 shrink-0" />
-                                                            <span className="whitespace-nowrap">Quote</span>
-                                                        </Button>
-                                                    )}
 
-                                                    <Button
-                                                        variant="secondary"
-                                                        size="sm"
-                                                        className="h-9 justify-start rounded-md bg-muted/60 px-3 text-xs font-semibold hover:bg-muted"
-                                                        asChild
-                                                    >
-                                                        <Link href={route('chat.show', inquiry.inquiry_id)}>
-                                                            <MessageSquare className="mr-1.5 h-4 w-4 text-muted-foreground shrink-0" />
-                                                            <span className="whitespace-nowrap">Chat</span>
-                                                        </Link>
-                                                    </Button>
-                                                </div>
-                                            </td>
+                                                        {inquiry.status !== 'converted' && (
+                                                            <Button
+                                                                variant="secondary"
+                                                                size="sm"
+                                                                className="col-span-2 h-8 justify-center rounded-md bg-rose-500/10 px-3 text-xs font-semibold text-rose-700 hover:bg-rose-500/20 dark:text-rose-300"
+                                                                onClick={() => openStatusModal(inquiry)}
+                                                            >
+                                                                <XCircle className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                                                                <span className="whitespace-nowrap">Cancel / Mark Lost / Remarks</span>
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                </td>
                                         </tr>
                                     );
                                 })}
@@ -1783,6 +1890,87 @@ export default function InquiriesPage({ inquiries }: Props) {
                                 </div>
                             )}
 
+                            {/* Nuisance / High-Risk Client Control */}
+                            {viewingInquiry.client?.client_id && (
+                                <div
+                                    className={cn(
+                                        'rounded-xl border p-4 text-xs flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between',
+                                        viewingInquiry.client.is_flagged_nuisance
+                                            ? 'border-rose-500/40 bg-rose-500/10'
+                                            : 'border-border/70 bg-muted/20',
+                                    )}
+                                >
+                                    <div>
+                                        <p className="font-bold text-foreground">
+                                            {viewingInquiry.client.is_flagged_nuisance
+                                                ? `Flagged Nuisance Client (${viewingInquiry.client.nuisance_strikes ?? 0} strikes)`
+                                                : `Client Risk Standing (${viewingInquiry.client.nuisance_strikes ?? 0} strikes)`}
+                                        </p>
+                                        <p className="mt-0.5 text-muted-foreground">
+                                            {viewingInquiry.client.is_flagged_nuisance
+                                                ? viewingInquiry.client.nuisance_reason ?? 'Repeated cancellations or unresponsive inquiries.'
+                                                : 'Clients are automatically flagged at 3 strikes (lost/cancelled inquiries, expired quotes, or cancelled orders).'}
+                                        </p>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant={viewingInquiry.client.is_flagged_nuisance ? 'outline' : 'destructive'}
+                                        className="h-8 shrink-0 text-xs font-semibold"
+                                        onClick={() => {
+                                            const clientId = viewingInquiry.client?.client_id;
+                                            if (!clientId) return;
+                                            const currentlyFlagged = Boolean(viewingInquiry.client?.is_flagged_nuisance);
+                                            const reason = currentlyFlagged
+                                                ? null
+                                                : window.prompt('Reason for flagging this client as a nuisance user:', 'Repeated cancellations / unresponsive inquiries');
+                                            if (!currentlyFlagged && reason === null) return;
+                                            router.post(
+                                                route('clients.toggle-nuisance', clientId),
+                                                { is_flagged: !currentlyFlagged, reason },
+                                                {
+                                                    preserveScroll: true,
+                                                    onSuccess: () => setViewingInquiry(null),
+                                                },
+                                            );
+                                        }}
+                                    >
+                                        {viewingInquiry.client.is_flagged_nuisance ? 'Remove Flag' : 'Flag as Nuisance'}
+                                    </Button>
+                                </div>
+                            )}
+
+                            {/* Lead Status & Remarks Audit Log */}
+                            {viewingInquiry.status_logs && viewingInquiry.status_logs.length > 0 && (
+                                <div className="rounded-xl border border-border/70 bg-card p-4 shadow-xs space-y-3">
+                                    <div className="flex items-center gap-2 border-b border-border/60 pb-2">
+                                        <History className="size-4 text-primary" />
+                                        <h3 className="text-sm font-bold text-foreground">Lead Status &amp; Remarks Log</h3>
+                                    </div>
+                                    <div className="space-y-2.5">
+                                        {viewingInquiry.status_logs.map((log) => (
+                                            <div key={log.log_id} className="rounded-lg border border-border/60 bg-muted/20 p-3 text-xs space-y-1">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className="font-bold text-foreground capitalize">
+                                                        {(log.from_status ?? 'start').replace('_', ' ')} → {log.to_status.replace('_', ' ')}
+                                                    </span>
+                                                    <span className="font-mono text-[10px] text-muted-foreground">
+                                                        {formatFollowUpDateTime(log.created_at)}
+                                                    </span>
+                                                </div>
+                                                {log.reason && (
+                                                    <p className="font-semibold text-rose-700 dark:text-rose-300">Reason: {log.reason}</p>
+                                                )}
+                                                {log.remarks && <p className="text-muted-foreground">{log.remarks}</p>}
+                                                {log.actor?.full_name && (
+                                                    <p className="text-[10px] text-muted-foreground">Updated by {log.actor.full_name}</p>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             <SheetFooter className="pt-2">
                                 <Button type="button" variant="outline" onClick={() => setViewingInquiry(null)}>
                                     Close
@@ -1792,6 +1980,88 @@ export default function InquiriesPage({ inquiries }: Props) {
                     )}
                 </SheetContent>
             </Sheet>
+
+            {/* Sales Cancel / Mark Lost / Status Remarks Dialog */}
+            <Dialog open={Boolean(statusModalFor)} onOpenChange={(open) => !open && setStatusModalFor(null)}>
+                <DialogContent className="max-w-lg rounded-2xl border-border/70 bg-card p-6 text-card-foreground shadow-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="text-lg font-bold text-foreground">
+                            Update Lead Status &amp; Remarks — Inquiry #{statusModalFor?.inquiry_id}
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-muted-foreground">
+                            Cancel an inquiry, mark a lead as Lost with a structured reason, or log status remarks for{' '}
+                            <span className="font-semibold text-foreground">{statusModalFor?.client?.business_name ?? 'this client'}</span>.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={submitLeadStatus} className="space-y-4 pt-2">
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-foreground">New Lead Status</label>
+                            <select
+                                value={nextLeadStatus}
+                                onChange={(e) => setNextLeadStatus(e.target.value as typeof nextLeadStatus)}
+                                className="h-10 w-full rounded-lg border border-input bg-background px-3 text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                            >
+                                <option value="lost">Lost Lead (Did not convert)</option>
+                                <option value="cancelled">Cancelled by Sales</option>
+                                <option value="follow_up">Follow-up</option>
+                                <option value="for_quotation">For Quotation</option>
+                                <option value="new">Reopen as New</option>
+                            </select>
+                        </div>
+
+                        {(nextLeadStatus === 'lost' || nextLeadStatus === 'cancelled') && (
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold text-foreground">
+                                    Reason <span className="text-rose-600">*</span>
+                                </label>
+                                <select
+                                    value={leadReason}
+                                    onChange={(e) => setLeadReason(e.target.value)}
+                                    className="h-10 w-full rounded-lg border border-input bg-background px-3 text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                >
+                                    {LOST_LEAD_REASONS.map((r) => (
+                                        <option key={r} value={r}>
+                                            {r}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-foreground">
+                                Remarks / Notes <span className="text-rose-600">*</span>
+                            </label>
+                            <textarea
+                                required
+                                rows={3}
+                                value={leadRemarks}
+                                onChange={(e) => setLeadRemarks(e.target.value)}
+                                placeholder="Record details of the conversation, client feedback, or reason for status change..."
+                                className="w-full rounded-lg border border-input bg-background p-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                        </div>
+
+                        <DialogFooter className="gap-2 pt-2">
+                            <Button type="button" variant="outline" onClick={() => setStatusModalFor(null)}>
+                                Close
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={submittingLeadStatus || !leadRemarks.trim()}
+                                className={
+                                    nextLeadStatus === 'lost' || nextLeadStatus === 'cancelled'
+                                        ? 'bg-rose-600 text-white hover:bg-rose-700'
+                                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                                }
+                            >
+                                {submittingLeadStatus ? 'Saving…' : 'Save Status & Remarks'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }
