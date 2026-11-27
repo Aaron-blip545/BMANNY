@@ -14,10 +14,13 @@ class ProductRequestReview extends Model
     protected $fillable = [
         'inquiry_id', 'requested_by', 'product_type_id', 'requested_variant_id',
         'suggested_variant_id', 'suggested_packaging_id', 'status', 'request_notes',
-        'response_notes', 'reviewed_by', 'reviewed_at',
+        'response_notes', 'custom_bom_items', 'reviewed_by', 'reviewed_at',
     ];
 
-    protected $casts = ['reviewed_at' => 'datetime'];
+    protected $casts = [
+        'reviewed_at' => 'datetime',
+        'custom_bom_items' => 'array',
+    ];
 
     public function inquiry() { return $this->belongsTo(Inquiry::class, 'inquiry_id', 'inquiry_id'); }
     public function productType() { return $this->belongsTo(ProductType::class, 'product_type_id', 'product_type_id'); }

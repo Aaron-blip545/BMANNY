@@ -106,9 +106,20 @@ interface CatalogProduct {
     is_active: boolean;
     created_at?: string;
     recipes?: BomItem[];
+    gold_recipes?: BomItem[];
+    elite_recipes?: BomItem[];
     total_recipe_cost?: number;
     formatted_recipe_cost?: string;
     materials_count?: number;
+    package_tiers?: Array<{
+        slug: string;
+        name: string;
+        minimum_quantity: number;
+        max_quantity: number | null;
+        packaging_details: string;
+        label_details: string;
+        lead_time_text: string;
+    }>;
 }
 
 interface Props {
@@ -297,17 +308,22 @@ export default function ProductsPage({
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<CatalogProduct | null>(null);
     const [submitting, setSubmitting] = useState(false);
-    const [modalTab, setModalTab] = useState<'general' | 'packaging' | 'customization' | 'moq'>('general');
+    const [modalTab, setModalTab] = useState<'general' | 'bom' | 'starter' | 'gold' | 'elite'>('general');
 
     // ── Delete confirmation state ──────────────────────────────────────
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [productToDelete, setProductToDelete] = useState<CatalogProduct | null>(null);
     const [deleting, setDeleting] = useState(false);
 
-    // ── Bill of Materials (BOM) Modal state ────────────────────────────
-    const [isBomOpen, setIsBomOpen] = useState(false);
-    const [bomProduct, setBomProduct] = useState<CatalogProduct | null>(null);
-    const [bomRows, setBomRows] = useState<BomItem[]>([]);
+    // ── Global Main BOM + Package MOQ/BOM state (unlimited in Product Management) ──
+    const [mainBomRows, setMainBomRows] = useState<BomItem[]>([]);
+    const [goldBomRows, setGoldBomRows] = useState<BomItem[]>([]);
+    const [eliteBomRows, setEliteBomRows] = useState<BomItem[]>([]);
+    const [packageMoqs, setPackageMoqs] = useState<{ starter: string; gold: string; elite: string }>({
+        starter: '100',
+        gold: '5000',
+        elite: '10000',
+    });
     const [savingBom, setSavingBom] = useState(false);
 
     // ── Quick Add Modals (Packaging / Customization) ────────────────────
@@ -448,6 +464,30 @@ export default function ProductsPage({
         });
         setSelectedImageFile(null);
         setImagePreview(product.image_url || null);
+        const mapRecipeRows = (list?: BomItem[]) =>
+            (list || []).map((r) => ({
+                recipe_id: r.recipe_id,
+                product_id: r.product_id,
+                raw_material_name: r.raw_material_name,
+                raw_material_sku: r.raw_material_sku,
+                unit_of_measure: r.unit_of_measure ?? 'kg',
+                product_image: r.product_image,
+                quantity_per_unit: r.quantity_per_unit,
+                rate: r.rate,
+                amount: Number(r.amount) || 0,
+                notes: r.notes ?? '',
+            }));
+        setMainBomRows(mapRecipeRows(product.recipes));
+        setGoldBomRows(mapRecipeRows(product.gold_recipes));
+        setEliteBomRows(mapRecipeRows(product.elite_recipes));
+        const starterTier = product.package_tiers?.find((t) => t.slug === 'starter');
+        const goldTier = product.package_tiers?.find((t) => t.slug === 'gold');
+        const eliteTier = product.package_tiers?.find((t) => t.slug === 'elite');
+        setPackageMoqs({
+            starter: String(starterTier?.minimum_quantity ?? 100),
+            gold: String(goldTier?.minimum_quantity ?? 5000),
+            elite: String(eliteTier?.minimum_quantity ?? 10000),
+        });
         setModalTab('general');
         setIsFormOpen(true);
     };
@@ -542,50 +582,20 @@ export default function ProductsPage({
         });
     };
 
-    // ── Open BOM Modal (Edit Composite Item) ───────────────────────────
-    const openBomModal = (product: CatalogProduct) => {
-        setBomProduct(product);
-        const existing = product.recipes?.map((r) => ({
-            recipe_id: r.recipe_id,
-            product_id: r.product_id,
-            raw_material_name: r.raw_material_name,
-            raw_material_sku: r.raw_material_sku,
-            unit_of_measure: r.unit_of_measure ?? 'kg',
-            product_image: r.product_image,
-            quantity_per_unit: r.quantity_per_unit,
-            rate: r.rate,
-            amount: Number(r.amount) || 0,
-            notes: r.notes ?? '',
-        })) || [];
-
-        if (existing.length === 0 && rawMaterials.length > 0) {
-            const first = rawMaterials[0];
-            setBomRows([
-                {
-                    product_id: first.product_id,
-                    raw_material_name: first.name,
-                    raw_material_sku: first.sku,
-                    unit_of_measure: first.unit_of_measure,
-                    product_image: first.product_image,
-                    quantity_per_unit: '',
-                    rate: first.rate,
-                    amount: 0,
-                },
-            ]);
-        } else {
-            setBomRows(existing);
-        }
-
-        setIsBomOpen(true);
+    // ── Global Main BOM + Package BOM/MOQ Handlers (no +6/+8 cap here) ──
+    const getBomTarget = (scope: 'main' | 'gold' | 'elite') => {
+        if (scope === 'gold') return { rows: goldBomRows, setter: setGoldBomRows };
+        if (scope === 'elite') return { rows: eliteBomRows, setter: setEliteBomRows };
+        return { rows: mainBomRows, setter: setMainBomRows };
     };
 
-    const handleAddBomRow = () => {
-        const usedIds = new Set(bomRows.map((r) => r.product_id));
+    const handleAddBomRow = (scope: 'main' | 'gold' | 'elite') => {
+        const { rows, setter } = getBomTarget(scope);
+        const usedIds = new Set(rows.map((r) => r.product_id));
         const available = rawMaterials.find((m) => !usedIds.has(m.product_id)) || rawMaterials[0];
-
         if (!available) return;
 
-        setBomRows((prev) => [
+        setter((prev) => [
             ...prev,
             {
                 product_id: available.product_id,
@@ -600,8 +610,9 @@ export default function ProductsPage({
         ]);
     };
 
-    const handleUpdateBomRow = (index: number, field: string, value: any) => {
-        setBomRows((prev) => {
+    const handleUpdateBomRow = (scope: 'main' | 'gold' | 'elite', index: number, field: string, value: any) => {
+        const { setter } = getBomTarget(scope);
+        setter((prev) => {
             const updated = [...prev];
             const row = { ...updated[index] };
 
@@ -630,40 +641,40 @@ export default function ProductsPage({
         });
     };
 
-    const handleRemoveBomRow = (index: number) => {
-        setBomRows((prev) => prev.filter((_, i) => i !== index));
+    const handleRemoveBomRow = (scope: 'main' | 'gold' | 'elite', index: number) => {
+        const { setter } = getBomTarget(scope);
+        setter((prev) => prev.filter((_, i) => i !== index));
     };
 
-    const totalBomCost = useMemo(() => {
-        return bomRows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
-    }, [bomRows]);
+    const handleSavePackageOrBom = (scope: 'main' | 'starter' | 'gold' | 'elite') => {
+        if (!editingProduct) return;
 
-    const handleSaveBom = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!bomProduct) return;
-
-        const validItems = bomRows
-            .filter((r) => r.product_id && parseFloat(String(r.quantity_per_unit)) > 0)
-            .map((r) => ({
-                product_id: r.product_id,
-                quantity_per_unit: parseFloat(String(r.quantity_per_unit)),
-                rate: parseFloat(String(r.rate)) || 0,
-                notes: r.notes || null,
-            }));
+        const payload: Record<string, any> = {};
+        if (scope !== 'main') {
+            payload.package_slug = scope;
+            const parsedMoq = parseInt(packageMoqs[scope], 10);
+            if (!Number.isNaN(parsedMoq) && parsedMoq >= 1) {
+                payload.minimum_quantity = parsedMoq;
+            }
+        }
+        if (scope !== 'starter') {
+            const { rows } = getBomTarget(scope);
+            payload.items = rows
+                .filter((r) => r.product_id && parseFloat(String(r.quantity_per_unit)) > 0)
+                .map((r) => ({
+                    product_id: r.product_id,
+                    quantity_per_unit: parseFloat(String(r.quantity_per_unit)),
+                    rate: parseFloat(String(r.rate)) || 0,
+                    notes: r.notes || null,
+                }));
+        }
 
         setSavingBom(true);
-        router.post(
-            `/product-controller/products/${bomProduct.product_type_id}/bom`,
-            { items: validItems },
-            {
-                preserveScroll: true,
-                onSuccess: () => {
-                    setIsBomOpen(false);
-                    setSavingBom(false);
-                },
-                onError: () => setSavingBom(false),
-            }
-        );
+        router.post(`/product-controller/products/${editingProduct.product_type_id}/bom`, payload, {
+            preserveScroll: true,
+            onSuccess: () => setSavingBom(false),
+            onError: () => setSavingBom(false),
+        });
     };
 
     // ── Quick Add Handlers ─────────────────────────────────────────────
@@ -888,7 +899,10 @@ export default function ProductsPage({
                                             <td className="border-y border-border/70 py-3 px-3 align-middle whitespace-nowrap">
                                                 <button
                                                     type="button"
-                                                    onClick={() => openBomModal(product)}
+                                                    onClick={() => {
+                                                        openEditModal(product);
+                                                        setModalTab('gold');
+                                                    }}
                                                     className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline cursor-pointer whitespace-nowrap"
                                                 >
                                                     <Layers className="size-3.5 shrink-0" />
@@ -911,15 +925,31 @@ export default function ProductsPage({
 
                                             {/* MOQ */}
                                             <td className="border-y border-border/70 py-3 px-3 align-middle whitespace-nowrap">
-                                                {product.min_quantity ? (
-                                                    <span className="inline-flex items-center gap-1 font-mono text-xs font-bold text-foreground bg-muted/80 px-2 py-0.5 rounded-md border border-border/80 whitespace-nowrap">
-                                                        {product.min_quantity} pcs
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-xs text-muted-foreground italic whitespace-nowrap">
-                                                        Not set
-                                                    </span>
-                                                )}
+                                                {(() => {
+                                                    const starterTier = product.package_tiers?.find((t) => t.slug === 'starter');
+                                                    if (starterTier && starterTier.max_quantity) {
+                                                        return (
+                                                            <div className="flex flex-col gap-0.5">
+                                                                <span className="inline-flex items-center gap-1 font-mono text-xs font-bold text-foreground bg-muted/80 px-2 py-0.5 rounded-md border border-border/80 whitespace-nowrap w-fit">
+                                                                    {starterTier.minimum_quantity}–{starterTier.max_quantity} pcs
+                                                                </span>
+                                                                <span className="text-[10px] text-muted-foreground">Starter selectable</span>
+                                                            </div>
+                                                        );
+                                                    }
+                                                    if (product.min_quantity) {
+                                                        return (
+                                                            <span className="inline-flex items-center gap-1 font-mono text-xs font-bold text-foreground bg-muted/80 px-2 py-0.5 rounded-md border border-border/80 whitespace-nowrap">
+                                                                {product.min_quantity} pcs
+                                                            </span>
+                                                        );
+                                                    }
+                                                    return (
+                                                        <span className="text-xs text-muted-foreground italic whitespace-nowrap">
+                                                            Not set
+                                                        </span>
+                                                    );
+                                                })()}
                                             </td>
 
                                             {/* Status */}
@@ -947,18 +977,8 @@ export default function ProductsPage({
                                                     <Button
                                                         size="sm"
                                                         variant="secondary"
-                                                        onClick={() => openBomModal(product)}
-                                                        title="Edit BOM Recipe"
-                                                        className="h-7 w-[82px] justify-start gap-1.5 rounded-md bg-muted/60 px-2 text-xs font-semibold hover:bg-muted text-foreground whitespace-nowrap shrink-0"
-                                                    >
-                                                        <FlaskConical className="size-3.5 text-muted-foreground shrink-0" />
-                                                        <span>BOM</span>
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="secondary"
                                                         onClick={() => openEditModal(product)}
-                                                        title="Edit Product, Options & MOQ"
+                                                        title="Edit Product & Package BOMs"
                                                         className="h-7 w-[82px] justify-start gap-1.5 rounded-md bg-muted/60 px-2 text-xs font-semibold hover:bg-muted text-foreground whitespace-nowrap shrink-0"
                                                     >
                                                         <Pencil className="size-3.5 text-muted-foreground shrink-0" />
@@ -986,199 +1006,11 @@ export default function ProductsPage({
             </div>
 
             {/* ════════════════════════════════════════════════════════════════
-                MODAL: EDIT COMPOSITE ITEM / BILL OF MATERIALS (BOM)
-               ════════════════════════════════════════════════════════════════ */}
-            <Dialog open={isBomOpen} onOpenChange={setIsBomOpen}>
-                <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col justify-between overflow-hidden rounded-2xl border-border/70 p-0 shadow-2xl bg-card text-card-foreground">
-                    <div className="p-7 pb-4 flex-1 overflow-y-auto">
-                        <DialogHeader className="space-y-1.5 text-left">
-                            <DialogTitle className="text-xl font-bold tracking-tight text-foreground">
-                                Edit Composite Item
-                            </DialogTitle>
-                            <DialogDescription className="text-sm text-muted-foreground">
-                                Define the formulation recipe and per-unit raw material quantities for this finished product.
-                            </DialogDescription>
-                        </DialogHeader>
-
-                        {/* Product Summary Card */}
-                        <div className="mt-5 mb-5 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border/70 bg-muted/20 p-4">
-                            <div className="flex items-center gap-3.5">
-                                <div className="size-14 rounded-lg bg-card border border-border/80 p-1 flex items-center justify-center overflow-hidden shadow-xs shrink-0">
-                                    {bomProduct?.image_url ? (
-                                        <img
-                                            src={bomProduct.image_url}
-                                            alt={bomProduct.name}
-                                            className="size-full object-cover rounded"
-                                        />
-                                    ) : (
-                                        <Package className="size-7 text-muted-foreground stroke-[1.5]" />
-                                    )}
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-foreground text-base leading-tight">
-                                        {bomProduct?.name}
-                                    </h3>
-                                    <p className="font-mono text-xs font-semibold text-primary mt-0.5">
-                                        {bomProduct?.product_code || `FP-${String(bomProduct?.product_type_id).padStart(4, '0')}`}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground mt-0.5">
-                                        Composite Item / Bill of Materials (Strictly Raw Materials)
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="text-right">
-                                <p className="text-xs text-muted-foreground font-medium">Calculated Formulation Cost</p>
-                                <p className="text-2xl font-black text-blue-600 dark:text-blue-400">
-                                    ₱{totalBomCost.toFixed(2)}
-                                    <span className="text-xs font-normal text-muted-foreground ml-1">/ unit</span>
-                                </p>
-                            </div>
-                        </div>
-
-                        <form id="bom-form" onSubmit={handleSaveBom}>
-                            {/* BOM Table */}
-                            <div className="overflow-x-auto rounded-xl border border-border/70 bg-card">
-                                <table className="w-full text-left text-xs border-collapse">
-                                    <thead>
-                                        <tr className="border-b border-border text-muted-foreground uppercase tracking-wider text-[11px] font-semibold bg-muted/40">
-                                            <th className="py-3 px-3 w-10 text-center">#</th>
-                                            <th className="py-3 px-3 w-[45%]">Item (Raw Material)</th>
-                                            <th className="py-3 px-3 w-[22%]">
-                                                <span className="inline-flex items-center gap-1">
-                                                    Quantity (per unit)
-                                                    <Info className="size-3 text-muted-foreground" />
-                                                </span>
-                                            </th>
-                                            <th className="py-3 px-3 w-[15%]">Rate (₱)</th>
-                                            <th className="py-3 px-3 w-[15%]">Amount (₱)</th>
-                                            <th className="py-3 px-3 w-10 text-center"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-border/60">
-                                        {bomRows.length === 0 ? (
-                                            <tr>
-                                                <td colSpan={6} className="text-center py-8 text-muted-foreground">
-                                                    No raw materials in this recipe yet. Click "Add Raw Material" below.
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            bomRows.map((row, idx) => (
-                                                <tr key={idx} className="hover:bg-muted/20 transition-colors">
-                                                    <td className="py-3 px-3 text-center text-muted-foreground font-mono text-xs">
-                                                        {idx + 1}
-                                                    </td>
-
-                                                    {/* Raw Material Combobox (Dropdown with Search Suggestions) */}
-                                                    <td className="py-3 px-3">
-                                                        <RawMaterialCombobox
-                                                            value={row.product_id}
-                                                            options={rawMaterials}
-                                                            onChange={(newId) =>
-                                                                handleUpdateBomRow(idx, 'product_id', newId)
-                                                            }
-                                                        />
-                                                    </td>
-
-                                                    {/* Quantity */}
-                                                    <td className="py-3 px-3">
-                                                        <div className="flex items-center gap-1.5">
-                                                            <Input
-                                                                type="number"
-                                                                step="0.0001"
-                                                                min="0"
-                                                                value={row.quantity_per_unit}
-                                                                onChange={(e) =>
-                                                                    handleUpdateBomRow(
-                                                                        idx,
-                                                                        'quantity_per_unit',
-                                                                        e.target.value
-                                                                    )
-                                                                }
-                                                                placeholder="0.00"
-                                                                required
-                                                                className="h-9 text-xs font-mono bg-background border-input/80 text-foreground shadow-xs focus:ring-1 focus:ring-primary"
-                                                            />
-                                                            <span className="text-muted-foreground font-medium text-xs whitespace-nowrap">
-                                                                {row.unit_of_measure}
-                                                            </span>
-                                                        </div>
-                                                    </td>
-
-                                                    {/* Rate */}
-                                                    <td className="py-3 px-3">
-                                                        <span className="text-xs font-mono text-muted-foreground">
-                                                            ₱{Number(row.rate).toFixed(2)}
-                                                        </span>
-                                                    </td>
-
-                                                    {/* Amount */}
-                                                    <td className="py-3 px-3">
-                                                        <span className="text-xs font-mono font-bold text-foreground">
-                                                            ₱{Number(row.amount).toFixed(2)}
-                                                        </span>
-                                                    </td>
-
-                                                    {/* Remove */}
-                                                    <td className="py-3 px-3 text-center">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleRemoveBomRow(idx)}
-                                                            className="text-muted-foreground hover:text-destructive rounded-full p-1 transition-colors"
-                                                            title="Remove material"
-                                                        >
-                                                            <X className="size-4" />
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <div className="mt-4">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={handleAddBomRow}
-                                    className="h-9 rounded-lg border-primary/30 text-primary hover:bg-primary/10 text-xs font-semibold gap-1.5 shadow-xs"
-                                >
-                                    <Plus className="size-3.5" />
-                                    <span>Add Raw Material</span>
-                                </Button>
-                            </div>
-                        </form>
-                    </div>
-
-                    <div className="flex items-center justify-end gap-3 border-t border-border/60 bg-muted/20 px-7 py-4 rounded-b-2xl">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setIsBomOpen(false)}
-                            className="h-10 rounded-lg border-border/80 bg-background px-5 text-sm font-semibold text-foreground shadow-sm hover:bg-muted"
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            type="submit"
-                            form="bom-form"
-                            disabled={savingBom}
-                            className="h-10 rounded-lg bg-blue-600 hover:bg-blue-700 px-5 text-sm font-semibold text-white shadow-sm disabled:opacity-50"
-                        >
-                            {savingBom ? 'Saving...' : 'Save changes'}
-                        </Button>
-                    </div>
-                </DialogContent>
-            </Dialog>
-
-            {/* ════════════════════════════════════════════════════════════════
                 MODAL: ADD / EDIT FINISHED PRODUCT
-                (Consolidated Tabs: General | Packaging | Customization | MOQ)
+                (Tabs: General Info | Starter Package | Gold Package | Elite Package)
                ════════════════════════════════════════════════════════════════ */}
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-                <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col justify-between overflow-hidden rounded-2xl border-border/70 p-0 shadow-2xl bg-card text-card-foreground">
+                <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col justify-between overflow-hidden rounded-2xl border-border/70 p-0 shadow-2xl bg-card text-card-foreground">
                     <div className="p-7 pb-4 flex-1 overflow-y-auto">
                         <DialogHeader className="space-y-1.5 text-left">
                             <DialogTitle className="text-xl font-bold tracking-tight text-foreground">
@@ -1186,73 +1018,61 @@ export default function ProductsPage({
                             </DialogTitle>
                             <DialogDescription className="text-sm text-muted-foreground">
                                 {editingProduct
-                                    ? 'Update catalog details, packaging options, customization options, and Minimum Order Quantity (MOQ).'
-                                    : 'Create a finished product and configure its packaging, customization, and MOQ rules.'}
+                                    ? 'Update product catalog details and Starter / Gold / Elite package MOQs & BOMs.'
+                                    : 'Create a finished product in the catalog.'}
                             </DialogDescription>
                         </DialogHeader>
 
-                        {/* Inner Modal Tabs: General | Packaging | Customization | MOQ */}
-                        <div className="flex items-center gap-1.5 p-1.5 bg-muted/40 border border-border/70 rounded-xl mt-5 mb-5">
-                            <button
-                                type="button"
-                                onClick={() => setModalTab('general')}
-                                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${modalTab === 'general'
-                                    ? 'bg-card text-foreground shadow-xs border border-border/80'
-                                    : 'text-muted-foreground hover:text-foreground hover:bg-card/40'
-                                    }`}
-                            >
-                                <Package className="size-3.5" />
-                                <span>General Info</span>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setModalTab('packaging')}
-                                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${modalTab === 'packaging'
-                                    ? 'bg-card text-foreground shadow-xs border border-border/80'
-                                    : 'text-muted-foreground hover:text-foreground hover:bg-card/40'
-                                    }`}
-                            >
-                                <Box className="size-3.5" />
-                                <span>Packaging</span>
-                                {formData.packaging_ids.length > 0 && (
-                                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-primary/20 text-primary">
-                                        {formData.packaging_ids.length}
-                                    </span>
-                                )}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setModalTab('customization')}
-                                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${modalTab === 'customization'
-                                    ? 'bg-card text-foreground shadow-xs border border-border/80'
-                                    : 'text-muted-foreground hover:text-foreground hover:bg-card/40'
-                                    }`}
-                            >
-                                <Sparkles className="size-3.5" />
-                                <span>Customization</span>
-                                {formData.customization_ids.length > 0 && (
-                                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-primary/20 text-primary">
-                                        {formData.customization_ids.length}
-                                    </span>
-                                )}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setModalTab('moq')}
-                                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${modalTab === 'moq'
-                                    ? 'bg-card text-foreground shadow-xs border border-border/80'
-                                    : 'text-muted-foreground hover:text-foreground hover:bg-card/40'
-                                    }`}
-                            >
-                                <SlidersHorizontal className="size-3.5" />
-                                <span>MOQ &amp; Specs</span>
-                                {formData.min_quantity && (
-                                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-primary/20 text-primary">
-                                        {formData.min_quantity}
-                                    </span>
-                                )}
-                            </button>
-                        </div>
+                        {editingProduct ? (
+                            <div className="flex flex-wrap items-center gap-1.5 p-1.5 bg-muted/40 border border-border/70 rounded-xl mt-5 mb-5">
+                                <button
+                                    type="button"
+                                    onClick={() => setModalTab('general')}
+                                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${modalTab === 'general'
+                                        ? 'bg-card text-foreground shadow-xs border border-border/80'
+                                        : 'text-muted-foreground hover:text-foreground hover:bg-card/40'
+                                        }`}
+                                >
+                                    <Package className="size-3.5" />
+                                    <span>General Info</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setModalTab('starter')}
+                                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${modalTab === 'starter'
+                                        ? 'bg-card text-foreground shadow-xs border border-border/80'
+                                        : 'text-muted-foreground hover:text-foreground hover:bg-card/40'
+                                        }`}
+                                >
+                                    <Box className="size-3.5" />
+                                    <span>Starter</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setModalTab('gold')}
+                                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${modalTab === 'gold'
+                                        ? 'bg-card text-foreground shadow-xs border border-border/80'
+                                        : 'text-muted-foreground hover:text-foreground hover:bg-card/40'
+                                        }`}
+                                >
+                                    <FlaskConical className="size-3.5 text-amber-500" />
+                                    <span>Gold</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setModalTab('elite')}
+                                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${modalTab === 'elite'
+                                        ? 'bg-card text-foreground shadow-xs border border-border/80'
+                                        : 'text-muted-foreground hover:text-foreground hover:bg-card/40'
+                                        }`}
+                                >
+                                    <Sparkles className="size-3.5 text-blue-500" />
+                                    <span>Elite</span>
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="mt-5" />
+                        )}
 
                         <form id="product-modal-form" onSubmit={handleFormSubmit} className="space-y-4 py-1">
                             {Object.keys(formErrors).length > 0 && (
@@ -1628,6 +1448,35 @@ export default function ProductsPage({
                                         </p>
                                     </div>
 
+                                    {editingProduct?.package_tiers && editingProduct.package_tiers.length > 0 && (
+                                        <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5 space-y-2.5">
+                                            <p className="text-[11px] font-bold uppercase tracking-wider text-primary">
+                                                Active Package MOQ Tiers
+                                            </p>
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                                                {editingProduct.package_tiers.map((tier) => (
+                                                    <div key={tier.slug} className="rounded-lg border border-border/70 bg-card p-2.5">
+                                                        <p className="text-xs font-bold text-foreground">{tier.name}</p>
+                                                        <p className="mt-0.5 font-mono text-xs font-semibold text-primary">
+                                                            {tier.max_quantity
+                                                                ? `${tier.minimum_quantity.toLocaleString()} – ${tier.max_quantity.toLocaleString()} pouches`
+                                                                : `${tier.minimum_quantity.toLocaleString()} pouches`}
+                                                        </p>
+                                                        <p className="mt-0.5 text-[10px] text-muted-foreground">
+                                                            {tier.max_quantity
+                                                                ? 'Selectable MOQ (Min 100 · Max 500)'
+                                                                : tier.slug === 'gold'
+                                                                    ? 'Stored MOQ · 150 pouches/batch'
+                                                                    : tier.slug === 'elite'
+                                                                        ? 'Stored MOQ · 350 pouches/batch'
+                                                                        : tier.label_details}
+                                                        </p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="space-y-1.5">
                                             <Label htmlFor="prod-moq" className="text-xs font-semibold text-foreground">
@@ -1705,17 +1554,334 @@ export default function ProductsPage({
                                 </div>
                             )}
 
+                            {/* ── TAB 2: Global Main BOM (Unlimited Master Formula) ── */}
+                            {modalTab === 'bom' && editingProduct && (() => {
+                                const totalMainBomCost = mainBomRows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+                                return (
+                                    <div className="space-y-4 animate-in fade-in-50 duration-150">
+                                        <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border/70 bg-muted/20 p-4">
+                                            <div className="flex items-center gap-3.5">
+                                                <div className="size-14 rounded-lg bg-card border border-border/80 p-1 flex items-center justify-center overflow-hidden shadow-xs shrink-0">
+                                                    {editingProduct.image_url ? (
+                                                        <img
+                                                            src={editingProduct.image_url}
+                                                            alt={editingProduct.name}
+                                                            className="size-full object-cover rounded"
+                                                        />
+                                                    ) : (
+                                                        <Package className="size-7 text-muted-foreground stroke-[1.5]" />
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-bold text-foreground text-base leading-tight">
+                                                        {editingProduct.name}
+                                                    </h4>
+                                                    <p className="font-mono text-xs font-semibold text-primary mt-0.5">
+                                                        {editingProduct.product_code || `FP-${String(editingProduct.product_type_id).padStart(4, '0')}`}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground mt-0.5">
+                                                        Global Master Bill of Materials (applies to all Starter, Gold, and Elite orders)
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-xs text-muted-foreground font-medium">Calculated Formulation Cost</p>
+                                                <p className="text-2xl font-black text-blue-600 dark:text-blue-400">
+                                                    ₱{totalMainBomCost.toFixed(2)}
+                                                    <span className="text-xs font-normal text-muted-foreground ml-1">/ unit</span>
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="overflow-x-auto rounded-xl border border-border/70 bg-card">
+                                            <table className="w-full text-left text-xs border-collapse">
+                                                <thead>
+                                                    <tr className="border-b border-border text-muted-foreground uppercase tracking-wider text-[11px] font-semibold bg-muted/40">
+                                                        <th className="py-3 px-3 w-10 text-center">#</th>
+                                                        <th className="py-3 px-3 w-[45%]">Item (Raw Material)</th>
+                                                        <th className="py-3 px-3 w-[22%]">
+                                                            <span className="inline-flex items-center gap-1">
+                                                                Quantity (per unit)
+                                                                <Info className="size-3 text-muted-foreground" />
+                                                            </span>
+                                                        </th>
+                                                        <th className="py-3 px-3 w-[15%]">Rate (₱)</th>
+                                                        <th className="py-3 px-3 w-[15%]">Amount (₱)</th>
+                                                        <th className="py-3 px-3 w-10 text-center"></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-border/60">
+                                                    {mainBomRows.length === 0 ? (
+                                                        <tr>
+                                                            <td colSpan={6} className="text-center py-8 text-muted-foreground">
+                                                                No raw materials in the global recipe yet. Click &ldquo;Add Raw Material&rdquo; below.
+                                                            </td>
+                                                        </tr>
+                                                    ) : (
+                                                        mainBomRows.map((row, idx) => (
+                                                            <tr key={idx} className="hover:bg-muted/20 transition-colors">
+                                                                <td className="py-2.5 px-3 text-center text-muted-foreground font-mono text-xs">
+                                                                    {idx + 1}
+                                                                </td>
+                                                                <td className="py-2.5 px-3">
+                                                                    <RawMaterialCombobox
+                                                                        value={row.product_id}
+                                                                        options={rawMaterials}
+                                                                        onChange={(newId) => handleUpdateBomRow('main', idx, 'product_id', newId)}
+                                                                    />
+                                                                </td>
+                                                                <td className="py-2.5 px-3">
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <Input
+                                                                            type="number"
+                                                                            step="0.0001"
+                                                                            min="0"
+                                                                            value={row.quantity_per_unit}
+                                                                            onChange={(e) => handleUpdateBomRow('main', idx, 'quantity_per_unit', e.target.value)}
+                                                                            placeholder="0.00"
+                                                                            className="h-9 text-xs font-mono bg-background border-input/80 text-foreground shadow-xs"
+                                                                        />
+                                                                        <span className="text-muted-foreground font-medium text-xs whitespace-nowrap">
+                                                                            {row.unit_of_measure}
+                                                                        </span>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="py-2.5 px-3">
+                                                                    <span className="text-xs font-mono text-muted-foreground">
+                                                                        ₱{Number(row.rate).toFixed(2)}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="py-2.5 px-3">
+                                                                    <span className="text-xs font-mono font-bold text-foreground">
+                                                                        ₱{Number(row.amount).toFixed(2)}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="py-2.5 px-3 text-center">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleRemoveBomRow('main', idx)}
+                                                                        className="text-muted-foreground hover:text-destructive rounded-full p-1 transition-colors"
+                                                                        title="Remove material"
+                                                                    >
+                                                                        <X className="size-4" />
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        ))
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        <div className="flex flex-wrap items-center justify-between gap-3">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleAddBomRow('main')}
+                                                className="h-9 rounded-lg border-primary/30 text-primary hover:bg-primary/10 text-xs font-semibold gap-1.5 shadow-xs"
+                                            >
+                                                <Plus className="size-3.5" />
+                                                <span>Add Raw Material</span>
+                                            </Button>
+                                            <span className="text-[11px] text-muted-foreground">
+                                                Per-client Gold (+6) and Elite (+8) herbal limits are enforced in Product Requests.
+                                            </span>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                            {/* ── TAB 3: Starter Package (Adjustable MOQ, no custom BOM) ── */}
+                            {modalTab === 'starter' && editingProduct && (
+                                <div className="space-y-4 animate-in fade-in-50 duration-150">
+                                    <div className="rounded-xl border border-border/70 bg-muted/20 p-4 space-y-3">
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <div>
+                                                <h4 className="text-sm font-bold text-foreground">Starter Package Settings</h4>
+                                                <p className="text-xs text-muted-foreground mt-0.5">
+                                                    Stand-up pouch, 12 × 20 cm · Sticker label · 120 g · Lead time: 10–15 business days
+                                                </p>
+                                            </div>
+                                            <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-bold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+                                                Selectable MOQ (Min {packageMoqs.starter || '100'} – Max 500)
+                                            </span>
+                                        </div>
+
+                                        <div className="max-w-xs space-y-1.5 pt-1">
+                                            <Label htmlFor="starter-moq-input" className="text-xs font-semibold text-foreground">
+                                                Starter Base MOQ (pouches)
+                                            </Label>
+                                            <Input
+                                                id="starter-moq-input"
+                                                type="number"
+                                                min="1"
+                                                max="500"
+                                                value={packageMoqs.starter}
+                                                onChange={(e) => setPackageMoqs((prev) => ({ ...prev, starter: e.target.value }))}
+                                                className="h-9 font-mono text-xs bg-background"
+                                            />
+                                            <p className="text-[11px] text-muted-foreground">
+                                                Default is 100 pouches (clients can select up to 500 pouches on mobile).
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-800 dark:text-amber-200">
+                                        <span className="font-bold">Starter Package has no custom BOM.</span> It uses the global Main BOM untouched. Use <span className="font-bold">Gold</span> or <span className="font-bold">Elite</span> tabs to configure package-level BOMs.
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ── TAB 4 & 5: Gold & Elite Packages (Adjustable MOQ + Unlimited Package BOM) ── */}
+                            {(modalTab === 'gold' || modalTab === 'elite') && editingProduct && (() => {
+                                const pkg = modalTab;
+                                const rows = pkg === 'gold' ? goldBomRows : eliteBomRows;
+                                const baseCost = mainBomRows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+                                const addonCost = rows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+                                const totalCost = baseCost + addonCost;
+                                return (
+                                    <div className="space-y-4 animate-in fade-in-50 duration-150">
+                                        <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border/70 bg-muted/20 p-4">
+                                            <div className="space-y-2 flex-1 min-w-[240px]">
+                                                <div>
+                                                    <h4 className="font-bold text-foreground text-base leading-tight">
+                                                        {editingProduct.name} — {pkg === 'gold' ? 'Gold Package' : 'Elite Package'}
+                                                    </h4>
+                                                    <p className="text-xs text-muted-foreground mt-0.5">
+                                                        Adjust package base MOQ and global {pkg === 'gold' ? 'Gold' : 'Elite'} BOM (no +6/+8 limit here; client herbal limits apply in Product Requests).
+                                                    </p>
+                                                </div>
+                                                <div className="max-w-xs space-y-1">
+                                                    <Label htmlFor={`${pkg}-moq-input`} className="text-xs font-semibold text-foreground">
+                                                        {pkg === 'gold' ? 'Gold' : 'Elite'} Base MOQ (pouches)
+                                                    </Label>
+                                                    <Input
+                                                        id={`${pkg}-moq-input`}
+                                                        type="number"
+                                                        min="1"
+                                                        value={packageMoqs[pkg]}
+                                                        onChange={(e) => setPackageMoqs((prev) => ({ ...prev, [pkg]: e.target.value }))}
+                                                        className="h-9 font-mono text-xs bg-background"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-xs text-muted-foreground font-medium">Calculated Formulation Cost</p>
+                                                <p className="text-2xl font-black text-blue-600 dark:text-blue-400">
+                                                    ₱{totalCost.toFixed(2)}
+                                                    <span className="text-xs font-normal text-muted-foreground ml-1">/ unit</span>
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="overflow-x-auto rounded-xl border border-border/70 bg-card">
+                                            <table className="w-full text-left text-xs border-collapse">
+                                                <thead>
+                                                    <tr className="border-b border-border text-muted-foreground uppercase tracking-wider text-[11px] font-semibold bg-muted/40">
+                                                        <th className="py-3 px-3 w-10 text-center">#</th>
+                                                        <th className="py-3 px-3 w-[45%]">Item (Raw Material)</th>
+                                                        <th className="py-3 px-3 w-[22%]">Quantity (per unit)</th>
+                                                        <th className="py-3 px-3 w-[15%]">Rate (₱)</th>
+                                                        <th className="py-3 px-3 w-[15%]">Amount (₱)</th>
+                                                        <th className="py-3 px-3 w-10 text-center"></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-border/60">
+                                                    {mainBomRows.map((row, bIdx) => (
+                                                        <tr key={`base-${bIdx}`} className="bg-muted/15">
+                                                            <td className="py-2.5 px-3 text-center text-muted-foreground font-mono text-xs">{bIdx + 1}</td>
+                                                            <td className="py-2.5 px-3">
+                                                                <div className="flex items-center justify-between gap-2 rounded-lg border border-border/70 bg-muted/40 px-3 py-2 text-xs text-foreground">
+                                                                    <span className="truncate font-medium">
+                                                                        {row.raw_material_name} {row.raw_material_sku ? `(${row.raw_material_sku})` : ''} — ₱{Number(row.rate).toFixed(2)}/{row.unit_of_measure || 'kg'}
+                                                                    </span>
+                                                                    <span className="shrink-0 rounded bg-background/80 px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground border border-border/60">
+                                                                        Base
+                                                                    </span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="py-2.5 px-3">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <div className="h-9 flex-1 flex items-center rounded-md border border-border/60 bg-muted/40 px-3 font-mono text-xs text-foreground">
+                                                                        {row.quantity_per_unit}
+                                                                    </div>
+                                                                    <span className="text-muted-foreground font-medium text-xs whitespace-nowrap">{row.unit_of_measure || 'kg'}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="py-2.5 px-3 font-mono text-muted-foreground">₱{Number(row.rate).toFixed(2)}</td>
+                                                            <td className="py-2.5 px-3 font-mono font-bold text-foreground">₱{Number(row.amount).toFixed(2)}</td>
+                                                            <td className="py-2.5 px-3 text-center text-muted-foreground">—</td>
+                                                        </tr>
+                                                    ))}
+
+                                                    {rows.map((row, idx) => (
+                                                        <tr key={`pkg-${idx}`} className="hover:bg-muted/20 transition-colors">
+                                                            <td className="py-2.5 px-3 text-center text-primary font-mono font-bold text-xs">
+                                                                {mainBomRows.length + idx + 1}
+                                                            </td>
+                                                            <td className="py-2.5 px-3">
+                                                                <RawMaterialCombobox
+                                                                    value={row.product_id}
+                                                                    options={rawMaterials}
+                                                                    onChange={(newId) => handleUpdateBomRow(pkg, idx, 'product_id', newId)}
+                                                                />
+                                                            </td>
+                                                            <td className="py-2.5 px-3">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <Input
+                                                                        type="number"
+                                                                        step="0.0001"
+                                                                        min="0"
+                                                                        value={row.quantity_per_unit}
+                                                                        onChange={(e) => handleUpdateBomRow(pkg, idx, 'quantity_per_unit', e.target.value)}
+                                                                        placeholder="0.00"
+                                                                        className="h-9 text-xs font-mono bg-background border-input/80 text-foreground shadow-xs"
+                                                                    />
+                                                                    <span className="text-muted-foreground font-medium text-xs whitespace-nowrap">{row.unit_of_measure}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="py-2.5 px-3 font-mono text-muted-foreground">₱{Number(row.rate).toFixed(2)}</td>
+                                                            <td className="py-2.5 px-3 font-mono font-bold text-foreground">₱{Number(row.amount).toFixed(2)}</td>
+                                                            <td className="py-2.5 px-3 text-center">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleRemoveBomRow(pkg, idx)}
+                                                                    className="text-muted-foreground hover:text-destructive rounded-full p-1 transition-colors"
+                                                                    title="Remove material"
+                                                                >
+                                                                    <X className="size-4" />
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        <div className="flex flex-wrap items-center justify-between gap-3">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleAddBomRow(pkg)}
+                                                className="h-9 rounded-lg border-primary/30 text-primary hover:bg-primary/10 text-xs font-semibold gap-1.5 shadow-xs"
+                                            >
+                                                <Plus className="size-3.5" />
+                                                <span>Add Raw Material</span>
+                                            </Button>
+                                            <span className="text-[11px] text-muted-foreground">
+                                                Unlimited global {pkg === 'gold' ? 'Gold' : 'Elite'} BOM items. Per-client herbal caps (+6 / +8) apply in Product Requests.
+                                            </span>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
                         </form>
                     </div>
 
-                    <div className="flex items-center justify-between border-t border-border/60 bg-muted/20 px-7 py-4 rounded-b-2xl">
-                        <div className="text-[11px] font-medium text-muted-foreground">
-                            {modalTab === 'general' && 'Page 1 of 4: Basic catalog info'}
-                            {modalTab === 'packaging' && 'Page 2 of 4: Approved packaging choices'}
-                            {modalTab === 'customization' && 'Page 3 of 4: Custom finish & label methods'}
-                            {modalTab === 'moq' && 'Page 4 of 4: Batch minimums & specifications'}
-                        </div>
-
+                    <div className="flex items-center justify-end border-t border-border/60 bg-muted/20 px-7 py-4 rounded-b-2xl">
                         <div className="flex items-center gap-3">
                             <Button
                                 type="button"
@@ -1725,14 +1891,33 @@ export default function ProductsPage({
                             >
                                 Cancel
                             </Button>
-                            <Button
-                                type="submit"
-                                form="product-modal-form"
-                                disabled={submitting || !isProductFormValid}
-                                className="h-10 rounded-lg bg-blue-600 hover:bg-blue-700 px-5 text-sm font-semibold text-white shadow-sm disabled:opacity-50"
-                            >
-                                {submitting ? 'Saving...' : editingProduct ? 'Save All Changes' : 'Create Product'}
-                            </Button>
+                            {modalTab === 'general' ? (
+                                <Button
+                                    type="submit"
+                                    form="product-modal-form"
+                                    disabled={submitting || !isProductFormValid}
+                                    className="h-10 rounded-lg bg-blue-600 hover:bg-blue-700 px-5 text-sm font-semibold text-white shadow-sm disabled:opacity-50"
+                                >
+                                    {submitting ? 'Saving...' : editingProduct ? 'Save All Changes' : 'Create Product'}
+                                </Button>
+                            ) : (
+                                <Button
+                                    type="button"
+                                    disabled={savingBom}
+                                    onClick={() => handleSavePackageOrBom(modalTab === 'bom' ? 'main' : modalTab)}
+                                    className="h-10 rounded-lg bg-blue-600 hover:bg-blue-700 px-5 text-sm font-semibold text-white shadow-sm disabled:opacity-50"
+                                >
+                                    {savingBom
+                                        ? 'Saving...'
+                                        : modalTab === 'bom'
+                                            ? 'Save Main BOM'
+                                            : modalTab === 'starter'
+                                                ? 'Save Starter MOQ'
+                                                : modalTab === 'gold'
+                                                    ? 'Save Gold Settings'
+                                                    : 'Save Elite Settings'}
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </DialogContent>

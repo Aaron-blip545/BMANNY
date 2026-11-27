@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProductReviewController;
 use App\Http\Controllers\InquiryController;
 use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\OrderController;
@@ -18,6 +19,7 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:au
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:auth');
 Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:auth');
 Route::get('/products', [ProductController::class, 'index']);
+Route::get('/products/{product_type_id}/reviews', [ProductReviewController::class, 'index']);
 Route::get('/product-categories', [ProductController::class, 'categories']);
 Route::get('/customization-materials', [ProductController::class, 'customizationMaterials']);
 
@@ -92,6 +94,13 @@ Route::middleware(['auth:sanctum', 'active.api'])->group(function () {
         Route::get('/packaging-balances', [InquiryController::class, 'packagingBalances']);
         Route::post('/packaging-balances/{balance_id}/reorder', [InquiryController::class, 'reorderFromBalance'])
             ->middleware('throttle:write');
+
+        // Shared Product Reviews (visible to all clients)
+        Route::post('/products/{product_type_id}/reviews', [ProductReviewController::class, 'store'])
+            ->middleware('throttle:write');
+        Route::post('/reviews/{review_id}', [ProductReviewController::class, 'update'])
+            ->middleware('throttle:write');
+        Route::delete('/reviews/{review_id}', [ProductReviewController::class, 'destroy']);
     });
 
     // ── Sales Agent & Admin Routes ───────────────────────────────────────────

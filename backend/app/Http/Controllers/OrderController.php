@@ -164,9 +164,15 @@ class OrderController extends Controller
                 'status'                   => $order->status,
                 'total_amount'             => $order->total_amount,
                 'initial_payment_amount'   => $order->initial_payment_amount,
+                'initial_payment_verified_at' => $order->initial_payment_verified_at,
                 'balance_payment_amount'   => $order->balance_payment_amount,
                 'balance_payment_submitted_at' => $order->balance_payment_submitted_at,
                 'balance_payment_verified_at' => $order->balance_payment_verified_at,
+                'payment_method'           => $order->quotation?->payment_method,
+                'payment_submitted_at'     => $order->quotation?->payment_submitted_at,
+                'payment_proof_url'        => $order->quotation?->payment_proof_path
+                    ? asset('storage/' . $order->quotation->payment_proof_path)
+                    : null,
                 'timeline' => array_values(array_filter([
                     $order->initial_payment_verified_at ? ['label' => 'Initial payment verified', 'at' => $order->initial_payment_verified_at] : null,
                     $order->status === 'in_production' || $order->status === 'ready_for_pickup' || $order->status === 'for_delivery' || $order->status === 'delivered' || $order->status === 'completed' ? ['label' => 'In production', 'at' => $order->updated_at] : null,
@@ -182,9 +188,13 @@ class OrderController extends Controller
                 'inquiry_id'               => $order->quotation?->inquiry?->inquiry_id,
                 'customizations'           => $order->quotation?->inquiry?->customizations
                     ?->map(fn ($c) => [
-                        'packaging_type' => $c->packaging_type,
-                        'serving_size'   => $c->serving_size,
-                        'client_notes'   => $c->client_notes,
+                        'selected_package'          => $c->selected_package,
+                        'packaging_type'            => $c->packaging_type,
+                        'packaging_finish'          => $c->packaging_finish,
+                        'serving_size'              => $c->serving_size,
+                        'requested_ingredient_note' => $c->requested_ingredient_note,
+                        'design_file_path'          => $c->design_file_path ? asset('storage/' . $c->design_file_path) : null,
+                        'client_notes'              => $c->client_notes,
                     ])->values() ?? [],
             ];
         })->values();

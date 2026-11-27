@@ -13,8 +13,15 @@ class ProductSeeder extends Seeder
         // 1. Create categories for Raw Materials used in Product Customization
         $categories = [
             'Flavors' => 'Raw flavor extracts, concentrates, and natural flavor ingredients.',
-            'Packaging Types' => 'Primary packaging containers, pouches, cans, boxes, and bulk packs.',
         ];
+
+        // Remove legacy Packaging Types products & category from raw materials inventory
+        $packagingCat = Category::whereRaw('LOWER(name) = ?', ['packaging types'])->first();
+        if ($packagingCat) {
+            Product::where('category_id', $packagingCat->category_id)->delete();
+            $packagingCat->delete();
+        }
+        Product::where('sku', 'like', 'PKG-%')->delete();
 
         $categoryModels = [];
         foreach ($categories as $name => $description) {
@@ -108,92 +115,7 @@ class ProductSeeder extends Seeder
                 'product_image'  => null,
                 'description'    => null,
             ],
-
-            // ── Packaging Types ────────────────────────────────────────────────
-            [
-                'name'           => 'Pouch',
-                'sku'            => 'PKG-PCH-001',
-                'category_id'    => $categoryModels['Packaging Types']->category_id,
-                'price'          => 15.00,
-                'stock_quantity' => 500,
-                'product_image'  => null,
-                'description'    => null,
-            ],
-            [
-                'name'           => 'Box',
-                'sku'            => 'PKG-BOX-002',
-                'category_id'    => $categoryModels['Packaging Types']->category_id,
-                'price'          => 25.00,
-                'stock_quantity' => 350,
-                'product_image'  => null,
-                'description'    => null,
-            ],
-            [
-                'name'           => 'Can',
-                'sku'            => 'PKG-CAN-003',
-                'category_id'    => $categoryModels['Packaging Types']->category_id,
-                'price'          => 30.00,
-                'stock_quantity' => 200,
-                'product_image'  => null,
-                'description'    => null,
-            ],
-            [
-                'name'           => 'Bottle',
-                'sku'            => 'PKG-BTL-004',
-                'category_id'    => $categoryModels['Packaging Types']->category_id,
-                'price'          => 20.00,
-                'stock_quantity' => 400,
-                'product_image'  => null,
-                'description'    => null,
-            ],
-            [
-                'name'           => 'Jar',
-                'sku'            => 'PKG-JAR-005',
-                'category_id'    => $categoryModels['Packaging Types']->category_id,
-                'price'          => 28.00,
-                'stock_quantity' => 150,
-                'product_image'  => null,
-                'description'    => null,
-            ],
-            [
-                'name'           => 'Sachet',
-                'sku'            => 'PKG-SCH-006',
-                'category_id'    => $categoryModels['Packaging Types']->category_id,
-                'price'          => 8.00,
-                'stock_quantity' => 600,
-                'product_image'  => null,
-                'description'    => null,
-            ],
-            [
-                'name'           => 'Tin',
-                'sku'            => 'PKG-TIN-007',
-                'category_id'    => $categoryModels['Packaging Types']->category_id,
-                'price'          => 35.00,
-                'stock_quantity' => 0, // OUT OF STOCK for testing
-                'product_image'  => null,
-                'description'    => null,
-            ],
-            [
-                'name'           => 'Bag',
-                'sku'            => 'PKG-BAG-008',
-                'category_id'    => $categoryModels['Packaging Types']->category_id,
-                'price'          => 12.00,
-                'stock_quantity' => 250,
-                'product_image'  => null,
-                'description'    => null,
-            ],
         ];
-
-        $validSkus = array_column($materials, 'sku');
-
-        // Remove any old finished products that are not raw materials
-        Product::whereNotIn('sku', $validSkus)->delete();
-
-        // Remove any old categories not in raw material categories
-        Category::whereNotIn('name', array_keys($categories))->delete();
-
-        // Ensure all existing product descriptions are cleared
-        Product::query()->update(['description' => null]);
 
         foreach ($materials as $m) {
             Product::updateOrCreate(
@@ -202,7 +124,7 @@ class ProductSeeder extends Seeder
             );
         }
 
-        // Finished-product catalog entries are maintained by BmannyCatalogSeeder.
+        // Finished-product catalog entries (AshigoPlus) are maintained by RawMaterialsAndBomSeeder & AshigoPackageSeeder.
 
         // Remove generic demo records that do not have official BMANNY images.
         \App\Models\ProductType::whereIn('name', [

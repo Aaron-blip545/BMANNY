@@ -210,6 +210,14 @@ export function parseCustomizationSheet(c?: Customization | null, inq?: PendingI
         ? formatDate(inq.created_at)
         : new Date().toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
 
+    const starterQty = packageItem?.slug === 'starter' ? extractStarterQuantity(inq, packageItem) : null;
+    const starterUnitPrice =
+        packageItem?.slug === 'starter'
+            ? Number(packageItem.initial_price) / Math.max(1, Number(packageItem.minimum_quantity) || 100)
+            : null;
+    const dynamicTotal =
+        starterQty !== null && starterUnitPrice !== null ? starterQty * starterUnitPrice : Number(packageItem?.initial_price ?? 0);
+
     return {
         companyName,
         contactPerson,
@@ -219,9 +227,17 @@ export function parseCustomizationSheet(c?: Customization | null, inq?: PendingI
         printing: packageItem?.label_details ?? printing,
         netWeight: packageItem?.net_weight ?? netWeight,
         ingredients,
-        moq: packageItem ? `${Number(packageItem.minimum_quantity).toLocaleString()} pouch` : moqFormatted,
-        priceUnit: packageItem ? 'Package price' : priceUnit,
-        priceTotal: packageItem ? `₱ ${Number(packageItem.initial_price).toLocaleString('en-PH', { minimumFractionDigits: 2 })}` : priceTotal,
+        moq: packageItem
+            ? `${(starterQty ?? Number(packageItem.minimum_quantity)).toLocaleString()} pouch`
+            : moqFormatted,
+        priceUnit: packageItem
+            ? starterUnitPrice !== null
+                ? `₱${starterUnitPrice.toLocaleString('en-PH', { minimumFractionDigits: 2 })} / pouch`
+                : 'Package price'
+            : priceUnit,
+        priceTotal: packageItem
+            ? `₱ ${dynamicTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
+            : priceTotal,
         date: formattedDate,
         isGcash,
     };
@@ -230,6 +246,32 @@ export function parseCustomizationSheet(c?: Customization | null, inq?: PendingI
 function selectedPackage(inq?: PendingInquiry | null, catalog: PackageCatalogItem[] = []): PackageCatalogItem | null {
     const slug = inq?.customizations?.[0]?.selected_package;
     return slug ? catalog.find((item) => item.slug === slug) ?? null : null;
+}
+
+export function extractStarterQuantity(inq?: PendingInquiry | null, packageItem?: PackageCatalogItem | null): number {
+    const fallback = Math.max(100, Number(packageItem?.minimum_quantity) || 100);
+    const first = inq?.customizations?.[0];
+    if (!first) return fallback;
+
+    const serving = first.serving_size || '';
+    const servingMatch = serving.match(/[×x]\s*([\d,]+)/i);
+    if (servingMatch) {
+        const parsed = parseInt(servingMatch[1].replace(/,/g, ''), 10);
+        if (!Number.isNaN(parsed) && parsed >= 100 && parsed <= 500) {
+            return parsed;
+        }
+    }
+
+    const notes = first.client_notes || '';
+    const notesMatch = notes.match(/(?:^|\|\s*)MOQ\s*:\s*([\d,]+)/i);
+    if (notesMatch) {
+        const parsed = parseInt(notesMatch[1].replace(/,/g, ''), 10);
+        if (!Number.isNaN(parsed) && parsed >= 100 && parsed <= 500) {
+            return parsed;
+        }
+    }
+
+    return fallback;
 }
 
 export function calculateInquiryTotal(inq?: PendingInquiry | null, catalog: PackageCatalogItem[] = []): string {
@@ -245,7 +287,14 @@ export function calculateInquiryTotal(inq?: PendingInquiry | null, catalog: Pack
         return (packCost + prodCost).toFixed(2);
     }
     const packageItem = selectedPackage(inq, catalog);
-    if (packageItem) return Number(packageItem.initial_price).toFixed(2);
+    if (packageItem) {
+        if (packageItem.slug === 'starter') {
+            const qty = extractStarterQuantity(inq, packageItem);
+            const unitPrice = Number(packageItem.initial_price) / Math.max(1, Number(packageItem.minimum_quantity) || 100);
+            return (qty * unitPrice).toFixed(2);
+        }
+        return Number(packageItem.initial_price).toFixed(2);
+    }
     if (!inq?.customizations?.length) return '';
     let total = 0;
     for (const c of inq.customizations) {
@@ -290,6 +339,16 @@ function calculateInquiryMilestones(inq?: PendingInquiry | null, catalog: Packag
     }
 
     const packageItem = selectedPackage(inq, catalog);
+
+    if (packageItem && packageItem.slug === 'starter') {
+        const half = totalNum / 2;
+        return {
+            initial: totalNum > 0 ? half.toFixed(2) : '',
+            balance: totalNum > 0 ? (totalNum - Number(half.toFixed(2))).toFixed(2) : '',
+            initialLabel: packageItem.before_production_label || 'Before production (50%)',
+            balanceLabel: packageItem.before_pickup_label || 'Before pickup (50%)',
+        };
+    }
 
     if (packageItem && packageItem.before_production_amount != null) {
         const defaultBeforeProd = Number(packageItem.before_production_amount);
@@ -369,23 +428,35 @@ export function buildAutoItemDetails(inq?: PendingInquiry | null, catalog: Packa
     const packageItem = selectedPackage(inq, catalog);
     if (packageItem) {
         const customerRequest = inq.customizations[0]?.requested_ingredient_note;
-        const milestones = calculateInquiryMilestones(inq, catalog);
-        const breakdownLines = Array.isArray(packageItem.cost_breakdown) && packageItem.cost_breakdown.length > 0
+        const isStarter = packageItem.slug === 'starter';
+        const starterQty = isStarter ? extractStarterQuantity(inq, packageItem) : Number(packageItem.minimum_quantity);
+        const starterUnitPrice = isStarter
+            ? Number(packageItem.initial_price) / Math.max(1, Number(packageItem.minimum_quantity) || 100)
+            : null;
+        const dynamicPackageAmount = isStarter && starterUnitPrice !== null ? starterQty * starterUnitPrice : Number(packageItem.initial_price);
+        const milestones = calculateInquiryMilestones(inq, catalog, dynamicPackageAmount.toFixed(2));
+        const breakdownLines = isStarter && starterUnitPrice !== null
             ? [
                 '',
                 'Package Cost Breakdown:',
-                ...packageItem.cost_breakdown.map(
-                    (line) => `• ${line.label}: ₱${Number(line.amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}${line.quantity ? ` (${line.quantity})` : ''}`,
-                ),
+                `• Package price per pouch: ₱${starterUnitPrice.toLocaleString('en-PH', { minimumFractionDigits: 2 })} × ${starterQty.toLocaleString()} pouches = ₱${dynamicPackageAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
             ]
-            : [];
+            : Array.isArray(packageItem.cost_breakdown) && packageItem.cost_breakdown.length > 0
+                ? [
+                    '',
+                    'Package Cost Breakdown:',
+                    ...packageItem.cost_breakdown.map(
+                        (line) => `• ${line.label}: ₱${Number(line.amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}${line.quantity ? ` (${line.quantity})` : ''}`,
+                    ),
+                ]
+                : [];
 
         return [
             `Item: ${packageItem.name}`,
-            `• MOQ: ${Number(packageItem.minimum_quantity).toLocaleString()} pouches`,
+            `• ${isStarter ? 'Selected Order Qty (MOQ 100–500)' : 'MOQ'}: ${starterQty.toLocaleString()} pouches`,
             `• Packaging: ${packageItem.packaging_details} (${packageItem.label_details})`,
             `• Net Weight: ${packageItem.net_weight}`,
-            `• Package Amount: ₱${Number(packageItem.initial_price).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
+            `• Package Amount: ₱${dynamicPackageAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
             `• Lead Time: ${packageItem.lead_time_text}`,
             customerRequest ? `• Customer request: ${customerRequest}` : null,
             ...breakdownLines,

@@ -77,7 +77,7 @@ export default function ChatDetailScreen() {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: true,
+        allowsEditing: false,
         quality: 0.8,
       });
 

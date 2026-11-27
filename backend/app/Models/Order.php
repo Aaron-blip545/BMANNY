@@ -21,6 +21,7 @@ class Order extends Model
         'total_amount',
         'initial_payment_amount',
         'initial_payment_verified_at',
+        'inventory_deducted_at',
         'balance_payment_amount',
         'balance_payment_method',
         'balance_payment_proof_path',
@@ -38,6 +39,7 @@ class Order extends Model
 
     protected $casts = [
         'initial_payment_verified_at' => 'datetime',
+        'inventory_deducted_at' => 'datetime',
         'balance_payment_submitted_at' => 'datetime',
         'balance_payment_verified_at' => 'datetime',
     ];

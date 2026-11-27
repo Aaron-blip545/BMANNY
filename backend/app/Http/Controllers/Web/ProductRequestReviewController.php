@@ -4,10 +4,10 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Models\Inquiry;
-use App\Models\PackagingOption;
+use App\Models\Product;
+use App\Models\ProductRecipe;
 use App\Models\ProductRequestReview;
 use App\Models\ProductType;
-use App\Models\ProductVariant;
 use App\Services\NotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,6 +18,47 @@ class ProductRequestReviewController extends Controller
 {
     public function index(): Response
     {
+        $rawMaterials = Product::orderBy('name')
+            ->get([
+                'product_id',
+                'sku',
+                'name',
+                'price',
+                'unit_of_measure',
+                'stock_quantity',
+                'reorder_level',
+            ])
+            ->map(fn ($m) => [
+                'product_id'      => $m->product_id,
+                'sku'             => $m->sku,
+                'name'            => $m->name,
+                'rate'            => (float) $m->price,
+                'unit_of_measure' => $m->unit_of_measure ?? 'kg',
+                'stock_quantity'  => (float) $m->stock_quantity,
+                'reorder_level'   => (float) ($m->reorder_level ?? 0),
+            ])
+            ->values();
+
+        $ashigo = ProductType::where('is_active', true)->orderBy('product_type_id')->first();
+        $baseBomRecipes = $ashigo
+            ? ProductRecipe::with('rawMaterial')
+                ->where('product_type_id', $ashigo->product_type_id)
+                ->whereNull('package_slug')
+                ->get()
+                ->map(fn ($r) => [
+                    'recipe_id'         => $r->recipe_id,
+                    'product_id'        => $r->product_id,
+                    'raw_material_name' => $r->rawMaterial?->name ?? 'Unknown Material',
+                    'raw_material_sku'  => $r->rawMaterial?->sku ?? '',
+                    'unit_of_measure'   => $r->rawMaterial?->unit_of_measure ?? 'kg',
+                    'stock_quantity'    => (float) ($r->rawMaterial?->stock_quantity ?? 0),
+                    'quantity_per_unit' => (float) $r->quantity_per_unit,
+                    'rate'              => (float) $r->rate,
+                    'amount'            => (float) $r->amount,
+                ])
+                ->values()
+            : collect();
+
         return Inertia::render('product-controller/requests', [
             'requests' => ProductRequestReview::with([
                 'inquiry.client.user', 'inquiry.customizations', 'productType', 'requestedVariant',
@@ -25,6 +66,8 @@ class ProductRequestReviewController extends Controller
             ])->latest()->get(),
             'productTypes' => ProductType::with(['variants' => fn ($query) => $query->available(), 'packagingOptions' => fn ($query) => $query->available()])
                 ->active()->orderBy('name')->get(),
+            'rawMaterials' => $rawMaterials,
+            'baseBomRecipes' => $baseBomRecipes,
         ]);
     }
 
@@ -58,18 +101,61 @@ class ProductRequestReviewController extends Controller
 
     public function review(Request $request, int $id): RedirectResponse
     {
-        $review = ProductRequestReview::with('inquiry.client.user')->findOrFail($id);
+        $review = ProductRequestReview::with(['inquiry.client.user', 'inquiry.customizations'])->findOrFail($id);
         $data = $request->validate([
             'status' => 'required|in:available,alternative,unavailable',
             'suggested_variant_id' => 'nullable|exists:product_variants,variant_id',
             'suggested_packaging_id' => 'nullable|exists:packaging_options,packaging_id',
             'response_notes' => 'required|string|max:2000',
+            'custom_bom_items' => 'nullable|array',
+            'custom_bom_items.*.product_id' => 'required|exists:products,product_id',
+            'custom_bom_items.*.quantity_per_unit' => 'required|numeric|min:0.000001',
         ]);
 
+        $selectedPackage = strtolower((string) ($review->inquiry?->customizations?->first()?->selected_package ?? 'starter'));
+        $rawCustomItems = $data['custom_bom_items'] ?? [];
+
+        if (! empty($rawCustomItems)) {
+            if ($selectedPackage === 'starter') {
+                return back()->withErrors([
+                    'custom_bom_items' => 'Starter Package uses the fixed global base formula and does not allow custom herbal add-on ingredients.',
+                ]);
+            }
+            $maxCustom = $selectedPackage === 'elite' ? 8 : 6;
+            if (count($rawCustomItems) > $maxCustom) {
+                return back()->withErrors([
+                    'custom_bom_items' => ucfirst($selectedPackage) . " Package allows a maximum of {$maxCustom} custom herbal add-on ingredients.",
+                ]);
+            }
+        }
+
+        $normalizedBom = [];
+        foreach ($rawCustomItems as $item) {
+            $material = Product::find($item['product_id']);
+            if (! $material) {
+                continue;
+            }
+            $qty = round((float) $item['quantity_per_unit'], 6);
+            $rate = round((float) $material->price, 2);
+            $normalizedBom[] = [
+                'product_id'        => $material->product_id,
+                'name'              => $material->name,
+                'sku'               => $material->sku,
+                'unit_of_measure'   => $material->unit_of_measure ?? 'kg',
+                'quantity_per_unit' => $qty,
+                'rate'              => $rate,
+                'amount'            => round($qty * $rate, 2),
+            ];
+        }
+
         $review->update([
-            ...$data,
-            'reviewed_by' => $request->user('web')->user_id,
-            'reviewed_at' => now(),
+            'status'                 => $data['status'],
+            'suggested_variant_id'   => $data['suggested_variant_id'] ?? null,
+            'suggested_packaging_id' => $data['suggested_packaging_id'] ?? null,
+            'response_notes'         => $data['response_notes'],
+            'custom_bom_items'       => ! empty($normalizedBom) ? $normalizedBom : null,
+            'reviewed_by'            => $request->user('web')->user_id,
+            'reviewed_at'            => now(),
         ]);
 
         // A completed Product Control decision advances the lead automatically.

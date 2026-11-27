@@ -17,13 +17,23 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { useTheme } from '../contexts/ThemeContext';
-import { getProducts, getApiBaseUrl, getMe, resolveImageUrl } from '../services/api';
+import {
+  getProducts,
+  getApiBaseUrl,
+  getMe,
+  resolveImageUrl,
+  getProductReviews,
+  createProductReview,
+  updateProductReview,
+  deleteProductReview,
+  type ProductReviewPayload,
+} from '../services/api';
 
 const { width } = Dimensions.get('window');
 
@@ -63,8 +73,66 @@ interface ProductReview {
   avatar_url?: string | null;
   rating: number;
   timeAgo: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  isEdited?: boolean;
   comment: string;
   photos?: (string | any)[];
+}
+
+function formatRelativeTime(
+  createdAt?: string | null,
+  updatedAt?: string | null,
+  isEdited?: boolean,
+  nowMs: number = Date.now(),
+): string {
+  const iso = (isEdited && updatedAt) ? updatedAt : (createdAt || updatedAt);
+  if (!iso) return 'Just now';
+
+  const parsed = new Date(iso).getTime();
+  if (Number.isNaN(parsed)) return 'Just now';
+
+  const diffSec = Math.max(0, Math.floor((nowMs - parsed) / 1000));
+  let label: string;
+  if (diffSec < 60) {
+    label = 'Just now';
+  } else if (diffSec < 3600) {
+    const mins = Math.floor(diffSec / 60);
+    label = mins === 1 ? '1 min ago' : `${mins} mins ago`;
+  } else if (diffSec < 86400) {
+    const hrs = Math.floor(diffSec / 3600);
+    label = hrs === 1 ? '1 hr ago' : `${hrs} hrs ago`;
+  } else if (diffSec < 86400 * 7) {
+    const days = Math.floor(diffSec / 86400);
+    label = days === 1 ? '1 day ago' : `${days} days ago`;
+  } else {
+    label = new Date(parsed).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  }
+
+  return isEdited ? `Edited · ${label}` : label;
+}
+
+function mapApiReview(r: ProductReviewPayload): ProductReview {
+  return {
+    id: String(r.id),
+    userId: r.user_id,
+    author: r.author || 'Verified Client',
+    avatar: r.avatar || 'VC',
+    avatar_url: r.avatar_url ? resolveImageUrl(r.avatar_url) : null,
+    rating: Number(r.rating) || 5,
+    timeAgo: formatRelativeTime(r.created_at, r.updated_at, r.is_edited),
+    createdAt: r.created_at ?? null,
+    updatedAt: r.updated_at ?? null,
+    isEdited: Boolean(r.is_edited),
+    comment: r.comment || '',
+    photos: Array.isArray(r.photos)
+      ? r.photos.map((p) => resolveImageUrl(p) || p).filter(Boolean)
+      : undefined,
+  };
 }
 
 const fallbackImages = [
@@ -80,6 +148,7 @@ const getDefaultReviews = (_productName?: string): ProductReview[] => [];
 
 export default function ProductDetailScreen() {
   const { colors, isDarkMode } = useTheme();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     id?: string;
     name?: string;
@@ -128,6 +197,8 @@ export default function ProductDetailScreen() {
   const [newAuthor, setNewAuthor] = useState('');
   const [newComment, setNewComment] = useState('');
   const [newPhotos, setNewPhotos] = useState<string[]>([]);
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [nowTick, setNowTick] = useState(() => Date.now());
   const [showPhotoPickerModal, setShowPhotoPickerModal] = useState(false);
   const [reviewAlertModal, setReviewAlertModal] = useState<{
     visible: boolean;
@@ -229,27 +300,32 @@ export default function ProductDetailScreen() {
       .catch(() => {});
   }, []);
 
-  // Load reviews from SecureStore (excluding placeholders)
+  // Load shared reviews from backend database so all clients see each other's reviews
+  const reviewProductTypeId = product?.product_type_id || productId;
+
   useEffect(() => {
-    if (!productId) return;
-    const storageKey = `bmanny_reviews_${productId}`;
-    SecureStore.getItemAsync(storageKey)
-      .then((val) => {
-        if (val) {
-          try {
-            const parsed = JSON.parse(val);
-            if (Array.isArray(parsed)) {
-              // Only leave actual client reviews; filter out any old placeholders
-              const clientOnly = parsed.filter(
-                (r: any) => r.id !== '1' && r.id !== '2' && r.id !== '3'
-              );
-              setReviews(clientOnly);
-            }
-          } catch (e) {}
-        }
+    if (!reviewProductTypeId) return;
+    let active = true;
+    getProductReviews(reviewProductTypeId)
+      .then((items) => {
+        if (!active) return;
+        setReviews(items.map(mapApiReview));
       })
-      .catch(() => {});
-  }, [productId]);
+      .catch((err) => {
+        console.warn('Failed to load product reviews:', err);
+      });
+    return () => {
+      active = false;
+    };
+  }, [reviewProductTypeId]);
+
+  // Keep relative review timestamps ("5 mins ago", "1 hr ago") fresh while viewing
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNowTick(Date.now());
+    }, 60_000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Load favorites from SecureStore
   useEffect(() => {
@@ -526,8 +602,8 @@ export default function ProductDetailScreen() {
 
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ['images'],
-        quality: 0.85,
-        allowsEditing: true,
+        quality: 0.9,
+        allowsEditing: false,
       });
 
       if (!result.canceled && result.assets && result.assets[0]?.uri) {
@@ -580,23 +656,29 @@ export default function ProductDetailScreen() {
       message: 'Are you sure you want to delete your review for this product?',
       type: 'confirm_delete',
       onConfirm: async () => {
-        const updated = reviews.filter((r) => r.id !== reviewId);
-        setReviews(updated);
         try {
-          const storageKey = `bmanny_reviews_${productId}`;
-          await SecureStore.setItemAsync(storageKey, JSON.stringify(updated));
-        } catch (e) {}
-        setReviewAlertModal({
-          visible: true,
-          title: 'Review Deleted',
-          message: 'Your review has been successfully removed.',
-          type: 'delete',
-        });
+          await deleteProductReview(reviewId);
+          setReviews((prev) => prev.filter((r) => r.id !== reviewId));
+          setReviewAlertModal({
+            visible: true,
+            title: 'Review Deleted',
+            message: 'Your review has been successfully removed.',
+            type: 'delete',
+          });
+        } catch (err: any) {
+          setReviewAlertModal({
+            visible: true,
+            title: 'Delete Failed',
+            message: err?.message || 'Unable to delete your review. Please try again.',
+            type: 'warning',
+          });
+        }
       },
     });
   };
 
   const handleSubmitReview = async () => {
+    if (submittingReview) return;
     const authorName = newAuthor.trim() || currentUser?.name || 'Verified Client';
     const commentText = newComment.trim();
     if (!commentText) {
@@ -609,81 +691,59 @@ export default function ProductDetailScreen() {
       return;
     }
 
-    const initials =
-      authorName
-        .split(' ')
-        .map((w) => w[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2) || 'VC';
+    setSubmittingReview(true);
+    try {
+      if (editingReviewId) {
+        const res = await updateProductReview(editingReviewId, {
+          rating: newRating,
+          comment: commentText,
+          author_name: authorName,
+          photos: newPhotos,
+        });
+        const mapped = mapApiReview(res.review);
+        setReviews((prev) => prev.map((r) => (r.id === editingReviewId ? mapped : r)));
+        setNowTick(Date.now());
+        setNewComment('');
+        setNewPhotos([]);
+        setEditingReviewId(null);
+        setShowReviewModal(false);
 
-    if (editingReviewId) {
-      // Editing existing review
-      const updated = reviews.map((r) => {
-        if (r.id === editingReviewId) {
-          return {
-            ...r,
-            author: authorName,
-            avatar: initials,
-            rating: newRating,
-            timeAgo: 'Edited just now',
-            comment: commentText,
-            photos: newPhotos.length > 0 ? [...newPhotos] : undefined,
-            avatar_url: currentUser?.avatarUrl ?? r.avatar_url ?? null,
-          };
-        }
-        return r;
-      });
+        setReviewAlertModal({
+          visible: true,
+          title: 'Review Updated',
+          message: 'Your review has been updated successfully!',
+          type: 'success',
+        });
+      } else {
+        const res = await createProductReview(reviewProductTypeId, {
+          rating: newRating,
+          comment: commentText,
+          author_name: authorName,
+          photos: newPhotos,
+        });
+        const mapped = mapApiReview(res.review);
+        setReviews((prev) => [mapped, ...prev]);
+        setNowTick(Date.now());
+        setNewComment('');
+        setNewPhotos([]);
+        setShowReviewModal(false);
 
-      setReviews(updated);
-      setNewComment('');
-      setNewPhotos([]);
-      setEditingReviewId(null);
-      setShowReviewModal(false);
-
-      try {
-        const storageKey = `bmanny_reviews_${productId}`;
-        await SecureStore.setItemAsync(storageKey, JSON.stringify(updated));
-      } catch (e) {}
-
+        setReviewAlertModal({
+          visible: true,
+          title: 'Review Submitted',
+          message: 'Thank you for your valuable feedback! Your review is now visible to other clients.',
+          type: 'success',
+        });
+      }
+    } catch (err: any) {
       setReviewAlertModal({
         visible: true,
-        title: 'Review Updated',
-        message: 'Your review has been updated successfully!',
-        type: 'success',
+        title: 'Unable to Save Review',
+        message: err?.message || 'Please check your connection and try again.',
+        type: 'warning',
       });
-    } else {
-      // Adding new review
-      const newRev: ProductReview = {
-        id: Date.now().toString(),
-        userId: currentUser?.id,
-        isOwnReview: true,
-        author: authorName,
-        avatar: initials,
-        avatar_url: currentUser?.avatarUrl || null,
-        rating: newRating,
-        timeAgo: 'Just now',
-        comment: commentText,
-        photos: newPhotos.length > 0 ? [...newPhotos] : undefined,
-      };
-
-      const updated = [newRev, ...reviews];
-      setReviews(updated);
-      setNewComment('');
-      setNewPhotos([]);
-      setShowReviewModal(false);
-
-      try {
-        const storageKey = `bmanny_reviews_${productId}`;
-        await SecureStore.setItemAsync(storageKey, JSON.stringify(updated));
-      } catch (e) {}
-
-      setReviewAlertModal({
-        visible: true,
-        title: 'Review Submitted',
-        message: 'Thank you for your valuable feedback and photos!',
-        type: 'success',
-      });
+    } finally {
+      setSubmittingReview(false);
     }
   };
 
@@ -759,14 +819,6 @@ export default function ProductDetailScreen() {
             >
               {product.name}
             </Text>
-            <Text
-              style={[
-                styles.productPrice,
-                { color: isDarkMode ? '#FFFFFF' : '#18181B' },
-              ]}
-            >
-              {formatPrice(product.price)}
-            </Text>
           </View>
 
           {/* Subtitle & Ratings Row */}
@@ -813,32 +865,6 @@ export default function ProductDetailScreen() {
             {product.description ||
               'High-grade contract manufacturing formulation designed for superior shelf stability, formulation consistency, and commercial scale production.'}
           </Text>
-
-          {/* System Specifications Badges (MOQ, Shelf Life, Lead Time) */}
-          <View style={styles.specsRow}>
-            <View style={[styles.specBadge, { backgroundColor: isDarkMode ? '#27272A' : '#F3F4F6' }]}>
-              <Ionicons name="cube-outline" size={12} color="#2196F3" style={{ marginRight: 4 }} />
-              <Text style={[styles.specLabel, { color: isDarkMode ? '#E4E4E7' : '#374151' }]}>
-                MOQ: <Text style={styles.specVal}>{product.moq || '100 units'}</Text>
-              </Text>
-            </View>
-
-            <View style={[styles.specBadge, { backgroundColor: isDarkMode ? '#27272A' : '#F3F4F6' }]}>
-              <Ionicons name="time-outline" size={12} color="#10B981" style={{ marginRight: 4 }} />
-              <Text style={[styles.specLabel, { color: isDarkMode ? '#E4E4E7' : '#374151' }]}>
-                Shelf Life: <Text style={styles.specVal}>{product.shelf_life || '12 Months'}</Text>
-              </Text>
-            </View>
-
-            {product.lead_time_days ? (
-              <View style={[styles.specBadge, { backgroundColor: isDarkMode ? '#27272A' : '#F3F4F6' }]}>
-                <Ionicons name="calendar-outline" size={12} color="#F59E0B" style={{ marginRight: 4 }} />
-                <Text style={[styles.specLabel, { color: isDarkMode ? '#E4E4E7' : '#374151' }]}>
-                  Lead Time: <Text style={styles.specVal}>{product.lead_time_days}d</Text>
-                </Text>
-              </View>
-            ) : null}
-          </View>
 
           {/* Reviews UI Section (Reference Image 2) */}
           <View style={[styles.reviewsSection, { borderTopColor: isDarkMode ? '#27272A' : '#F3F4F6' }]}>
@@ -1033,9 +1059,13 @@ export default function ProductDetailScreen() {
               ) : (
                 filteredReviews.map((rev) => {
                 const isOwner =
-                  rev.isOwnReview ||
-                  (!!currentUser?.id && String(rev.userId) === String(currentUser.id)) ||
-                  (!!currentUser?.name && rev.author === currentUser.name);
+                  rev.userId != null
+                    ? !!currentUser?.id && String(rev.userId) === String(currentUser.id)
+                    : Boolean(rev.isOwnReview);
+
+                const displayTimeAgo = rev.createdAt
+                  ? formatRelativeTime(rev.createdAt, rev.updatedAt, rev.isEdited, nowTick)
+                  : rev.timeAgo;
 
                 // Reflect updated client profile picture dynamically
                 const effectiveAvatarUrl =
@@ -1118,7 +1148,7 @@ export default function ProductDetailScreen() {
                             { color: isDarkMode ? '#71717A' : '#9CA3AF' },
                           ]}
                         >
-                          {rev.timeAgo}
+                          {displayTimeAgo}
                         </Text>
                         {isOwner && (
                           <View style={styles.ownerActionsRow}>
@@ -1299,6 +1329,7 @@ export default function ProductDetailScreen() {
           {
             backgroundColor: isDarkMode ? '#121212' : '#FFFFFF',
             borderTopColor: isDarkMode ? '#27272A' : '#F3F4F6',
+            paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 24 : 16) + 12,
             opacity: buttonOpacity,
             transform: [{ translateY: buttonTranslateY }],
           },
@@ -1465,13 +1496,18 @@ export default function ProductDetailScreen() {
 
             {/* Modal Submit Button */}
             <TouchableOpacity
-              style={styles.modalSubmitBtn}
+              style={[styles.modalSubmitBtn, submittingReview && { opacity: 0.7 }]}
               onPress={handleSubmitReview}
+              disabled={submittingReview}
               activeOpacity={0.85}
             >
-              <Text style={styles.modalSubmitBtnText}>
-                {editingReviewId ? 'Update Review' : 'Submit Review'}
-              </Text>
+              {submittingReview ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.modalSubmitBtnText}>
+                  {editingReviewId ? 'Update Review' : 'Submit Review'}
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
