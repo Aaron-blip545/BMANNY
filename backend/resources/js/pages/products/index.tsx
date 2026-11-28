@@ -95,12 +95,64 @@ function formatCurrency(value: string | number) {
     }).format(amount);
 }
 
+type MaterialVariety = 'weight' | 'volume' | 'count';
+
+const VARIETY_META: Record<
+    MaterialVariety,
+    { label: string; defaultUnit: string; units: Array<{ value: string; label: string }> }
+> = {
+    weight: {
+        label: 'Powder / Solid (Weight)',
+        defaultUnit: 'kg',
+        units: [
+            { value: 'kg', label: 'kg (Kilograms)' },
+            { value: 'g', label: 'g (Grams)' },
+        ],
+    },
+    volume: {
+        label: 'Liquid / Oil / Syrup (Volume)',
+        defaultUnit: 'L',
+        units: [
+            { value: 'L', label: 'L (Liters)' },
+            { value: 'mL', label: 'mL (Milliliters)' },
+        ],
+    },
+    count: {
+        label: 'Capsules / Packaging (Countable)',
+        defaultUnit: 'pcs',
+        units: [{ value: 'pcs', label: 'pcs (Pieces)' }],
+    },
+};
+
+function varietyFromUnit(unit?: string): MaterialVariety {
+    const u = (unit || '').toLowerCase();
+    if (u === 'kg' || u === 'g') return 'weight';
+    if (u === 'l' || u === 'ml') return 'volume';
+    return 'count';
+}
+
+function normalizeUnit(unit?: string): string {
+    if (!unit || unit.toLowerCase() === 'pieces') return 'pcs';
+    return unit;
+}
+
 function formatQuantity(value: string | number, unit: string = 'pcs') {
     const qty = typeof value === 'string' ? parseFloat(value) : value;
-    const displayUnit = (!unit || unit === 'kg' || unit === 'pieces') ? 'pcs' : unit;
+    const displayUnit = normalizeUnit(unit);
     if (isNaN(qty)) return `0 ${displayUnit}`;
     const formatted = parseFloat(qty.toFixed(4)).toString();
     return `${formatted} ${displayUnit}`;
+}
+
+function getConvertedEquivalent(value: string | number, unit?: string): string | null {
+    const qty = typeof value === 'string' ? parseFloat(value) : value;
+    if (isNaN(qty) || qty === 0) return null;
+    const u = normalizeUnit(unit);
+    if (u === 'kg') return `≈ ${(qty * 1000).toLocaleString(undefined, { maximumFractionDigits: 2 })} g`;
+    if (u === 'g') return `≈ ${(qty / 1000).toLocaleString(undefined, { maximumFractionDigits: 4 })} kg`;
+    if (u === 'L') return `≈ ${(qty * 1000).toLocaleString(undefined, { maximumFractionDigits: 2 })} mL`;
+    if (u === 'mL') return `≈ ${(qty / 1000).toLocaleString(undefined, { maximumFractionDigits: 4 })} L`;
+    return null;
 }
 
 function getStockStatus(stock: number, reorder: number = 0, maxStock: number = 0) {
@@ -152,40 +204,47 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
         [categories]
     );
 
-    const defaultUnitForCategory = (categoryName?: string): string => {
-        const name = (categoryName || '').toLowerCase();
-        if (name.includes('vitamin') || name.includes('mineral') || name.includes('amino') || name.includes('capsule')) {
-            return 'pcs';
-        }
-        if (name.includes('oil') || name.includes('liquid') || name.includes('syrup')) {
-            return 'L';
-        }
-        if (
-            name.includes('powder') ||
-            name.includes('carrier') ||
-            name.includes('botanical') ||
-            name.includes('extract') ||
-            name.includes('active') ||
-            name.includes('flavor') ||
-            name.includes('sweetener') ||
-            name.includes('herb')
-        ) {
-            return 'g';
-        }
-        return 'g';
+    const handleCategoryChange = (v: string) => {
+        form.setData('category_id', v === 'none' ? '' : v);
     };
 
-    const handleCategoryChange = (v: string) => {
-        if (v === 'none') {
-            form.setData('category_id', '');
+    const activeVariety: MaterialVariety = varietyFromUnit(form.data.unit_of_measure);
+
+    const handleVarietyChange = (variety: MaterialVariety) => {
+        const meta = VARIETY_META[variety];
+        if (!meta.units.some((u) => u.value === form.data.unit_of_measure)) {
+            form.setData('unit_of_measure', meta.defaultUnit);
+        }
+    };
+
+    const handleUnitChange = (nextUnit: string) => {
+        const prevUnit = normalizeUnit(form.data.unit_of_measure);
+        const stockVal = parseFloat(form.data.stock_quantity);
+        const reorderVal = parseFloat(form.data.reorder_level);
+        const maxVal = parseFloat(form.data.max_stock_level);
+        const priceVal = parseFloat(form.data.price);
+
+        // Auto-convert numeric values when switching within the same variety (kg <-> g, L <-> mL)
+        let factor = 1;
+        if ((prevUnit === 'kg' && nextUnit === 'g') || (prevUnit === 'L' && nextUnit === 'mL')) {
+            factor = 1000;
+        } else if ((prevUnit === 'g' && nextUnit === 'kg') || (prevUnit === 'mL' && nextUnit === 'L')) {
+            factor = 0.001;
+        }
+
+        if (factor !== 1) {
+            form.setData((prev) => ({
+                ...prev,
+                unit_of_measure: nextUnit,
+                stock_quantity: !isNaN(stockVal) ? String(parseFloat((stockVal * factor).toFixed(4))) : prev.stock_quantity,
+                reorder_level: !isNaN(reorderVal) ? String(parseFloat((reorderVal * factor).toFixed(4))) : prev.reorder_level,
+                max_stock_level: !isNaN(maxVal) ? String(parseFloat((maxVal * factor).toFixed(4))) : prev.max_stock_level,
+                price: !isNaN(priceVal) ? String(parseFloat((priceVal / factor).toFixed(4))) : prev.price,
+            }));
             return;
         }
-        const matched = selectableCategories.find((c) => String(c.category_id) === v);
-        form.setData((prev) => ({
-            ...prev,
-            category_id: v,
-            unit_of_measure: matched ? defaultUnitForCategory(matched.name) : prev.unit_of_measure,
-        }));
+
+        form.setData('unit_of_measure', nextUnit);
     };
 
     const form = useForm({
@@ -652,7 +711,7 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
                                     const status = getStockStatus(stockNum, reorderNum, maxStockNum);
                                     const isSelected = selectedIds.includes(product.product_id);
                                     const rawUnit = product.unit_of_measure ?? 'pcs';
-                                    const unit = (!rawUnit || rawUnit === 'kg' || rawUnit === 'pieces') ? 'pcs' : rawUnit;
+                                    const unit = normalizeUnit(rawUnit);
 
                                     return (
                                         <tr
@@ -735,7 +794,7 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
                                                     {formatCurrency(product.price)}
                                                 </p>
                                                 <p className="mt-0.5 text-xs text-muted-foreground">
-                                                    per {unit === 'pieces' || unit === 'pcs' || unit === 'kg' ? 'piece' : unit}
+                                                    per {unit === 'pcs' ? 'piece' : unit}
                                                 </p>
                                             </td>
 
@@ -912,27 +971,53 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-3 gap-3">
+                                <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="create-unit" className="text-xs font-semibold text-foreground">
-                                            Unit of Measure
+                                        <Label htmlFor="create-variety" className="text-xs font-semibold text-foreground">
+                                            Material Variety / Form
                                         </Label>
                                         <Select
-                                            value={form.data.unit_of_measure}
-                                            onValueChange={(v) => form.setData('unit_of_measure', v)}
+                                            value={activeVariety}
+                                            onValueChange={(v) => handleVarietyChange(v as MaterialVariety)}
+                                        >
+                                            <SelectTrigger id="create-variety" className="rounded-lg">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="weight">{VARIETY_META.weight.label}</SelectItem>
+                                                <SelectItem value="volume">{VARIETY_META.volume.label}</SelectItem>
+                                                <SelectItem value="count">{VARIETY_META.count.label}</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="create-unit" className="text-xs font-semibold text-foreground">
+                                            Unit of Measure (Auto-Converts)
+                                        </Label>
+                                        <Select
+                                            value={normalizeUnit(form.data.unit_of_measure)}
+                                            onValueChange={handleUnitChange}
                                         >
                                             <SelectTrigger id="create-unit" className="rounded-lg">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="pcs">pcs (Pieces)</SelectItem>
-                                                <SelectItem value="kg">kg (Kilograms)</SelectItem>
-                                                <SelectItem value="g">g (Grams)</SelectItem>
-                                                <SelectItem value="L">L (Liters)</SelectItem>
-                                                <SelectItem value="mL">mL (Milliliters)</SelectItem>
+                                                {VARIETY_META[activeVariety].units.map((u) => (
+                                                    <SelectItem key={u.value} value={u.value}>
+                                                        {u.label}
+                                                    </SelectItem>
+                                                ))}
                                             </SelectContent>
                                         </Select>
+                                        {getConvertedEquivalent(form.data.stock_quantity, form.data.unit_of_measure) && (
+                                            <p className="text-[11px] font-medium text-blue-600 dark:text-blue-400">
+                                                {getConvertedEquivalent(form.data.stock_quantity, form.data.unit_of_measure)}
+                                            </p>
+                                        )}
                                     </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1.5">
                                         <Label htmlFor="create-price" className="text-xs font-semibold text-foreground">
                                             Rate / Unit Cost (₱) <span className="text-muted-foreground">*</span>
@@ -1150,27 +1235,53 @@ export default function ProductsIndex({ products = [], categories = [], nextSku 
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-3 gap-3">
+                                <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="edit-unit" className="text-xs font-semibold text-foreground">
-                                            Unit of Measure
+                                        <Label htmlFor="edit-variety" className="text-xs font-semibold text-foreground">
+                                            Material Variety / Form
                                         </Label>
                                         <Select
-                                            value={form.data.unit_of_measure}
-                                            onValueChange={(v) => form.setData('unit_of_measure', v)}
+                                            value={activeVariety}
+                                            onValueChange={(v) => handleVarietyChange(v as MaterialVariety)}
+                                        >
+                                            <SelectTrigger id="edit-variety" className="rounded-lg">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="weight">{VARIETY_META.weight.label}</SelectItem>
+                                                <SelectItem value="volume">{VARIETY_META.volume.label}</SelectItem>
+                                                <SelectItem value="count">{VARIETY_META.count.label}</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="edit-unit" className="text-xs font-semibold text-foreground">
+                                            Unit of Measure (Auto-Converts)
+                                        </Label>
+                                        <Select
+                                            value={normalizeUnit(form.data.unit_of_measure)}
+                                            onValueChange={handleUnitChange}
                                         >
                                             <SelectTrigger id="edit-unit" className="rounded-lg">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="pcs">pcs (Pieces)</SelectItem>
-                                                <SelectItem value="kg">kg (Kilograms)</SelectItem>
-                                                <SelectItem value="g">g (Grams)</SelectItem>
-                                                <SelectItem value="L">L (Liters)</SelectItem>
-                                                <SelectItem value="mL">mL (Milliliters)</SelectItem>
+                                                {VARIETY_META[activeVariety].units.map((u) => (
+                                                    <SelectItem key={u.value} value={u.value}>
+                                                        {u.label}
+                                                    </SelectItem>
+                                                ))}
                                             </SelectContent>
                                         </Select>
+                                        {getConvertedEquivalent(form.data.stock_quantity, form.data.unit_of_measure) && (
+                                            <p className="text-[11px] font-medium text-blue-600 dark:text-blue-400">
+                                                {getConvertedEquivalent(form.data.stock_quantity, form.data.unit_of_measure)}
+                                            </p>
+                                        )}
                                     </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1.5">
                                         <Label htmlFor="edit-price" className="text-xs font-semibold text-foreground">
                                             Rate / Unit Cost (₱) <span className="text-muted-foreground">*</span>
